@@ -1,0 +1,9 @@
+namespace LupiraContactApi.Dtos.AddressBooks;
+
+/// <summary>Grant a member access to a container, identified by their login <c>Email</c> (provisioned if they have
+/// not logged in yet). <c>Access</c> is <c>owner</c> (default), <c>read-write</c>, or <c>read</c> — case-insensitive.</summary>
+public sealed class GrantOwnerRequest
+{
+    public required string Email { get; set; }
+    public string? Access { get; set; }
+}

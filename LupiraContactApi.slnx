@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LupiraContactApi.Core/LupiraContactApi.Core.csproj" />
+    <Project Path="src/LupiraContactApi/LupiraContactApi.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LupiraContactApi.UnitTests/LupiraContactApi.UnitTests.csproj" />
+  </Folder>
+</Solution>
