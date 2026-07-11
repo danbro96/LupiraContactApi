@@ -4,4 +4,4 @@ public record ContactGroupCreated(Guid GroupId, Guid AddressBookId, ContactGroup
 public record ContactGroupRenamed(Guid GroupId, string Name);
 public record ContactAddedToGroup(Guid GroupId, Guid ContactId, DateTimeOffset At);
 public record ContactRemovedFromGroup(Guid GroupId, Guid ContactId, DateTimeOffset At);
-public record ContactGroupDeleted(Guid GroupId);
+public record ContactGroupDeleted(Guid GroupId, DateTimeOffset At);

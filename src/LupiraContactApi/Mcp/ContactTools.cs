@@ -38,19 +38,31 @@ public sealed class ContactTools
         ContactService contacts, CurrentUser user,
         [Description("The contact the relation is stored on.")] Guid contactId,
         [Description("The related contact.")] Guid toContactId,
-        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|emergency|other.")] string kind,
+        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.")] string kind,
         [Description("Optional free-text refinement, e.g. 'dad'.")] string? label = null)
     {
         var u = await user.GetAsync();
         return Require(await contacts.AddRelationAsync(u.Id, contactId, new AddContactRelationRequest { ToContactId = toContactId, Kind = ParseRelationKind(kind), Label = label }));
     }
 
-    [McpServerTool, Description("Remove a contact relation edge by target contact and kind.")]
+    [McpServerTool, Description("End a relation (ex-spouse, falling-out): the edge stays, flagged with an optional end date, and no longer asserts current kinship. Use unrelate_contacts only for edges entered by mistake.")]
+    public static async Task<ContactDto> end_contact_relation(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact the relation is stored on.")] Guid contactId,
+        [Description("The related contact.")] Guid toContactId,
+        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.")] string kind,
+        [Description("When the relationship ended (optional).")] DateOnly? until = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.EndRelationAsync(u.Id, contactId, toContactId, ParseRelationKind(kind), until));
+    }
+
+    [McpServerTool, Description("Remove a contact relation edge by target contact and kind — for edges entered by mistake. A relationship that ran its course should be ended via end_contact_relation instead.")]
     public static async Task<ContactDto> unrelate_contacts(
         ContactService contacts, CurrentUser user,
         [Description("The contact the relation is stored on.")] Guid contactId,
         [Description("The related contact.")] Guid toContactId,
-        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|emergency|other.")] string kind)
+        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.")] string kind)
     {
         var u = await user.GetAsync();
         return Require(await contacts.RemoveRelationAsync(u.Id, contactId, toContactId, ParseRelationKind(kind)));
@@ -66,10 +78,78 @@ public sealed class ContactTools
         return Require(await contacts.ListRelationsAsync(u.Id, contactId, includeInferred));
     }
 
+    [McpServerTool, Description("Computed social circles (closeFamily, extendedFamily, friends, colleagues, household) around a focus contact — the caller's own linked contact unless focusId is given. Degree: 1 immediate, 2 two-generation kin, 3 cousin.")]
+    public static async Task<ContactCirclesDto> list_contact_circles(
+        ContactService contacts, CurrentUser user,
+        [Description("Focus contact; defaults to the caller's linked self-contact.")] Guid? focusId = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.CirclesAsync(u.Id, focusId));
+    }
+
+    [McpServerTool, Description("Mark a contact as deceased (idempotent; date may be unknown). Deceased contacts stay in the kinship graph — never delete the dead.")]
+    public static async Task<ContactDto> mark_contact_deceased(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("Date of death, if known.")] DateOnly? deathDate = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetDeceasedAsync(u.Id, contactId, deathDate));
+    }
+
+    [McpServerTool, Description("Undo a deceased marking recorded in error.")]
+    public static async Task<ContactDto> clear_contact_deceased(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.ClearDeceasedAsync(u.Id, contactId));
+    }
+
+    [McpServerTool, Description("Replace a contact's social/IM handles wholesale (telegram, messenger, whatsapp, signal, instagram…). Well-known services get the profile URL derived from the handle; set preferred=true on the handle that actually reaches the person. At most one preferred per service.")]
+    public static async Task<ContactDto> set_contact_profiles(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("The full new list — an empty list clears.")] List<ContactSocialProfile> profiles)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetProfilesAsync(u.Id, contactId, profiles));
+    }
+
+    [McpServerTool, Description("Replace a contact's postal addresses wholesale; each entry needs a geo place id (LupiraGeoApi) or a formatted address.")]
+    public static async Task<ContactDto> set_contact_addresses(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("The full new list — an empty list clears.")] List<ContactPostalAddress> addresses)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetAddressesAsync(u.Id, contactId, addresses));
+    }
+
+    [McpServerTool, Description("Replace a contact's emergency-contact designation wholesale (order = priority, empty clears). A designation, not a relation kind.")]
+    public static async Task<ContactDto> set_emergency_contacts(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("Emergency contact ids in priority order.")] List<Guid> contactIds)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetEmergencyContactsAsync(u.Id, contactId, contactIds));
+    }
+
+    [McpServerTool, Description("Link the caller's identity to its own contact ('this card is me') — the default focus for list_contact_circles.")]
+    public static async Task<string> set_my_contact(
+        ContactService contacts, CurrentUser user,
+        [Description("The caller's own contact.")] Guid contactId)
+    {
+        var u = await user.GetAsync();
+        Require(await contacts.LinkSelfContactAsync(u.Id, contactId));
+        return $"Linked contact {contactId} as your self-contact.";
+    }
+
     // Strict: a silently-defaulted kind would corrupt the edge.
     private static ContactRelationKind ParseRelationKind(string kind) =>
         Enum.TryParse<ContactRelationKind>(kind, true, out var k) ? k
-            : throw new McpException($"Unknown kind '{kind}'. Use parent|child|sibling|spouse|partner|friend|colleague|neighbor|emergency|other.");
+            : throw new McpException($"Unknown kind '{kind}'. Use parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.");
 
     [McpServerTool, Description("List the address books the caller can access.")]
     public static async Task<IReadOnlyList<AddressBookDto>> list_address_books(AddressBookService books, CurrentUser user)

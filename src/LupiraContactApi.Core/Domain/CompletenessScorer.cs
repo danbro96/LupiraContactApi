@@ -20,19 +20,27 @@ public sealed record CompletenessScore(double Score, int RubricVersion, IReadOnl
 /// </summary>
 public static class CompletenessScorer
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
     public static CompletenessScore? ScoreContact(Contact c, bool hasOrganisation)
     {
-        var fields = new List<(string, double, double)>
-        {
-            ("name", 1, Name(c)),
-            ("primaryReach", 3, AnyReach(c) ? 1 : 0),
-            ("secondaryReach", 1, ReachCount(c) >= 2 ? 1 : 0),
-            ("birthday", 1, c.Birthday is not null ? 1 : 0),
-            ("postalAddress", 1, c.Addresses.Count > 0 ? 1 : 0),
-            ("organisation", 1, hasOrganisation ? 1 : 0),
-        };
+        // A deceased contact needs no reach, address, or employer — remembrance data is what's worth asking for.
+        var fields = c.Deceased
+            ? new List<(string, double, double)>
+            {
+                ("name", 1, Name(c)),
+                ("birthday", 1, c.Birthday is not null ? 1 : 0),
+                ("deathDate", 1, c.DeathDate is not null ? 1 : 0),
+            }
+            : new List<(string, double, double)>
+            {
+                ("name", 1, Name(c)),
+                ("primaryReach", 3, AnyReach(c) ? 1 : 0),
+                ("secondaryReach", 1, ReachCount(c) >= 2 ? 1 : 0),
+                ("birthday", 1, c.Birthday is not null ? 1 : 0),
+                ("postalAddress", 1, c.Addresses.Count > 0 ? 1 : 0),
+                ("organisation", 1, hasOrganisation ? 1 : 0),
+            };
         return Build(fields);
     }
 

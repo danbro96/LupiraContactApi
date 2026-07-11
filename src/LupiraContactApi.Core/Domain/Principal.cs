@@ -2,7 +2,7 @@ namespace LupiraContactApi.Domain;
 
 /// <summary>
 /// An identity (plain document, JIT-provisioned from Authentik). <see cref="AuthentikSub"/> is the durable anchor;
-/// <see cref="Email"/> is the mutable DAV/OIDC join key. <see cref="ContactId"/> links the principal to its own
+/// <see cref="Email"/> is the mutable sync/OIDC join key. <see cref="ContactId"/> links the principal to its own
 /// <see cref="Contact"/> ("my details" / "what I attended").
 /// </summary>
 public sealed class Principal

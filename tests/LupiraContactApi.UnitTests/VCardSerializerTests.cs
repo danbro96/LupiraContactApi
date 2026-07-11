@@ -152,12 +152,126 @@ public class VCardSerializerTests
     }
 
     [Fact]
-    public void Build_without_relations_is_byte_identical_to_the_pre_relations_form()
+    public void Build_without_extras_emits_none_of_the_extension_props()
     {
-        // Guards existing stored ETags: contacts without relations must keep hashing to the same canonical bytes.
-        var before = VCardSerializer.Build("uid@x", "Jane Smith", "Jane", "Smith", null, ["jane@x.com"], null, new DateOnly(1990, 2, 15));
-        var after = VCardSerializer.Build("uid@x", "Jane Smith", "Jane", "Smith", null, ["jane@x.com"], null, new DateOnly(1990, 2, 15), []);
-        Assert.Equal(before, after);
-        Assert.DoesNotContain("RELATED", before);
+        var vcf = VCardSerializer.Build("uid@x", "Jane Smith", "Jane", "Smith", null, ["jane@x.com"], null, new DateOnly(1990, 2, 15), []);
+        Assert.DoesNotContain("RELATED", vcf);
+        Assert.DoesNotContain("X-DEATHDATE", vcf);
+        Assert.DoesNotContain("X-LUPIRA-DECEASED", vcf);
+        Assert.DoesNotContain("X-SOCIALPROFILE", vcf);
+    }
+
+    [Fact]
+    public void Deceased_with_date_emits_deathdate_and_round_trips()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, null, deceased: true, deathDate: new DateOnly(2020, 3, 14));
+        Assert.Contains("X-DEATHDATE:20200314\r\n", vcf);
+        Assert.DoesNotContain("X-LUPIRA-DECEASED", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        Assert.True(p.Deceased);
+        Assert.Equal(new DateOnly(2020, 3, 14), p.DeathDate);
+    }
+
+    [Fact]
+    public void Deceased_without_date_emits_the_flag_prop_and_round_trips()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, null, deceased: true);
+        Assert.Contains("X-LUPIRA-DECEASED:1\r\n", vcf);
+        Assert.DoesNotContain("X-DEATHDATE", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        Assert.True(p.Deceased);
+        Assert.Null(p.DeathDate);
+    }
+
+    [Fact]
+    public void Unparsable_deathdate_still_means_deceased()
+    {
+        var p = VCardSerializer.ParseVCard("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nX-DEATHDATE:unknown\r\nEND:VCARD\r\n");
+        Assert.True(p.Deceased);
+        Assert.Null(p.DeathDate);
+    }
+
+    [Fact]
+    public void Absent_extension_props_parse_as_null_the_preserve_signal()
+    {
+        var p = VCardSerializer.ParseVCard("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nEND:VCARD\r\n");
+        Assert.Null(p.Deceased);
+        Assert.Null(p.Profiles);
+        Assert.Null(p.EmergencyContactIds);
+    }
+
+    [Fact]
+    public void Social_profiles_round_trip_with_service_pref_and_url()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, null, profiles:
+        [
+            new ContactSocialProfile { Service = "telegram", Handle = "jane", Url = "https://t.me/jane", Preferred = true },
+            new ContactSocialProfile { Service = "discord", Handle = "jane#123" },
+        ]);
+        Assert.Contains("X-SOCIALPROFILE;TYPE=telegram;X-LUPIRA-PREF=1:https://t.me/jane\r\n", vcf);
+        Assert.Contains("X-SOCIALPROFILE;TYPE=discord:jane#123\r\n", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        Assert.Equal(2, p.Profiles!.Length);
+        Assert.Equal(("telegram", "jane", "https://t.me/jane", true), (p.Profiles[0].Service, p.Profiles[0].Handle, p.Profiles[0].Url, p.Profiles[0].Preferred));
+        Assert.Equal(("discord", "jane#123", null, false), (p.Profiles[1].Service, p.Profiles[1].Handle, p.Profiles[1].Url, p.Profiles[1].Preferred));
+    }
+
+    [Fact]
+    public void Social_profile_url_value_derives_the_handle_from_the_last_segment()
+    {
+        var p = VCardSerializer.ParseVCard("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nX-SOCIALPROFILE;TYPE=telegram:https://t.me/jane/\r\nEND:VCARD\r\n");
+        var sp = Assert.Single(p.Profiles!);
+        Assert.Equal("jane", sp.Handle);
+        Assert.Equal("https://t.me/jane/", sp.Url);
+    }
+
+    [Fact]
+    public void Emergency_related_lines_round_trip_in_order_and_stay_out_of_relations()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var friend = Guid.NewGuid();
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, null,
+            [new ContactRelation { ToContactId = friend, Kind = ContactRelationKind.Friend }],
+            emergencyContacts: [first, second]);
+        Assert.Contains($"RELATED;TYPE=emergency:urn:uuid:{first:D}\r\n", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        Assert.Equal([first, second], p.EmergencyContactIds!);
+        Assert.Equal(friend, Assert.Single(p.Relations!).ToContactId);
+    }
+
+    [Fact]
+    public void Ended_relation_round_trips_until_and_ended_flags()
+    {
+        var ex = Guid.NewGuid();
+        var old = Guid.NewGuid();
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, null,
+        [
+            new ContactRelation { ToContactId = ex, Kind = ContactRelationKind.Spouse, Ended = true, Until = new DateOnly(2024, 6, 1) },
+            new ContactRelation { ToContactId = old, Kind = ContactRelationKind.Friend, Ended = true },
+        ]);
+        Assert.Contains($"RELATED;TYPE=spouse;X-LUPIRA-UNTIL=20240601:urn:uuid:{ex:D}\r\n", vcf);
+        Assert.Contains($"RELATED;TYPE=friend;X-LUPIRA-ENDED=1:urn:uuid:{old:D}\r\n", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        var exEdge = p.Relations!.Single(r => r.ToContactId == ex);
+        Assert.True(exEdge.Ended);
+        Assert.Equal(new DateOnly(2024, 6, 1), exEdge.Until);
+        var oldEdge = p.Relations!.Single(r => r.ToContactId == old);
+        Assert.True(oldEdge.Ended);
+        Assert.Null(oldEdge.Until);
+    }
+
+    [Fact]
+    public void Build_is_deterministic_for_identical_input()
+    {
+        string Make() => VCardSerializer.Build("uid@x", "x", "a", "b", null, ["e@x"], ["1"], new DateOnly(1990, 1, 1),
+            [new ContactRelation { ToContactId = Guid.Empty, Kind = ContactRelationKind.Friend }],
+            [Guid.Empty], [new ContactSocialProfile { Service = "telegram", Handle = "h" }], true, new DateOnly(2020, 1, 1));
+        Assert.Equal(Make(), Make());
     }
 }

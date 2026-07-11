@@ -40,7 +40,7 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
         var g = stream.Aggregate;
         if (g is null || g.DeletedAt is not null) return OpResult.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, g.AddressBookId, ct)) return OpResult.Forbidden("No write access to this group.");
-        stream.AppendOne(new ContactGroupDeleted(groupId));
+        stream.AppendOne(new ContactGroupDeleted(groupId, DateTimeOffset.UtcNow));
         await session.SaveChangesAsync(ct);
         return OpResult.Ok();
     }

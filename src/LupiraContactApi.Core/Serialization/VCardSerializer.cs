@@ -4,17 +4,18 @@ using System.Text;
 
 namespace LupiraContactApi.Serialization;
 
-/// <summary>Minimal, deterministic vCard 3.0 writer + line-based parser. Structured fields are canonical: GET regenerates
-/// the vCard from them and the ETag derives from that form. Full FolkerKinzel.VCards round-trip is a later step.</summary>
+/// <summary>Minimal, deterministic vCard 3.0 writer + line-based parser — the only place vCard vocabulary is spoken.
+/// Structured fields are canonical: GET regenerates the card from the snapshot, and the contact's <c>ContentHash</c>
+/// (computed from domain state, not from these bytes) serves as the ETag. Full FolkerKinzel.VCards round-trip is a later step.</summary>
 public static class VCardSerializer
 {
-    /// <summary>Regenerate the canonical vCard for a contact from its structured fields (organisation lives on a ContactGroup, so it's omitted).
-    /// Emits all stored relation edges — the stored ContentHash covers them, so no filtering here.</summary>
+    /// <summary>Regenerate the vCard for a contact from its structured fields (organisation lives on a ContactGroup, so it's omitted).</summary>
     public static string From(Contact c) =>
         Build(c.ExternalId, ComposeFullName(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname),
-            c.GivenName, c.FamilyName, null, c.Emails, c.Phones, c.Birthday, c.Relations);
+            c.GivenName, c.FamilyName, null, c.Emails, c.Phones, c.Birthday, c.Relations,
+            c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate);
 
-    /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty. Shared by the create path and <see cref="From"/> so bytes (and the ETag) match.</summary>
+    /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty.</summary>
     public static string ComposeFullName(string? prefix, string? given, string? middle, string? family, string? suffix, string? nickname)
     {
         var name = string.Join(' ', new[] { prefix, given, middle, family, suffix }.Where(s => !string.IsNullOrWhiteSpace(s)));
@@ -24,7 +25,10 @@ public static class VCardSerializer
     public static string Build(
         string uid, string fullName, string? given, string? family, string? organization,
         IEnumerable<string>? emails, IEnumerable<string>? phones, DateOnly? birthday,
-        IReadOnlyList<ContactRelation>? relations = null)
+        IReadOnlyList<ContactRelation>? relations = null,
+        IReadOnlyList<Guid>? emergencyContacts = null,
+        IReadOnlyList<ContactSocialProfile>? profiles = null,
+        bool deceased = false, DateOnly? deathDate = null)
     {
         var sb = new StringBuilder();
         sb.Append("BEGIN:VCARD\r\n");
@@ -36,26 +40,42 @@ public static class VCardSerializer
         foreach (var email in emails ?? []) sb.Append("EMAIL:").Append(Escape(email)).Append("\r\n");
         foreach (var phone in phones ?? []) sb.Append("TEL:").Append(Escape(phone)).Append("\r\n");
         if (birthday is { } b) sb.Append("BDAY:").Append(b.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
+        if (deathDate is { } dd) sb.Append("X-DEATHDATE:").Append(dd.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
+        else if (deceased) sb.Append("X-LUPIRA-DECEASED:1\r\n");
+        foreach (var p in profiles ?? [])
+        {
+            if (!IsSafeParamValue(p.Service)) continue;   // params are never quoted in this writer
+            sb.Append("X-SOCIALPROFILE;TYPE=").Append(p.Service);
+            if (p.Preferred) sb.Append(";X-LUPIRA-PREF=1");
+            sb.Append(':').Append(Escape(p.Url ?? p.Handle)).Append("\r\n");
+        }
         foreach (var r in relations ?? [])
         {
             sb.Append("RELATED;TYPE=").Append(r.Kind.ToString().ToLowerInvariant());
-            // Params are never quoted in this writer, so a label with param-breaking chars is dropped (survives in the snapshot, lost on DAV round-trip only).
+            // Params are never quoted in this writer, so a label with param-breaking chars is dropped (survives in the snapshot, lost on this surface only).
             if (r.Label is { Length: > 0 } label && IsSafeParamValue(label)) sb.Append(";X-LUPIRA-LABEL=").Append(label);
+            if (r.Until is { } until) sb.Append(";X-LUPIRA-UNTIL=").Append(until.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+            else if (r.Ended) sb.Append(";X-LUPIRA-ENDED=1");
             sb.Append(":urn:uuid:").Append(r.ToContactId.ToString("D")).Append("\r\n");
         }
+        foreach (var id in emergencyContacts ?? [])
+            sb.Append("RELATED;TYPE=emergency:urn:uuid:").Append(id.ToString("D")).Append("\r\n");
         sb.Append("END:VCARD\r\n");
         return sb.ToString();
     }
 
-    static bool IsSafeParamValue(string s) => s.All(ch => ch is not (';' or ':' or ',' or '"') && !char.IsControl(ch));
+    static bool IsSafeParamValue(string s) => s.Length > 0 && s.All(ch => ch is not (';' or ':' or ',' or '"') && !char.IsControl(ch));
 
     public static ParsedContact ParseVCard(string raw)
     {
         string? fn = null, org = null, given = null, family = null;
-        DateOnly? bday = null;
+        DateOnly? bday = null, deathDate = null;
+        bool? deceased = null;
         var emails = new List<string>();
         var phones = new List<string>();
         var relations = new List<ContactRelation>();
+        List<Guid>? emergency = null;
+        List<ContactSocialProfile>? profiles = null;
 
         foreach (var line in raw.Split('\n'))
         {
@@ -76,38 +96,82 @@ public static class VCardSerializer
                     break;
                 case "EMAIL": emails.Add(Unescape(val)); break;
                 case "TEL": phones.Add(Unescape(val)); break;
-                case "BDAY":
-                    if (DateOnly.TryParse(val, CultureInfo.InvariantCulture, out var d1)) bday = d1;
-                    else if (DateOnly.TryParseExact(val, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d2)) bday = d2;
+                case "BDAY": bday = ParseDate(val); break;
+                case "X-DEATHDATE":
+                    deceased = true;
+                    deathDate = ParseDate(val);   // unparsable date still means deceased
+                    break;
+                case "X-LUPIRA-DECEASED": deceased = true; break;
+                case "X-SOCIALPROFILE":
+                    if (ParseSocialProfile(l[..colon], Unescape(val)) is { } sp) (profiles ??= []).Add(sp);
                     break;
                 case "RELATED":
-                    if (ParseRelated(l[..colon], val) is { } rel) relations.Add(rel);
+                    var p = Params(l[..colon]);
+                    if (p.GetValueOrDefault("TYPE") is { } t && t.Equals("emergency", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (ParseUuidTarget(val) is { } eid) (emergency ??= []).Add(eid);
+                    }
+                    else if (ParseRelated(p, val) is { } rel) relations.Add(rel);
                     break;
             }
         }
         if (string.IsNullOrWhiteSpace(fn)) fn = string.Join(' ', new[] { given, family }.Where(s => !string.IsNullOrWhiteSpace(s)));
         return new ParsedContact(fn ?? "", given, family, org,
             emails.Count > 0 ? [.. emails] : null, phones.Count > 0 ? [.. phones] : null, bday,
-            relations.Count > 0 ? [.. relations] : null);
+            relations.Count > 0 ? [.. relations] : null,
+            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate);
+    }
+
+    static DateOnly? ParseDate(string val)
+    {
+        if (DateOnly.TryParse(val, CultureInfo.InvariantCulture, out var d1)) return d1;
+        if (DateOnly.TryParseExact(val, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d2)) return d2;
+        return null;
     }
 
     // Only urn:uuid targets are ours; RELATED lines pointing at URLs/free text from other clients are dropped.
-    static ContactRelation? ParseRelated(string nameAndParams, string val)
+    static Guid? ParseUuidTarget(string val)
     {
         const string urnPrefix = "urn:uuid:";
-        if (!val.StartsWith(urnPrefix, StringComparison.OrdinalIgnoreCase) || !Guid.TryParse(val[urnPrefix.Length..], out var target))
-            return null;
+        return val.StartsWith(urnPrefix, StringComparison.OrdinalIgnoreCase) && Guid.TryParse(val[urnPrefix.Length..], out var target)
+            ? target : null;
+    }
 
-        string? type = null, label = null;
+    static ContactRelation? ParseRelated(Dictionary<string, string> p, string val)
+    {
+        if (ParseUuidTarget(val) is not { } target) return null;
+        var label = p.GetValueOrDefault("X-LUPIRA-LABEL");
+        var until = p.TryGetValue("X-LUPIRA-UNTIL", out var u) ? ParseDate(u) : null;
+        return new ContactRelation
+        {
+            ToContactId = target,
+            Kind = ParseRelationKind(p.GetValueOrDefault("TYPE")),
+            Label = string.IsNullOrEmpty(label) ? null : label,
+            Ended = until is not null || p.ContainsKey("X-LUPIRA-ENDED"),
+            Until = until,
+        };
+    }
+
+    static ContactSocialProfile? ParseSocialProfile(string nameAndParams, string val)
+    {
+        var p = Params(nameAndParams);
+        var service = p.GetValueOrDefault("TYPE")?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(service) || val.Length == 0) return null;
+
+        var isUrl = val.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+        var handle = isUrl ? val.TrimEnd('/').Split('/').LastOrDefault(s => s.Length > 0) ?? val : val;
+        return new ContactSocialProfile { Service = service, Handle = handle, Url = isUrl ? val : null, Preferred = p.ContainsKey("X-LUPIRA-PREF") };
+    }
+
+    static Dictionary<string, string> Params(string nameAndParams)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var param in nameAndParams.Split(';').Skip(1))
         {
             var eq = param.IndexOf('=');
-            if (eq < 0) continue;
-            var key = param[..eq];
-            if (key.Equals("TYPE", StringComparison.OrdinalIgnoreCase)) type = param[(eq + 1)..];
-            else if (key.Equals("X-LUPIRA-LABEL", StringComparison.OrdinalIgnoreCase)) label = param[(eq + 1)..];
+            if (eq > 0) map[param[..eq]] = param[(eq + 1)..];
         }
-        return new ContactRelation { ToContactId = target, Kind = ParseRelationKind(type), Label = string.IsNullOrEmpty(label) ? null : label };
+        return map;
     }
 
     static ContactRelationKind ParseRelationKind(string? type)

@@ -28,14 +28,16 @@ public class ContactTests
         Assert.Equal("Mom", c.DisplayName);
     }
 
+    static readonly DateTimeOffset DeletedStamp = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void Deleted_then_restored_clears_the_tombstone()
     {
         var id = Guid.NewGuid();
         var c = new Contact();
         c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h"));
-        c.Apply(new ContactDeleted(id));
-        Assert.NotNull(c.DeletedAt);
+        c.Apply(new ContactDeleted(id, DeletedStamp));
+        Assert.Equal(DeletedStamp, c.DeletedAt);   // deterministic on replay: the timestamp lives on the event
         c.Apply(new ContactRestored(id, "h2"));
         Assert.Null(c.DeletedAt);
         Assert.Equal("h2", c.ContentHash);
@@ -48,7 +50,7 @@ public class ContactTests
         var book = Guid.NewGuid();
         var c = new Contact();
         c.Apply(new ContactCreated(id, book, "u@x", Name(null, "A", null, "B", null, null), "h1"));
-        c.Apply(new ContactDeleted(id));
+        c.Apply(new ContactDeleted(id, DeletedStamp));
 
         c.Apply(new ContactImported(id, book, "u@x", Name(null, "A", null, "B", null, null), "h2"));
         Assert.Null(c.DeletedAt);
@@ -91,12 +93,61 @@ public class ContactTests
         var c = new Contact();
         c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h"));
 
-        c.Apply(new ContactProfilesReplaced(id, [new ContactSocialProfile { Service = "mastodon", Handle = "@a" }]));
-        c.Apply(new ContactProfilesReplaced(id, [new ContactSocialProfile { Service = "github", Handle = "b", Url = "https://github.com/b" }]));
+        c.Apply(new ContactProfilesReplaced(id, [new ContactSocialProfile { Service = "mastodon", Handle = "@a" }], "h2"));
+        c.Apply(new ContactProfilesReplaced(id, [new ContactSocialProfile { Service = "github", Handle = "b", Url = "https://github.com/b", Preferred = true }], "h3"));
 
         var only = Assert.Single(c.Profiles);
         Assert.Equal("github", only.Service);
         Assert.Equal("https://github.com/b", only.Url);
+        Assert.True(only.Preferred);
+        Assert.Equal("h3", c.ContentHash);   // profiles are content-bearing
+    }
+
+    [Fact]
+    public void EmergencyContacts_replaced_keeps_order_and_updates_the_hash()
+    {
+        var id = Guid.NewGuid();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var c = new Contact();
+        c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h1"));
+
+        c.Apply(new ContactEmergencyContactsReplaced(id, [first, second], "h2"));
+        Assert.Equal([first, second], c.EmergencyContactIds);   // order = priority
+        Assert.Equal("h2", c.ContentHash);
+
+        c.Apply(new ContactEmergencyContactsReplaced(id, [], "h3"));
+        Assert.Empty(c.EmergencyContactIds);
+    }
+
+    [Fact]
+    public void MarkedDeceased_sets_flag_and_date_and_cleared_resets_both()
+    {
+        var id = Guid.NewGuid();
+        var c = new Contact();
+        c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h1"));
+
+        c.Apply(new ContactMarkedDeceased(id, new DateOnly(2020, 3, 14), "h2"));
+        Assert.True(c.Deceased);
+        Assert.Equal(new DateOnly(2020, 3, 14), c.DeathDate);
+        Assert.Equal("h2", c.ContentHash);
+
+        c.Apply(new ContactDeceasedCleared(id, "h3"));
+        Assert.False(c.Deceased);
+        Assert.Null(c.DeathDate);
+        Assert.Equal("h3", c.ContentHash);
+    }
+
+    [Fact]
+    public void MarkedDeceased_without_date_is_valid()
+    {
+        var id = Guid.NewGuid();
+        var c = new Contact();
+        c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h1"));
+
+        c.Apply(new ContactMarkedDeceased(id, null, "h2"));
+        Assert.True(c.Deceased);
+        Assert.Null(c.DeathDate);
     }
 
     [Fact]
@@ -167,10 +218,40 @@ public class ContactTests
         Assert.Equal(ContactRelationKind.Sibling, edge.Kind);
     }
 
+    [Fact]
+    public void RelationEnded_flags_the_edge_and_readding_revives_it()
+    {
+        var id = Guid.NewGuid();
+        var ex = Guid.NewGuid();
+        var c = new Contact();
+        c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h1"));
+        c.Apply(new ContactRelationAdded(id, ex, ContactRelationKind.Spouse, null, "h2"));
+
+        c.Apply(new ContactRelationEnded(id, ex, ContactRelationKind.Spouse, new DateOnly(2024, 6, 1), "h3"));
+        var edge = Assert.Single(c.Relations);
+        Assert.True(edge.Ended);
+        Assert.Equal(new DateOnly(2024, 6, 1), edge.Until);
+        Assert.Equal("h3", c.ContentHash);
+
+        c.Apply(new ContactRelationAdded(id, ex, ContactRelationKind.Spouse, null, "h4"));   // remarried
+        edge = Assert.Single(c.Relations);
+        Assert.False(edge.Ended);
+        Assert.Null(edge.Until);
+    }
+
+    [Fact]
+    public void RelationEnded_for_a_missing_edge_is_a_noop_on_the_edges()
+    {
+        var id = Guid.NewGuid();
+        var c = new Contact();
+        c.Apply(new ContactCreated(id, Guid.NewGuid(), "u@x", Name(null, "A", null, "B", null, null), "h1"));
+        c.Apply(new ContactRelationEnded(id, Guid.NewGuid(), ContactRelationKind.Friend, null, "h2"));
+        Assert.Empty(c.Relations);
+    }
+
     [Theory]
     [InlineData(ContactRelationKind.Parent, ContactRelationKind.Child)]
     [InlineData(ContactRelationKind.Child, ContactRelationKind.Parent)]
-    [InlineData(ContactRelationKind.Emergency, ContactRelationKind.Other)]   // no true inverse
     [InlineData(ContactRelationKind.Sibling, ContactRelationKind.Sibling)]
     [InlineData(ContactRelationKind.Spouse, ContactRelationKind.Spouse)]
     [InlineData(ContactRelationKind.Partner, ContactRelationKind.Partner)]

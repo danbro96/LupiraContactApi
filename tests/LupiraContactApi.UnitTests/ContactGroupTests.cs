@@ -50,9 +50,10 @@ public class ContactGroupTests
     public void Deleted_tombstones_the_group()
     {
         var gid = Guid.NewGuid();
+        var stamp = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
         var g = Created(gid);
-        g.Apply(new ContactGroupDeleted(gid));
-        Assert.NotNull(g.DeletedAt);
+        g.Apply(new ContactGroupDeleted(gid, stamp));
+        Assert.Equal(stamp, g.DeletedAt);   // deterministic on replay: the timestamp lives on the event
     }
 
     [Fact]

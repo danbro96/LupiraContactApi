@@ -107,4 +107,54 @@ public class KinshipInferenceTests
         Assert.Equal([p1], parents);
         Assert.Equal([s1], siblings);
     }
+
+    [Fact]
+    public void Ended_edges_are_excluded_from_the_kinship_graph()
+    {
+        // X's parent edge is ended (estrangement modeling aside, the graph must not assert it) — no sibling inference via it.
+        var parent = Guid.NewGuid();
+        var x = Guid.NewGuid();
+        var y = Guid.NewGuid();
+        var contacts = new List<Contact>
+        {
+            new() { Id = x, Relations = [new ContactRelation { ToContactId = parent, Kind = ContactRelationKind.Parent, Ended = true }] },
+            Person(parent, (y, ContactRelationKind.Child)),
+            Person(y),
+        };
+        Assert.False(Infer(x, contacts).ContainsKey(y));
+    }
+
+    [Fact]
+    public void Parent_cycle_is_detected_directly_and_transitively()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var c = Guid.NewGuid();
+        var contacts = new List<Contact>
+        {
+            Person(a, (b, ContactRelationKind.Parent)),   // b is a's parent
+            Person(b, (c, ContactRelationKind.Parent)),   // c is b's parent
+            Person(c),
+        };
+        Assert.True(KinshipInference.WouldCreateParentCycle(a, a, contacts));    // self
+        Assert.True(KinshipInference.WouldCreateParentCycle(b, a, contacts));    // direct: a is b's child
+        Assert.True(KinshipInference.WouldCreateParentCycle(c, a, contacts));    // transitive: a → b → c
+        Assert.False(KinshipInference.WouldCreateParentCycle(a, c, contacts));   // c is already a's ancestor — no new cycle
+    }
+
+    [Fact]
+    public void Cycle_check_terminates_on_pre_existing_bad_data()
+    {
+        // a and b are each other's parents (imported bad data) — the visited set must stop the walk.
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var contacts = new List<Contact>
+        {
+            Person(a, (b, ContactRelationKind.Parent)),
+            Person(b, (a, ContactRelationKind.Parent)),
+            Person(other),
+        };
+        Assert.False(KinshipInference.WouldCreateParentCycle(other, a, contacts));
+    }
 }

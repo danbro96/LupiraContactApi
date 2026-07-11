@@ -67,6 +67,51 @@
         ]
       }
     },
+    "/me/contact": {
+      "put": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Link the caller's identity to its own contact (\"this card is me\") — the default focus for contact circles.",
+        "operationId": "SetMyContact",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMyContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/address-books": {
       "get": {
         "tags": [
@@ -509,6 +554,401 @@
         ]
       }
     },
+    "/contacts/circles": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Computed social circles (close family, extended family, friends, colleagues, household) around a focus contact — the caller's own linked contact unless focusId overrides. Degree is a closeness bucket (1 immediate, 2 two-generation kin, 3 cousin). Ended relations are excluded.",
+        "operationId": "GetContactCircles",
+        "parameters": [
+          {
+            "name": "focusId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactCirclesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/deceased": {
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Mark a contact as deceased (idempotent; the date may be unknown). Deceased contacts stay in the kinship graph — death is not deletion.",
+        "operationId": "MarkContactDeceased",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDeceasedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Undo a deceased marking recorded in error. (CardDAV can set but never clear deceased — clearing is API-only.)",
+        "operationId": "ClearContactDeceased",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/profiles": {
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Replace the contact's social/IM handles wholesale. Service names are canonicalized; well-known services (telegram, messenger, whatsapp…) get the profile URL derived from the handle. At most one preferred handle per service.",
+        "operationId": "SetContactProfiles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetContactProfilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/addresses": {
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Replace the contact's postal addresses wholesale; each entry needs a geo place id or a formatted address.",
+        "operationId": "SetContactAddresses",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetContactAddressesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/emergency-contacts": {
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Replace the contact's emergency-contact designation wholesale (order = priority, empty clears). A designation, not a relation kind — your emergency contact is usually also a spouse or friend.",
+        "operationId": "SetEmergencyContacts",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetEmergencyContactsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/contacts/{id}/relations": {
       "get": {
         "tags": [
@@ -705,7 +1145,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Remove the relation edge to a contact with the given kind.",
+        "summary": "Remove the relation edge to a contact with the given kind — for edges entered by mistake. A relationship that ran its course should be ended instead.",
         "operationId": "RemoveContactRelation",
         "parameters": [
           {
@@ -735,6 +1175,78 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/relations/{toContactId}/end": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Mark a relation as ended (ex-spouse, falling-out): the edge stays, flagged with an optional end date, and no longer asserts current kinship. Re-adding the same relation revives it.",
+        "operationId": "EndContactRelation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "toContactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndContactRelationRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -1115,6 +1627,54 @@
           }
         }
       },
+      "CircleKind": {
+        "enum": [
+          "CloseFamily",
+          "ExtendedFamily",
+          "Friends",
+          "Colleagues",
+          "Household"
+        ]
+      },
+      "CircleMemberDto": {
+        "required": [
+          "contactId",
+          "displayName",
+          "degree",
+          "provenance"
+        ],
+        "type": "object",
+        "properties": {
+          "contactId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KinshipKind"
+              }
+            ]
+          },
+          "degree": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/RelationProvenance"
+          }
+        }
+      },
       "CompletenessGap": {
         "required": [
           "field",
@@ -1178,6 +1738,43 @@
           "Other"
         ]
       },
+      "ContactCircleDto": {
+        "required": [
+          "kind",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/CircleKind"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CircleMemberDto"
+            }
+          }
+        }
+      },
+      "ContactCirclesDto": {
+        "required": [
+          "focusContactId",
+          "circles"
+        ],
+        "type": "object",
+        "properties": {
+          "focusContactId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "circles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactCircleDto"
+            }
+          }
+        }
+      },
       "ContactDto": {
         "required": [
           "id",
@@ -1186,6 +1783,7 @@
           "displayName",
           "addresses",
           "profiles",
+          "emergencyContactIds",
           "relations",
           "etag"
         ],
@@ -1248,6 +1846,16 @@
             ],
             "format": "date"
           },
+          "deceased": {
+            "type": "boolean"
+          },
+          "deathDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
           "tags": {
             "type": [
               "null",
@@ -1267,6 +1875,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ContactSocialProfile"
+            }
+          },
+          "emergencyContactIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           },
           "relations": {
@@ -1375,6 +1990,16 @@
               "null",
               "string"
             ]
+          },
+          "ended": {
+            "type": "boolean"
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -1414,6 +2039,16 @@
           },
           "provenance": {
             "$ref": "#/components/schemas/RelationProvenance"
+          },
+          "ended": {
+            "type": "boolean"
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -1427,7 +2062,6 @@
           "Friend",
           "Colleague",
           "Neighbor",
-          "Emergency",
           "Other"
         ]
       },
@@ -1445,6 +2079,9 @@
               "null",
               "string"
             ]
+          },
+          "preferred": {
+            "type": "boolean"
           }
         }
       },
@@ -1547,6 +2184,24 @@
           }
         }
       },
+      "EndContactRelationRequest": {
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ContactRelationKind"
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
       "GapSeverity": {
         "enum": [
           "Weak",
@@ -1581,13 +2236,13 @@
           "Friend",
           "Colleague",
           "Neighbor",
-          "Emergency",
           "Other",
           "Grandparent",
           "Grandchild",
           "AuntUncle",
           "NieceNephew",
-          "Cousin"
+          "Cousin",
+          null
         ]
       },
       "MeDto": {
@@ -1609,6 +2264,13 @@
               "null",
               "string"
             ]
+          },
+          "contactId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -1753,6 +2415,73 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "SetContactAddressesRequest": {
+        "required": [
+          "addresses"
+        ],
+        "type": "object",
+        "properties": {
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactPostalAddress"
+            }
+          }
+        }
+      },
+      "SetContactProfilesRequest": {
+        "required": [
+          "profiles"
+        ],
+        "type": "object",
+        "properties": {
+          "profiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactSocialProfile"
+            }
+          }
+        }
+      },
+      "SetDeceasedRequest": {
+        "type": "object",
+        "properties": {
+          "deathDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "SetEmergencyContactsRequest": {
+        "required": [
+          "contactIds"
+        ],
+        "type": "object",
+        "properties": {
+          "contactIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "SetMyContactRequest": {
+        "required": [
+          "contactId"
+        ],
+        "type": "object",
+        "properties": {
+          "contactId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       }

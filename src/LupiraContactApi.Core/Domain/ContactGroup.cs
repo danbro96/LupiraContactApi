@@ -33,5 +33,5 @@ public sealed class ContactGroup
 
     public void Apply(ContactRemovedFromGroup e) => MemberContactIds.Remove(e.ContactId);
 
-    public void Apply(ContactGroupDeleted _) => DeletedAt = DateTimeOffset.UtcNow;
+    public void Apply(ContactGroupDeleted e) => DeletedAt = e.At;
 }

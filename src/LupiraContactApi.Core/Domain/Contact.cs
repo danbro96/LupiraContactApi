@@ -1,6 +1,6 @@
 namespace LupiraContactApi.Domain;
 
-/// <summary>A contact's postal address: an optional LupiraGeoApi place id + a denormalized formatted address, with a vCard type.</summary>
+/// <summary>A contact's postal address: an optional LupiraGeoApi place id + a denormalized formatted address, with a home/work type.</summary>
 public sealed class ContactPostalAddress
 {
     public Guid? PlaceId { get; set; }
@@ -8,17 +8,20 @@ public sealed class ContactPostalAddress
     public ContactAddressType Type { get; set; }
 }
 
-/// <summary>A social/IM handle. <c>Service</c> is an open string (platforms are unbounded).</summary>
+/// <summary>A social/IM handle. <c>Service</c> is an open string (platforms are unbounded); <c>Preferred</c> marks
+/// the handle that actually reaches the person on that service.</summary>
 public sealed class ContactSocialProfile
 {
     public string Service { get; set; } = "";
     public string Handle { get; set; } = "";
     public string? Url { get; set; }
+    public bool Preferred { get; set; }
 }
 
 /// <summary>
 /// The contact aggregate + inline snapshot, belonging to one address book. The structured fields are canonical;
-/// CardDAV regenerates the vCard on demand and <c>ContentHash</c> (the ETag) is derived from it. Postal addresses carry an optional geo place id + formatted address.
+/// <c>ContentHash</c> is derived from them (see <see cref="ContactContent"/>) and serves sync surfaces as an opaque version tag.
+/// Postal addresses carry an optional geo place id + formatted address.
 /// </summary>
 public sealed class Contact
 {
@@ -43,6 +46,12 @@ public sealed class Contact
     public List<ContactPostalAddress> Addresses { get; set; } = new();
     public List<ContactSocialProfile> Profiles { get; set; } = new();
     public List<ContactRelation> Relations { get; set; } = new();
+
+    /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
+    public List<Guid> EmergencyContactIds { get; set; } = new();
+
+    public bool Deceased { get; set; }
+    public DateOnly? DeathDate { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
 
     /// <summary>Composed display name (no stored full name). Falls back to the nickname, then the external id.</summary>
@@ -82,7 +91,7 @@ public sealed class Contact
         ContentHash = e.ContentHash;
     }
 
-    public void Apply(ContactDeleted _) => DeletedAt = DateTimeOffset.UtcNow;
+    public void Apply(ContactDeleted e) => DeletedAt = e.At;
 
     public void Apply(ContactRestored e)
     {
@@ -93,13 +102,43 @@ public sealed class Contact
     public void Apply(ContactAddressesReplaced e) =>
         Addresses = e.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, FormattedAddress = a.FormattedAddress, Type = a.Type }).ToList();
 
-    public void Apply(ContactProfilesReplaced e) =>
-        Profiles = e.Profiles.Select(p => new ContactSocialProfile { Service = p.Service, Handle = p.Handle, Url = p.Url }).ToList();
+    public void Apply(ContactProfilesReplaced e)
+    {
+        Profiles = e.Profiles.Select(p => new ContactSocialProfile { Service = p.Service, Handle = p.Handle, Url = p.Url, Preferred = p.Preferred }).ToList();
+        ContentHash = e.ContentHash;
+    }
+
+    public void Apply(ContactEmergencyContactsReplaced e)
+    {
+        EmergencyContactIds = [.. e.ContactIds];
+        ContentHash = e.ContentHash;
+    }
+
+    public void Apply(ContactMarkedDeceased e)
+    {
+        Deceased = true;
+        DeathDate = e.DeathDate;
+        ContentHash = e.ContentHash;
+    }
+
+    public void Apply(ContactDeceasedCleared e)
+    {
+        Deceased = false;
+        DeathDate = null;
+        ContentHash = e.ContentHash;
+    }
 
     public void Apply(ContactRelationAdded e)
     {
-        Relations.RemoveAll(r => r.ToContactId == e.ToContactId && r.Kind == e.Kind);   // upsert on the natural key
+        Relations.RemoveAll(r => r.ToContactId == e.ToContactId && r.Kind == e.Kind);   // upsert on the natural key; also revives an ended edge
         Relations.Add(new ContactRelation { ToContactId = e.ToContactId, Kind = e.Kind, Label = e.Label });
+        ContentHash = e.ContentHash;
+    }
+
+    public void Apply(ContactRelationEnded e)
+    {
+        var edge = Relations.FirstOrDefault(r => r.ToContactId == e.ToContactId && r.Kind == e.Kind);
+        if (edge is not null) { edge.Ended = true; edge.Until = e.Until; }
         ContentHash = e.ContentHash;
     }
 
@@ -110,7 +149,7 @@ public sealed class Contact
     }
 
     public void Apply(ContactRelationsReplaced e) =>
-        Relations = e.Relations.Select(r => new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = r.Label }).ToList();
+        Relations = e.Relations.Select(r => new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = r.Label, Ended = r.Ended, Until = r.Until }).ToList();
 
     private void SetFields(ContactFields f)
     {

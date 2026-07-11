@@ -62,4 +62,46 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         var u = await user.GetAsync(ct);
         return OpResultMap.OkNotFoundProblem(await contacts.RemoveRelationAsync(u.Id, id, toContactId, kind, ct));
     }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> EndRelationAsync(Guid id, Guid toContactId, EndContactRelationRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.EndRelationAsync(u.Id, id, toContactId, body.Kind, body.Until, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetDeceasedAsync(Guid id, SetDeceasedRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetDeceasedAsync(u.Id, id, body.DeathDate, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ClearDeceasedAsync(Guid id, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.ClearDeceasedAsync(u.Id, id, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetProfilesAsync(Guid id, SetContactProfilesRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetProfilesAsync(u.Id, id, body.Profiles, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAddressesAsync(Guid id, SetContactAddressesRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetAddressesAsync(u.Id, id, body.Addresses, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetEmergencyContactsAsync(Guid id, SetEmergencyContactsRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetEmergencyContactsAsync(u.Id, id, body.ContactIds, ct));
+    }
+
+    public async Task<Results<Ok<ContactCirclesDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> CirclesAsync(Guid? focusId, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.CirclesAsync(u.Id, focusId, ct));
+    }
 }

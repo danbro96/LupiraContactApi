@@ -50,6 +50,23 @@ public static class KinshipInference
         return (g.Parents(focusId), g.ExplicitSiblings(focusId));
     }
 
+    /// <summary>True when recording <paramref name="parentId"/> as a parent of <paramref name="childId"/> would make
+    /// someone their own ancestor. BFS over transitive parents; the visited set keeps pre-existing bad data from looping.</summary>
+    public static bool WouldCreateParentCycle(Guid childId, Guid parentId, IReadOnlyCollection<Contact> contacts)
+    {
+        if (childId == parentId) return true;
+        var g = new Graph(contacts);
+        var queue = new Queue<Guid>([parentId]);
+        var visited = new HashSet<Guid> { parentId };
+        while (queue.TryDequeue(out var current))
+            foreach (var p in g.Parents(current))
+            {
+                if (p == childId) return true;
+                if (visited.Add(p)) queue.Enqueue(p);
+            }
+        return false;
+    }
+
     // Undirected adjacency over parent/child/sibling edges, reading each edge from whichever side stored it.
     private sealed class Graph
     {
@@ -63,7 +80,7 @@ public static class KinshipInference
         {
             Known = [.. contacts.Select(c => c.Id)];
             foreach (var c in contacts)
-                foreach (var r in c.Relations)
+                foreach (var r in c.Relations.Where(r => !r.Ended))   // ended edges assert no current kinship
                 {
                     Link(_partners, c.Id, r.ToContactId);
                     switch (r.Kind)

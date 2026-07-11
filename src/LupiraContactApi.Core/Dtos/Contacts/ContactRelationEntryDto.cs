@@ -17,4 +17,8 @@ public sealed class ContactRelationEntryDto
     public string? Label { get; set; }
     public required ContactRelationDirection Direction { get; set; }
     public RelationProvenance Provenance { get; set; } = RelationProvenance.Explicit;
+
+    /// <summary>The relationship ran its course (ex-spouse); the edge remains for history but asserts no current kinship.</summary>
+    public bool Ended { get; set; }
+    public DateOnly? Until { get; set; }
 }

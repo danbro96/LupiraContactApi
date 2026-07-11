@@ -15,9 +15,14 @@ public sealed class ContactDto
     public string[]? Emails { get; set; }
     public string[]? Phones { get; set; }
     public DateOnly? Birthday { get; set; }
+    public bool Deceased { get; set; }
+    public DateOnly? DeathDate { get; set; }
     public string[]? Tags { get; set; }
     public required IReadOnlyList<ContactPostalAddress> Addresses { get; set; }
     public required IReadOnlyList<ContactSocialProfile> Profiles { get; set; }
+
+    /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
+    public required IReadOnlyList<Guid> EmergencyContactIds { get; set; }
 
     /// <summary>Raw outgoing edges (unfiltered; targets may be deleted or unreadable). The <c>/relations</c> sub-resource is the resolved two-way view.</summary>
     public required IReadOnlyList<ContactRelation> Relations { get; set; }

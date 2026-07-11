@@ -47,6 +47,58 @@ public static class ContactsEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapGet("/circles", (Guid? focusId, ContactsHandler h, CancellationToken ct) => h.CirclesAsync(focusId, ct))
+            .WithName("GetContactCircles")
+            .WithSummary("Computed social circles (close family, extended family, friends, colleagues, household) around a focus contact — the caller's own linked contact unless focusId overrides. Degree is a closeness bucket (1 immediate, 2 two-generation kin, 3 cousin). Ended relations are excluded.")
+            .Produces<ContactCirclesDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/{id:guid}/deceased", (Guid id, SetDeceasedRequest body, ContactsHandler h, CancellationToken ct) => h.SetDeceasedAsync(id, body, ct))
+            .WithName("MarkContactDeceased")
+            .WithSummary("Mark a contact as deceased (idempotent; the date may be unknown). Deceased contacts stay in the kinship graph — death is not deletion.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapDelete("/{id:guid}/deceased", (Guid id, ContactsHandler h, CancellationToken ct) => h.ClearDeceasedAsync(id, ct))
+            .WithName("ClearContactDeceased")
+            .WithSummary("Undo a deceased marking recorded in error. (CardDAV can set but never clear deceased — clearing is API-only.)")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/{id:guid}/profiles", (Guid id, SetContactProfilesRequest body, ContactsHandler h, CancellationToken ct) => h.SetProfilesAsync(id, body, ct))
+            .WithName("SetContactProfiles")
+            .WithSummary("Replace the contact's social/IM handles wholesale. Service names are canonicalized; well-known services (telegram, messenger, whatsapp…) get the profile URL derived from the handle. At most one preferred handle per service.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/{id:guid}/addresses", (Guid id, SetContactAddressesRequest body, ContactsHandler h, CancellationToken ct) => h.SetAddressesAsync(id, body, ct))
+            .WithName("SetContactAddresses")
+            .WithSummary("Replace the contact's postal addresses wholesale; each entry needs a geo place id or a formatted address.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/{id:guid}/emergency-contacts", (Guid id, SetEmergencyContactsRequest body, ContactsHandler h, CancellationToken ct) => h.SetEmergencyContactsAsync(id, body, ct))
+            .WithName("SetEmergencyContacts")
+            .WithSummary("Replace the contact's emergency-contact designation wholesale (order = priority, empty clears). A designation, not a relation kind — your emergency contact is usually also a spouse or friend.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapGet("/{id:guid}/relations", (Guid id, bool? includeInferred, ContactsHandler h, CancellationToken ct) => h.ListRelationsAsync(id, includeInferred ?? false, ct))
             .WithName("ListContactRelations")
             .WithSummary("Resolved relations, both directions: each entry's kind is the other contact's role relative to this one (incoming = derived inverse). Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), tagged Provenance=Inferred.")
@@ -73,7 +125,15 @@ public static class ContactsEndpoints
 
         group.MapDelete("/{id:guid}/relations/{toContactId:guid}", (Guid id, Guid toContactId, ContactRelationKind kind, ContactsHandler h, CancellationToken ct) => h.RemoveRelationAsync(id, toContactId, kind, ct))
             .WithName("RemoveContactRelation")
-            .WithSummary("Remove the relation edge to a contact with the given kind.")
+            .WithSummary("Remove the relation edge to a contact with the given kind — for edges entered by mistake. A relationship that ran its course should be ended instead.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPost("/{id:guid}/relations/{toContactId:guid}/end", (Guid id, Guid toContactId, EndContactRelationRequest body, ContactsHandler h, CancellationToken ct) => h.EndRelationAsync(id, toContactId, body, ct))
+            .WithName("EndContactRelation")
+            .WithSummary("Mark a relation as ended (ex-spouse, falling-out): the edge stays, flagged with an optional end date, and no longer asserts current kinship. Re-adding the same relation revives it.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden)
