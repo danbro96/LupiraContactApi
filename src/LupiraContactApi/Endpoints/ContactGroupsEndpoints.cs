@@ -24,9 +24,9 @@ public static class ContactGroupsEndpoints
             .WithSummary("Rename a group.")
             .Produces<ContactGroupDto>(StatusCodes.Status200OK).Produces(StatusCodes.Status404NotFound);
 
-        group.MapPost("/groups/{groupId:guid}/members", (Guid groupId, Guid contactId, ContactGroupsHandler h, CancellationToken ct) => h.AddMemberAsync(groupId, contactId, ct))
+        group.MapPost("/groups/{groupId:guid}/members", (Guid groupId, Guid contactId, string? role, DateOnly? since, DateOnly? until, ContactGroupsHandler h, CancellationToken ct) => h.AddMemberAsync(groupId, contactId, role, since, until, ct))
             .WithName("AddContactGroupMember")
-            .WithSummary("Add a contact to a group.")
+            .WithSummary("Add a contact to a group; for an organization, role is the title held there (re-adding updates it).")
             .Produces<ContactGroupDto>(StatusCodes.Status200OK).Produces(StatusCodes.Status404NotFound);
 
         group.MapDelete("/groups/{groupId:guid}/members/{contactId:guid}", (Guid groupId, Guid contactId, ContactGroupsHandler h, CancellationToken ct) => h.RemoveMemberAsync(groupId, contactId, ct))

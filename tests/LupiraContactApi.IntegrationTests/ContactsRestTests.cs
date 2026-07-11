@@ -53,7 +53,7 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
                 new ContactReachChannel(ReachMedium.Email, "jane.doe@work.test", "work", false),
                 new ContactReachChannel(ReachMedium.Phone, "+46700000000", "cell", false),
             ],
-            Birthday = new DateOnly(1990, 4, 1),
+            Birthday = new PartialDate(1990, 4, 1),
         });
         resp.EnsureSuccessStatusCode();
         var revised = (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
@@ -62,7 +62,7 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
         Assert.Contains(revised.Channels, ch => ch.Value == "jane@x.test");                              // original email kept
         Assert.Contains(revised.Channels, ch => ch.Value == "jane.doe@work.test");                       // new email added
         Assert.Contains(revised.Channels, ch => ch.Medium == ReachMedium.Phone && ch.Value == "+46700000000");
-        Assert.Equal(new DateOnly(1990, 4, 1), revised.Birthday);
+        Assert.Equal(new PartialDate(1990, 4, 1), revised.Birthday);
     }
 
     [Fact]

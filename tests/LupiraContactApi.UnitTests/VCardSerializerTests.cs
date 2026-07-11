@@ -16,7 +16,7 @@ public class VCardSerializerTests
     {
         var vcf = VCardSerializer.Build("uid@x", "Jane Smith", "Jane", "Smith", "Acme",
             [Chan(ReachMedium.Email, "jane@x.com"), Chan(ReachMedium.Email, "j@y.com"), Chan(ReachMedium.Phone, "+4612345")],
-            new DateOnly(1990, 2, 15));
+            new PartialDate(1990, 2, 15));
 
         var p = VCardSerializer.ParseVCard(vcf);
 
@@ -27,7 +27,7 @@ public class VCardSerializerTests
         Assert.Equal(
             [(ReachMedium.Email, "jane@x.com"), (ReachMedium.Email, "j@y.com"), (ReachMedium.Phone, "+4612345")],
             p.Channels!.Select(ch => (ch.Medium, ch.Value)));
-        Assert.Equal(new DateOnly(1990, 2, 15), p.Birthday);
+        Assert.Equal(new PartialDate(1990, 2, 15), p.Birthday);
     }
 
     [Fact]
@@ -85,7 +85,44 @@ public class VCardSerializerTests
     public void Birthday_parses_both_formats(string bday)
     {
         var p = VCardSerializer.ParseVCard($"BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nBDAY:{bday}\r\nEND:VCARD\r\n");
-        Assert.Equal(new DateOnly(1990, 2, 15), p.Birthday);
+        Assert.Equal(new PartialDate(1990, 2, 15), p.Birthday);
+    }
+
+    [Fact]
+    public void Year_less_birthday_round_trips_as_a_partial_date()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, new PartialDate(null, 6, 17));
+        Assert.Contains("BDAY:--0617\r\n", vcf);
+        Assert.Equal(new PartialDate(null, 6, 17), VCardSerializer.ParseVCard(vcf).Birthday);
+    }
+
+    [Fact]
+    public void Notes_and_pronouns_round_trip()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, notes: "met at KTH", pronouns: "they/them");
+        Assert.Contains("NOTE:met at KTH\r\n", vcf);
+        Assert.Contains("X-PRONOUNS:they/them\r\n", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        Assert.Equal("met at KTH", p.Notes);
+        Assert.Equal("they/them", p.Pronouns);
+    }
+
+    [Fact]
+    public void Relation_since_round_trips()
+    {
+        var friend = Guid.NewGuid();
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
+            [new ContactRelation { ToContactId = friend, Kind = ContactRelationKind.Friend, Since = new DateOnly(2016, 8, 1) }]);
+        Assert.Contains($"RELATED;TYPE=friend;X-LUPIRA-SINCE=20160801:urn:uuid:{friend:D}\r\n", vcf);
+        Assert.Equal(new DateOnly(2016, 8, 1), Assert.Single(VCardSerializer.ParseVCard(vcf).Relations!).Since);
+    }
+
+    [Fact]
+    public void Http_avatar_ref_emits_a_photo_uri()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, avatarRef: "https://cdn.example/x.jpg");
+        Assert.Contains("PHOTO;VALUE=uri:https://cdn.example/x.jpg\r\n", vcf);
     }
 
     [Fact]
@@ -194,7 +231,7 @@ public class VCardSerializerTests
     [Fact]
     public void Build_without_extras_emits_none_of_the_extension_props()
     {
-        var vcf = VCardSerializer.Build("uid@x", "Jane Smith", "Jane", "Smith", null, [Chan(ReachMedium.Email, "jane@x.com")], new DateOnly(1990, 2, 15), []);
+        var vcf = VCardSerializer.Build("uid@x", "Jane Smith", "Jane", "Smith", null, [Chan(ReachMedium.Email, "jane@x.com")], new PartialDate(1990, 2, 15), []);
         Assert.Contains("EMAIL:jane@x.com\r\n", vcf);
         Assert.DoesNotContain("RELATED", vcf);
         Assert.DoesNotContain("X-DEATHDATE", vcf);
@@ -311,7 +348,7 @@ public class VCardSerializerTests
     public void Build_is_deterministic_for_identical_input()
     {
         string Make() => VCardSerializer.Build("uid@x", "x", "a", "b", null,
-            [Chan(ReachMedium.Email, "e@x"), Chan(ReachMedium.Phone, "1")], new DateOnly(1990, 1, 1),
+            [Chan(ReachMedium.Email, "e@x"), Chan(ReachMedium.Phone, "1")], new PartialDate(1990, 1, 1),
             [new ContactRelation { ToContactId = Guid.Empty, Kind = ContactRelationKind.Friend }],
             [Guid.Empty], [new ContactSocialProfile { Service = "telegram", Handle = "h" }], true, new DateOnly(2020, 1, 1));
         Assert.Equal(Make(), Make());

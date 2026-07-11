@@ -20,7 +20,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
         var id = DeterministicGuid.From(uid);
-        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, channels, r.Birthday, r.Tags);
+        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns);
 
         session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
         await session.SaveChangesAsync(ct);
@@ -76,7 +76,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             r.Nickname ?? c.Nickname,
             MergeChannels(c.Channels, r.Channels),
             r.Birthday ?? c.Birthday,
-            MergeDistinct(c.Tags, r.Tags));
+            MergeDistinct(c.Tags, r.Tags),
+            r.Notes ?? c.Notes,
+            r.Pronouns ?? c.Pronouns);
 
         stream.AppendOne(new ContactRevised(id, merged));
         await session.SaveChangesAsync(ct);
@@ -196,6 +198,24 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
+    // ---- Avatar (a pointer to an image, never bytes — outside the canonical content, like addresses) ----
+
+    public async Task<OpResult<ContactDto>> SetAvatarAsync(Guid principalId, Guid id, string? avatarRef, CancellationToken ct = default)
+    {
+        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
+        var c = stream.Aggregate;
+        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
+        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
+
+        var next = string.IsNullOrWhiteSpace(avatarRef) ? null : avatarRef.Trim();
+        if (c.AvatarRef == next) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
+
+        stream.AppendOne(new ContactAvatarSet(id, next));
+        await session.SaveChangesAsync(ct);
+        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+    }
+
     // ---- Profiles + addresses (wholesale replace) ----
 
     public async Task<OpResult<ContactDto>> SetProfilesAsync(Guid principalId, Guid id, IReadOnlyList<ContactSocialProfile> profiles, CancellationToken ct = default)
@@ -286,11 +306,12 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         }
 
         var label = string.IsNullOrWhiteSpace(r.Label) ? null : r.Label.Trim();
-        if (c.Relations.Any(x => x.ToContactId == r.ToContactId && x.Kind == r.Kind && x.Label == label && !x.Ended))
+        var note = string.IsNullOrWhiteSpace(r.Note) ? null : r.Note.Trim();
+        if (c.Relations.Any(x => x.ToContactId == r.ToContactId && x.Kind == r.Kind && x.Label == label && x.Since == r.Since && x.Note == note && !x.Ended))
             return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // identical live edge: no event, no ETag churn
         Stamp(principalId);
 
-        stream.AppendOne(new ContactRelationAdded(id, r.ToContactId, r.Kind, label));
+        stream.AppendOne(new ContactRelationAdded(id, r.ToContactId, r.Kind, label, r.Since, note));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -344,7 +365,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             .Where(t => t.DeletedAt is null && books.Contains(t.AddressBookId)).ToDictionary(t => t.Id);
         foreach (var r in c.Relations)
             if (targets.TryGetValue(r.ToContactId, out var t))
-                entries.Add(new ContactRelationEntryDto { ContactId = t.Id, DisplayName = t.DisplayName, Kind = r.Kind, Label = r.Label, Direction = ContactRelationDirection.Outgoing, Ended = r.Ended, Until = r.Until });
+                entries.Add(new ContactRelationEntryDto { ContactId = t.Id, DisplayName = t.DisplayName, Kind = r.Kind, Label = r.Label, Since = r.Since, Note = r.Note, Direction = ContactRelationDirection.Outgoing, Ended = r.Ended, Until = r.Until });
 
         var sources = await session.Query<Contact>()
             .Where(x => x.DeletedAt == null && x.Relations.Any(r => r.ToContactId == id)).ToListAsync(ct);
@@ -414,7 +435,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     // Order-sensitive equality: order is part of the canonical content, so a reorder is a real change.
     private static bool RelationsEqual(IReadOnlyList<ContactRelation>? a, IReadOnlyList<ContactRelation> b) =>
-        (a ?? []).Select(r => (r.ToContactId, r.Kind, r.Label, r.Ended, r.Until)).SequenceEqual(b.Select(r => (r.ToContactId, r.Kind, r.Label, r.Ended, r.Until)));
+        (a ?? []).Select(r => (r.ToContactId, r.Kind, r.Label, r.Since, r.Note, r.Ended, r.Until)).SequenceEqual(b.Select(r => (r.ToContactId, r.Kind, r.Label, r.Since, r.Note, r.Ended, r.Until)));
 
     private static bool ProfilesEqual(IReadOnlyList<ContactSocialProfile>? a, IReadOnlyList<ContactSocialProfile> b) =>
         (a ?? []).Select(p => (p.Service, p.Handle, p.Url, p.Preferred)).SequenceEqual(b.Select(p => (p.Service, p.Handle, p.Url, p.Preferred)));
@@ -445,8 +466,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         var p = VCardSerializer.ParseVCard(rawVcard);
+        // Notes/pronouns are preserve-if-absent (most clients never emit them): set from the card when present, else keep existing.
         var fields = new ContactFields(null, p.GivenName, null, p.FamilyName, null, null,
-            p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null);
+            p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
+            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns);
         // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
         // Unresolvable target uuids are stored as-is — the target may sync in later or be unreadable to this caller; resolved reads filter.
         // Parent cycles are tolerated here (deliberately laxer import); inference is bounded, so they cannot hang it.
@@ -500,5 +523,5 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     }
 
     private static ContactFields FieldsOf(Contact c) =>
-        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Channels, c.Birthday, c.Tags);
+        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns);
 }

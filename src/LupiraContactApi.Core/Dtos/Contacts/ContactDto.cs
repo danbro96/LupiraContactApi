@@ -13,10 +13,15 @@ public sealed class ContactDto
     public string? FamilyName { get; set; }
     public string? Nickname { get; set; }
     public required IReadOnlyList<ContactReachChannel> Channels { get; set; }
-    public DateOnly? Birthday { get; set; }
+    public PartialDate? Birthday { get; set; }
     public bool Deceased { get; set; }
     public DateOnly? DeathDate { get; set; }
     public string[]? Tags { get; set; }
+    public string? Notes { get; set; }
+    public string? Pronouns { get; set; }
+
+    /// <summary>Pointer to an avatar image (URL/media id), never bytes.</summary>
+    public string? AvatarRef { get; set; }
     public required IReadOnlyList<ContactPostalAddress> Addresses { get; set; }
     public required IReadOnlyList<ContactSocialProfile> Profiles { get; set; }
 

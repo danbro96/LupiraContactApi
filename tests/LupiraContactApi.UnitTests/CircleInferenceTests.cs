@@ -47,7 +47,7 @@ public class CircleInferenceTests
         Id = Guid.NewGuid(),
         Kind = ContactGroupKind.Organization,
         Name = "Acme",
-        MemberContactIds = [.. members],
+        Members = [.. members.Select(id => new GroupMembership { ContactId = id })],
     };
 
     static ILookup<CircleKind, CircleMembership> Infer(IReadOnlyCollection<ContactGroup>? orgs = null) =>

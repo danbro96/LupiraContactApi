@@ -27,10 +27,10 @@ public sealed class ContactGroupsHandler(CurrentUser user, ContactGroupService g
         return OpResultMap.OkNotFoundProblem(await groups.RenameAsync(u.Id, groupId, name, ct));
     }
 
-    public async Task<Results<Ok<ContactGroupDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AddMemberAsync(Guid groupId, Guid contactId, CancellationToken ct)
+    public async Task<Results<Ok<ContactGroupDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AddMemberAsync(Guid groupId, Guid contactId, string? role, DateOnly? since, DateOnly? until, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await groups.AddMemberAsync(u.Id, groupId, contactId, ct));
+        return OpResultMap.OkNotFoundProblem(await groups.AddMemberAsync(u.Id, groupId, contactId, role, since, until, ct));
     }
 
     public async Task<Results<Ok<ContactGroupDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> RemoveMemberAsync(Guid groupId, Guid contactId, CancellationToken ct)

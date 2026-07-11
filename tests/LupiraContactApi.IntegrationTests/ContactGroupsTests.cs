@@ -26,13 +26,13 @@ public sealed class ContactGroupsTests(ContactApiTestFactory factory) : Integrat
         var list = await api.GetFromJsonAsync<List<ContactGroupDto>>($"/address-books/{abId}/groups");
         Assert.Contains(list!, g => g.Id == group.Id);
 
-        var added = await api.PostAsync($"/groups/{group.Id}/members?contactId={contact.Id}", null);
+        var added = await api.PostAsync($"/groups/{group.Id}/members?contactId={contact.Id}&role=Engineer", null);
         added.EnsureSuccessStatusCode();
-        Assert.Contains(contact.Id, (await added.Content.ReadFromJsonAsync<ContactGroupDto>())!.Members);
+        Assert.Contains((await added.Content.ReadFromJsonAsync<ContactGroupDto>())!.Members, m => m.ContactId == contact.Id && m.Role == "Engineer");
 
         var removed = await api.DeleteAsync($"/groups/{group.Id}/members/{contact.Id}");
         removed.EnsureSuccessStatusCode();
-        Assert.DoesNotContain(contact.Id, (await removed.Content.ReadFromJsonAsync<ContactGroupDto>())!.Members);
+        Assert.DoesNotContain((await removed.Content.ReadFromJsonAsync<ContactGroupDto>())!.Members, m => m.ContactId == contact.Id);
 
         var renamed = await api.PutAsync($"/groups/{group.Id}?name=AcmeCorp", null);
         renamed.EnsureSuccessStatusCode();

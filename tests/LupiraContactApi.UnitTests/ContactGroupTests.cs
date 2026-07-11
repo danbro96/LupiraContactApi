@@ -34,11 +34,11 @@ public class ContactGroupTests
         var g = Created(gid);
         Assert.Equal(ContactGroupKind.Organization, g.Kind);
 
-        g.Apply(Ev(new ContactAddedToGroup(gid, contact)));
-        Assert.Contains(contact, g.MemberContactIds);
+        g.Apply(Ev(new ContactAddedToGroup(gid, contact, "Engineer")));
+        Assert.Contains(g.Members, m => m.ContactId == contact && m.Role == "Engineer");
 
         g.Apply(Ev(new ContactRemovedFromGroup(gid, contact)));
-        Assert.DoesNotContain(contact, g.MemberContactIds);
+        Assert.DoesNotContain(g.Members, m => m.ContactId == contact);
     }
 
     [Fact]
@@ -88,8 +88,9 @@ public class ContactGroupTests
         var contact = Guid.NewGuid();
         var g = Created(gid);
         g.Apply(Ev(new ContactAddedToGroup(gid, contact)));
-        g.Apply(Ev(new ContactAddedToGroup(gid, contact)));
-        Assert.Single(g.MemberContactIds);
+        g.Apply(Ev(new ContactAddedToGroup(gid, contact, "Lead")));   // re-add upserts (updates the role)
+        var m = Assert.Single(g.Members);
+        Assert.Equal("Lead", m.Role);
     }
 
     [Fact]
@@ -98,6 +99,6 @@ public class ContactGroupTests
         var gid = Guid.NewGuid();
         var g = Created(gid);
         g.Apply(Ev(new ContactRemovedFromGroup(gid, Guid.NewGuid())));
-        Assert.Empty(g.MemberContactIds);
+        Assert.Empty(g.Members);
     }
 }

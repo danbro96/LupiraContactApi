@@ -14,6 +14,8 @@ public sealed class CreateContactRequest
     public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
     public List<ContactReachChannel>? Channels { get; set; }
-    public DateOnly? Birthday { get; set; }
+    public PartialDate? Birthday { get; set; }
     public string[]? Tags { get; set; }
+    public string? Notes { get; set; }
+    public string? Pronouns { get; set; }
 }

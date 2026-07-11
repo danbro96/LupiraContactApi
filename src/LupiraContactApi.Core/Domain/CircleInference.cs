@@ -45,9 +45,9 @@ public static class CircleInference
             if (CircleOf(kin.Kind) is ({ } ck, var degree)) Add(ck, kin.ContactId, kin.Kind, degree, RelationProvenance.Inferred);
 
         // Shared employer: co-members of a live Organization-kind group.
-        foreach (var org in organizations.Where(g => g.Kind == ContactGroupKind.Organization && g.DeletedAt is null && g.MemberContactIds.Contains(focusId)))
-            foreach (var member in org.MemberContactIds)
-                Add(CircleKind.Colleagues, member, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
+        foreach (var org in organizations.Where(g => g.Kind == ContactGroupKind.Organization && g.DeletedAt is null && g.Members.Any(m => m.ContactId == focusId)))
+            foreach (var member in org.Members)
+                Add(CircleKind.Colleagues, member.ContactId, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
 
         // Household: a shared geo place on a Home address (formatted-address-only entries never match by design).
         var focus = contacts.First(c => c.Id == focusId);

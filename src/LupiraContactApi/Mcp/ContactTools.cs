@@ -26,11 +26,33 @@ public sealed class ContactTools
         return Require(await contacts.QueryAsync(u.Id, query, null));
     }
 
-    [McpServerTool, Description("Create a contact in an address book (AddressBookId required). Name is structured parts; employer is set separately as an organization group.")]
+    [McpServerTool, Description("Create a contact in an address book (AddressBookId required). Name is structured parts; employer is set separately as an organization group. Notes/pronouns and a year-optional birthday can be set here.")]
     public static async Task<ContactDto> create_contact(ContactService contacts, CurrentUser user, CreateContactRequest request)
     {
         var u = await user.GetAsync();
         return Require(await contacts.CreateAsync(u.Id, request));
+    }
+
+    [McpServerTool, Description("Fetch one contact by id (query_contacts searches by name).")]
+    public static async Task<ContactDto> get_contact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.GetAsync(u.Id, contactId));
+    }
+
+    [McpServerTool, Description("Merge-update a contact: provided scalars overwrite, provided channels/tags union onto the existing, null fields are kept (never wipes what it didn't mention). Use set_contact_channels/set_contact_tags to remove.")]
+    public static async Task<ContactDto> revise_contact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId, ReviseContactRequest request)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.ReviseAsync(u.Id, contactId, request));
+    }
+
+    [McpServerTool, Description("Soft-delete a contact (tombstoned; a subsequent create/import with the same uid resurrects it). Do not delete the dead — mark_contact_deceased keeps them in the graph.")]
+    public static async Task<string> delete_contact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
+    {
+        var u = await user.GetAsync();
+        Require(await contacts.DeleteAsync(u.Id, contactId));
+        return $"Deleted contact {contactId}.";
     }
 
     [McpServerTool, Description("Relate two contacts: kind is toContactId's role relative to contactId — 'toContactId is contactId's <kind>'. Example: 'X is Y's dad' → relate_contacts(contactId: Y, toContactId: X, kind: 'parent', label: 'dad'). Re-adding the same contact+kind updates the label.")]
@@ -146,6 +168,26 @@ public sealed class ContactTools
         return Require(await contacts.SetEmergencyContactsAsync(u.Id, contactId, contactIds));
     }
 
+    [McpServerTool, Description("Replace a contact's tags wholesale (empty clears). Tags are trimmed and de-duplicated case-insensitively; order is preserved.")]
+    public static async Task<ContactDto> set_contact_tags(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("The full new tag list — an empty list clears.")] string[] tags)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetTagsAsync(u.Id, contactId, tags));
+    }
+
+    [McpServerTool, Description("Set (or clear, with an empty value) a contact's avatar — a URL/media id, never image bytes.")]
+    public static async Task<ContactDto> set_contact_avatar(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("Avatar URL/media id; empty clears.")] string? avatarRef = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetAvatarAsync(u.Id, contactId, avatarRef));
+    }
+
     [McpServerTool, Description("Link the caller's identity to its own contact ('this card is me') — the default focus for list_contact_circles.")]
     public static async Task<string> set_my_contact(
         ContactService contacts, CurrentUser user,
@@ -183,6 +225,65 @@ public sealed class ContactTools
     {
         var u = await user.GetAsync();
         return Require(await books.BootstrapPersonalAsync(u.Id));
+    }
+
+    // ---- Contact groups (personal groupings + organizations) ----
+
+    [McpServerTool, Description("List the contact groups (personal groupings + organizations) in an address book.")]
+    public static async Task<IReadOnlyList<ContactGroupDto>> list_contact_groups(
+        ContactGroupService groups, CurrentUser user, [Description("Address book id.")] Guid addressBookId)
+    {
+        var u = await user.GetAsync();
+        return Require(await groups.ListAsync(u.Id, addressBookId));
+    }
+
+    [McpServerTool, Description("Create a contact group. kind = group|organization — an employer is an organization-kind group, and the Colleagues circle derives from shared organization membership.")]
+    public static async Task<ContactGroupDto> create_contact_group(
+        ContactGroupService groups, CurrentUser user,
+        [Description("Address book id.")] Guid addressBookId,
+        [Description("Group name, e.g. 'Firefly'.")] string name,
+        [Description("group|organization (default group).")] string kind = "group")
+    {
+        var u = await user.GetAsync();
+        return Require(await groups.CreateAsync(u.Id, addressBookId, kind, name));
+    }
+
+    [McpServerTool, Description("Rename a contact group.")]
+    public static async Task<ContactGroupDto> rename_contact_group(
+        ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId, [Description("New name.")] string name)
+    {
+        var u = await user.GetAsync();
+        return Require(await groups.RenameAsync(u.Id, groupId, name));
+    }
+
+    [McpServerTool, Description("Add a contact to a group (re-adding updates the details). For an organization, role is the title held there and since/until bound the tenure — a person can hold several jobs via several memberships.")]
+    public static async Task<ContactGroupDto> add_group_member(
+        ContactGroupService groups, CurrentUser user,
+        [Description("Group id.")] Guid groupId,
+        [Description("Contact to add.")] Guid contactId,
+        [Description("Title/role held in an organization (optional).")] string? role = null,
+        [Description("When the membership began (optional).")] DateOnly? since = null,
+        [Description("When the membership ended (optional).")] DateOnly? until = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await groups.AddMemberAsync(u.Id, groupId, contactId, role, since, until));
+    }
+
+    [McpServerTool, Description("Remove a contact from a group.")]
+    public static async Task<ContactGroupDto> remove_group_member(
+        ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId, [Description("Contact to remove.")] Guid contactId)
+    {
+        var u = await user.GetAsync();
+        return Require(await groups.RemoveMemberAsync(u.Id, groupId, contactId));
+    }
+
+    [McpServerTool, Description("Delete a contact group.")]
+    public static async Task<string> delete_contact_group(
+        ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId)
+    {
+        var u = await user.GetAsync();
+        Require(await groups.DeleteAsync(u.Id, groupId));
+        return $"Deleted group {groupId}.";
     }
 
     [McpServerTool, Description("Grant a member access to an address book, by email. access = owner|read-write|read (default owner).")]

@@ -975,6 +975,69 @@
         ]
       }
     },
+    "/contacts/{id}/avatar": {
+      "put": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Set (or clear, with an empty value) the contact's avatar — a URL/media id, never image bytes.",
+        "operationId": "SetContactAvatar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetContactAvatarRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/contacts/{id}/addresses": {
       "put": {
         "tags": [
@@ -1727,7 +1790,7 @@
         "tags": [
           "ContactGroups"
         ],
-        "summary": "Add a contact to a group.",
+        "summary": "Add a contact to a group; for an organization, role is the title held there (re-adding updates it).",
         "operationId": "AddContactGroupMember",
         "parameters": [
           {
@@ -1746,6 +1809,29 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
             }
           }
         ],
@@ -1845,6 +1931,19 @@
             "$ref": "#/components/schemas/ContactRelationKind"
           },
           "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "note": {
             "type": [
               "null",
               "string"
@@ -2080,11 +2179,14 @@
             }
           },
           "birthday": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PartialDate"
+              }
+            ]
           },
           "deceased": {
             "type": "boolean"
@@ -2104,6 +2206,24 @@
             "items": {
               "type": "string"
             }
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarRef": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "addresses": {
             "type": "array",
@@ -2202,8 +2322,7 @@
           "members": {
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/GroupMemberDto"
             }
           },
           "createdAt": {
@@ -2297,6 +2416,19 @@
               "string"
             ]
           },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "ended": {
             "type": "boolean"
           },
@@ -2335,6 +2467,19 @@
             "$ref": "#/components/schemas/ContactRelationKind"
           },
           "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "note": {
             "type": [
               "null",
               "string"
@@ -2469,11 +2614,14 @@
             }
           },
           "birthday": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PartialDate"
+              }
+            ]
           },
           "tags": {
             "type": [
@@ -2483,6 +2631,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2524,6 +2684,38 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "GroupMemberDto": {
+        "required": [
+          "contactId"
+        ],
+        "type": "object",
+        "properties": {
+          "contactId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -2585,6 +2777,41 @@
           },
           "access": {
             "$ref": "#/components/schemas/Access"
+          }
+        }
+      },
+      "PartialDate": {
+        "required": [
+          "year",
+          "month",
+          "day"
+        ],
+        "type": "object",
+        "properties": {
+          "year": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "month": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "day": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -2687,11 +2914,14 @@
             }
           },
           "birthday": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PartialDate"
+              }
+            ]
           },
           "tags": {
             "type": [
@@ -2701,6 +2931,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2715,6 +2957,17 @@
             "items": {
               "$ref": "#/components/schemas/ContactPostalAddress"
             }
+          }
+        }
+      },
+      "SetContactAvatarRequest": {
+        "type": "object",
+        "properties": {
+          "avatarRef": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

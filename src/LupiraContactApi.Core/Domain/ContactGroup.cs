@@ -2,6 +2,16 @@ using JasperFx.Events;
 
 namespace LupiraContactApi.Domain;
 
+/// <summary>One contact's membership in a group. <see cref="Role"/> is the title held in an <c>Organization</c>
+/// (null for personal groupings); <see cref="Since"/>/<see cref="Until"/> bound the tenure when known.</summary>
+public sealed class GroupMembership
+{
+    public Guid ContactId { get; set; }
+    public string? Role { get; set; }
+    public DateOnly? Since { get; set; }
+    public DateOnly? Until { get; set; }
+}
+
 /// <summary>
 /// A named collection of contacts in an address book + inline snapshot. <see cref="Kind"/> distinguishes a personal
 /// grouping (Friends/Family/Colleagues) from an <c>Organization</c> (a company — a contact's employer is membership
@@ -15,7 +25,7 @@ public sealed class ContactGroup
     public ContactGroupKind Kind { get; set; }
     public string Name { get; set; } = "";
     public string? ExternalId { get; set; }
-    public List<Guid> MemberContactIds { get; set; } = new();
+    public List<GroupMembership> Members { get; set; } = new();
     public DateTimeOffset? DeletedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -44,13 +54,15 @@ public sealed class ContactGroup
 
     public void Apply(IEvent<ContactAddedToGroup> e)
     {
-        if (!MemberContactIds.Contains(e.Data.ContactId)) MemberContactIds.Add(e.Data.ContactId);
+        var d = e.Data;
+        Members.RemoveAll(m => m.ContactId == d.ContactId);   // upsert on ContactId — re-add updates role/dates
+        Members.Add(new GroupMembership { ContactId = d.ContactId, Role = d.Role, Since = d.Since, Until = d.Until });
         Touch(e);
     }
 
     public void Apply(IEvent<ContactRemovedFromGroup> e)
     {
-        MemberContactIds.Remove(e.Data.ContactId);
+        Members.RemoveAll(m => m.ContactId == e.Data.ContactId);
         Touch(e);
     }
 

@@ -10,4 +10,10 @@ public sealed class AddContactRelationRequest
 
     /// <summary>Free-text refinement of the kind, e.g. "dad".</summary>
     public string? Label { get; set; }
+
+    /// <summary>When the relationship began, if a precise date is known.</summary>
+    public DateOnly? Since { get; set; }
+
+    /// <summary>Free-text note about the edge (how/where it started); fuzzy periods that aren't a precise date go here.</summary>
+    public string? Note { get; set; }
 }

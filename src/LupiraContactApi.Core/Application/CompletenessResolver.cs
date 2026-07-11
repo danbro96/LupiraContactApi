@@ -24,6 +24,6 @@ public sealed class CompletenessResolver(IQuerySession session)
         if (contactIds.Count == 0) return [];
         var idSet = contactIds.ToHashSet();
         var groups = await session.Query<ContactGroup>().Where(g => g.Kind == ContactGroupKind.Organization && g.DeletedAt == null).ToListAsync(ct);
-        return [.. groups.SelectMany(g => g.MemberContactIds).Where(idSet.Contains)];
+        return [.. groups.SelectMany(g => g.Members.Select(m => m.ContactId)).Where(idSet.Contains)];
     }
 }

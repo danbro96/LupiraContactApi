@@ -18,10 +18,12 @@ public static class ContactContent
         Line(sb, "id", externalId);
         Line(sb, "name", f.NamePrefix, f.GivenName, f.MiddleName, f.FamilyName, f.NameSuffix, f.Nickname);
         foreach (var ch in f.Channels ?? []) Line(sb, "channel", ch.Medium.ToString(), ch.Value, ch.Type, ch.Preferred ? "1" : "0");
-        Line(sb, "birthday", Date(f.Birthday));
+        Line(sb, "birthday", f.Birthday?.ToCanonical());
+        Line(sb, "notes", f.Notes);
+        Line(sb, "pronouns", f.Pronouns);
         Line(sb, "deceased", deceased ? "1" : "0", Date(deathDate));
         foreach (var p in profiles) Line(sb, "profile", p.Service, p.Handle, p.Url, p.Preferred ? "1" : "0");
-        foreach (var r in relations) Line(sb, "relation", r.ToContactId.ToString("D"), r.Kind.ToString(), r.Label, r.Ended ? "1" : "0", Date(r.Until));
+        foreach (var r in relations) Line(sb, "relation", r.ToContactId.ToString("D"), r.Kind.ToString(), r.Label, r.Ended ? "1" : "0", Date(r.Until), Date(r.Since), r.Note);
         foreach (var id in emergencyContactIds) Line(sb, "emergency", id.ToString("D"));
         return sb.ToString();
     }

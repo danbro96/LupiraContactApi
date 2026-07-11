@@ -29,8 +29,8 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
     public Task<OpResult<ContactGroupDto>> RenameAsync(Guid principalId, Guid groupId, string name, CancellationToken ct = default) =>
         MutateAsync(principalId, groupId, new ContactGroupRenamed(groupId, name), ct);
 
-    public Task<OpResult<ContactGroupDto>> AddMemberAsync(Guid principalId, Guid groupId, Guid contactId, CancellationToken ct = default) =>
-        MutateAsync(principalId, groupId, new ContactAddedToGroup(groupId, contactId), ct);
+    public Task<OpResult<ContactGroupDto>> AddMemberAsync(Guid principalId, Guid groupId, Guid contactId, string? role = null, DateOnly? since = null, DateOnly? until = null, CancellationToken ct = default) =>
+        MutateAsync(principalId, groupId, new ContactAddedToGroup(groupId, contactId, string.IsNullOrWhiteSpace(role) ? null : role.Trim(), since, until), ct);
 
     public Task<OpResult<ContactGroupDto>> RemoveMemberAsync(Guid principalId, Guid groupId, Guid contactId, CancellationToken ct = default) =>
         MutateAsync(principalId, groupId, new ContactRemovedFromGroup(groupId, contactId), ct);
@@ -69,7 +69,8 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
 
     private static ContactGroupDto ToDto(ContactGroup g) => new()
     {
-        Id = g.Id, AddressBookId = g.AddressBookId, Kind = g.Kind, Name = g.Name, Members = g.MemberContactIds,
+        Id = g.Id, AddressBookId = g.AddressBookId, Kind = g.Kind, Name = g.Name,
+        Members = [.. g.Members.Select(m => new GroupMemberDto { ContactId = m.ContactId, Role = m.Role, Since = m.Since, Until = m.Until })],
         CreatedAt = g.CreatedAt, CreatedBy = g.CreatedBy, UpdatedAt = g.UpdatedAt, UpdatedBy = g.UpdatedBy,
     };
     private static ContactGroupKind ParseKind(string? s) => Enum.TryParse<ContactGroupKind>(s, true, out var v) ? v : ContactGroupKind.Group;

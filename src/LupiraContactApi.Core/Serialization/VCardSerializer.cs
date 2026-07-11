@@ -13,7 +13,7 @@ public static class VCardSerializer
     public static string From(Contact c) =>
         Build(c.ExternalId, ComposeFullName(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname),
             c.GivenName, c.FamilyName, null, c.Channels, c.Birthday, c.Relations,
-            c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate);
+            c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate, c.Notes, c.Pronouns, c.AvatarRef);
 
     /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty.</summary>
     public static string ComposeFullName(string? prefix, string? given, string? middle, string? family, string? suffix, string? nickname)
@@ -24,11 +24,12 @@ public static class VCardSerializer
 
     public static string Build(
         string uid, string fullName, string? given, string? family, string? organization,
-        IReadOnlyList<ContactReachChannel>? channels, DateOnly? birthday,
+        IReadOnlyList<ContactReachChannel>? channels, PartialDate? birthday,
         IReadOnlyList<ContactRelation>? relations = null,
         IReadOnlyList<Guid>? emergencyContacts = null,
         IReadOnlyList<ContactSocialProfile>? profiles = null,
-        bool deceased = false, DateOnly? deathDate = null)
+        bool deceased = false, DateOnly? deathDate = null,
+        string? notes = null, string? pronouns = null, string? avatarRef = null)
     {
         var sb = new StringBuilder();
         sb.Append("BEGIN:VCARD\r\n");
@@ -46,9 +47,13 @@ public static class VCardSerializer
             if (types.Count > 0) sb.Append(";TYPE=").Append(string.Join(',', types));
             sb.Append(':').Append(Escape(ch.Value)).Append("\r\n");
         }
-        if (birthday is { } b) sb.Append("BDAY:").Append(b.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
+        if (birthday is { } b) sb.Append("BDAY:").Append(b.Year is { } by ? $"{by:D4}{b.Month:D2}{b.Day:D2}" : $"--{b.Month:D2}{b.Day:D2}").Append("\r\n");
         if (deathDate is { } dd) sb.Append("X-DEATHDATE:").Append(dd.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
         else if (deceased) sb.Append("X-LUPIRA-DECEASED:1\r\n");
+        if (!string.IsNullOrWhiteSpace(notes)) sb.Append("NOTE:").Append(Escape(notes)).Append("\r\n");
+        if (!string.IsNullOrWhiteSpace(pronouns)) sb.Append("X-PRONOUNS:").Append(Escape(pronouns)).Append("\r\n");
+        if (avatarRef is { Length: > 0 } && avatarRef.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            sb.Append("PHOTO;VALUE=uri:").Append(Escape(avatarRef)).Append("\r\n");   // URLs only — embedded image bytes are not stored
         foreach (var p in profiles ?? [])
         {
             if (!IsSafeParamValue(p.Service)) continue;   // params are never quoted in this writer
@@ -61,6 +66,7 @@ public static class VCardSerializer
             sb.Append("RELATED;TYPE=").Append(r.Kind.ToString().ToLowerInvariant());
             // Params are never quoted in this writer, so a label with param-breaking chars is dropped (survives in the snapshot, lost on this surface only).
             if (r.Label is { Length: > 0 } label && IsSafeParamValue(label)) sb.Append(";X-LUPIRA-LABEL=").Append(label);
+            if (r.Since is { } since) sb.Append(";X-LUPIRA-SINCE=").Append(since.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
             if (r.Until is { } until) sb.Append(";X-LUPIRA-UNTIL=").Append(until.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
             else if (r.Ended) sb.Append(";X-LUPIRA-ENDED=1");
             sb.Append(":urn:uuid:").Append(r.ToContactId.ToString("D")).Append("\r\n");
@@ -75,8 +81,9 @@ public static class VCardSerializer
 
     public static ParsedContact ParseVCard(string raw)
     {
-        string? fn = null, org = null, given = null, family = null;
-        DateOnly? bday = null, deathDate = null;
+        string? fn = null, org = null, given = null, family = null, notes = null, pronouns = null;
+        PartialDate? bday = null;
+        DateOnly? deathDate = null;
         bool? deceased = null;
         var channels = new List<ContactReachChannel>();
         var relations = new List<ContactRelation>();
@@ -102,7 +109,9 @@ public static class VCardSerializer
                     break;
                 case "EMAIL": channels.Add(ParseChannel(ReachMedium.Email, l[..colon], Unescape(val))); break;
                 case "TEL": channels.Add(ParseChannel(ReachMedium.Phone, l[..colon], Unescape(val))); break;
-                case "BDAY": bday = ParseDate(val); break;
+                case "BDAY": bday = PartialDate.Parse(val); break;
+                case "NOTE": notes = Unescape(val) is { Length: > 0 } n ? n : null; break;
+                case "X-PRONOUNS": pronouns = Unescape(val) is { Length: > 0 } pr ? pr : null; break;
                 case "X-DEATHDATE":
                     deceased = true;
                     deathDate = ParseDate(val);   // unparsable date still means deceased
@@ -125,7 +134,7 @@ public static class VCardSerializer
         return new ParsedContact(fn ?? "", given, family, org,
             channels.Count > 0 ? [.. channels] : null, bday,
             relations.Count > 0 ? [.. relations] : null,
-            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate);
+            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns);
     }
 
     // EMAIL/TEL → reach channel: TYPE tokens (comma-joined or repeated params) yield the first non-pref type + a pref flag.
@@ -159,12 +168,14 @@ public static class VCardSerializer
     {
         if (ParseUuidTarget(val) is not { } target) return null;
         var label = p.GetValueOrDefault("X-LUPIRA-LABEL");
+        var since = p.TryGetValue("X-LUPIRA-SINCE", out var s) ? ParseDate(s) : null;
         var until = p.TryGetValue("X-LUPIRA-UNTIL", out var u) ? ParseDate(u) : null;
         return new ContactRelation
         {
             ToContactId = target,
             Kind = ParseRelationKind(p.GetValueOrDefault("TYPE")),
             Label = string.IsNullOrEmpty(label) ? null : label,
+            Since = since,
             Ended = until is not null || p.ContainsKey("X-LUPIRA-ENDED"),
             Until = until,
         };

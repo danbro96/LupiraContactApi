@@ -20,7 +20,7 @@ public record ContactAddressesReplaced(Guid ContactId, IReadOnlyList<ContactPost
 public record ContactProfilesReplaced(Guid ContactId, IReadOnlyList<ContactSocialProfile> Profiles);
 
 /// <summary>Upserts one directed relation edge keyed by (ToContactId, Kind); re-adding revives an ended edge.</summary>
-public record ContactRelationAdded(Guid ContactId, Guid ToContactId, ContactRelationKind Kind, string? Label);
+public record ContactRelationAdded(Guid ContactId, Guid ToContactId, ContactRelationKind Kind, string? Label, DateOnly? Since = null, string? Note = null);
 
 /// <summary>The edge was a mistake and is erased. A relationship that ran its course is <see cref="ContactRelationEnded"/> instead.</summary>
 public record ContactRelationRemoved(Guid ContactId, Guid ToContactId, ContactRelationKind Kind);
@@ -39,3 +39,7 @@ public record ContactMarkedDeceased(Guid ContactId, DateOnly? DeathDate);
 
 /// <summary>Undo of <see cref="ContactMarkedDeceased"/> (recorded in error).</summary>
 public record ContactDeceasedCleared(Guid ContactId);
+
+/// <summary>Sets (or clears, when null) the avatar reference — a URL/media id, never image bytes. Outside the
+/// canonical content like postal addresses, so it does not move the ETag.</summary>
+public record ContactAvatarSet(Guid ContactId, string? Ref);

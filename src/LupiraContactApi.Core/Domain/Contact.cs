@@ -40,8 +40,13 @@ public sealed class Contact
     public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
     public List<ContactReachChannel> Channels { get; set; } = new();
-    public DateOnly? Birthday { get; set; }
+    public PartialDate? Birthday { get; set; }
     public string[]? Tags { get; set; }
+    public string? Notes { get; set; }
+    public string? Pronouns { get; set; }
+
+    /// <summary>A pointer to an avatar image (URL/media id) — never bytes. Outside the canonical content, like <see cref="Addresses"/>.</summary>
+    public string? AvatarRef { get; set; }
 
     public string ContentHash { get; set; } = "";
     public string Metadata { get; set; } = "{}";
@@ -153,11 +158,17 @@ public sealed class Contact
         RecomputeHash();
     }
 
+    public void Apply(IEvent<ContactAvatarSet> e)
+    {
+        AvatarRef = string.IsNullOrWhiteSpace(e.Data.Ref) ? null : e.Data.Ref.Trim();
+        Touch(e);   // avatar is a mutable pointer outside the canonical content — no RecomputeHash, ETag unchanged
+    }
+
     public void Apply(IEvent<ContactRelationAdded> e)
     {
         var d = e.Data;
         Relations.RemoveAll(r => r.ToContactId == d.ToContactId && r.Kind == d.Kind);   // upsert on the natural key; also revives an ended edge
-        Relations.Add(new ContactRelation { ToContactId = d.ToContactId, Kind = d.Kind, Label = d.Label });
+        Relations.Add(new ContactRelation { ToContactId = d.ToContactId, Kind = d.Kind, Label = d.Label, Since = d.Since, Note = d.Note });
         Touch(e);
         RecomputeHash();
     }
@@ -181,7 +192,7 @@ public sealed class Contact
 
     public void Apply(IEvent<ContactRelationsReplaced> e)
     {
-        Relations = e.Data.Relations.Select(r => new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = r.Label, Ended = r.Ended, Until = r.Until }).ToList();
+        Relations = e.Data.Relations.Select(r => new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = r.Label, Since = r.Since, Note = r.Note, Ended = r.Ended, Until = r.Until }).ToList();
         Touch(e);
         RecomputeHash();
     }
@@ -205,7 +216,7 @@ public sealed class Contact
         ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), Relations, EmergencyContactIds, Profiles, Deceased, DeathDate));
 
     private ContactFields Fields() =>
-        new(NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname, Channels, Birthday, Tags);
+        new(NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname, Channels, Birthday, Tags, Notes, Pronouns);
 
     private void SetFields(ContactFields f)
     {
@@ -217,6 +228,8 @@ public sealed class Contact
         Nickname = f.Nickname;
         Channels = f.Channels is null ? [] : [.. f.Channels];   // channels are vCard-authoritative (wholesale, like the old Emails/Phones)
         Birthday = f.Birthday;
+        Notes = f.Notes;
+        Pronouns = f.Pronouns;
         if (f.Tags is not null) Tags = f.Tags;   // tags are Lupira-only (not in the imported card) — preserve when unmentioned
     }
 }

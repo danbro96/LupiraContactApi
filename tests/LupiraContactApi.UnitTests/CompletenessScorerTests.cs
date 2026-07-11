@@ -11,7 +11,7 @@ public class CompletenessScorerTests
         Id = Guid.NewGuid(),
         GivenName = "Jane",
         FamilyName = "Smith",
-        Birthday = new DateOnly(1950, 5, 5),
+        Birthday = new PartialDate(1950, 5, 5),
         Deceased = deceased,
         DeathDate = deathDate,
     };

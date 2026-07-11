@@ -8,7 +8,7 @@ namespace LupiraContactApi.UnitTests;
 public class ContactContentTests
 {
     static readonly ContactFields Fields = new(null, "Jane", null, "Smith", null, null,
-        [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, false)], new DateOnly(1990, 2, 15), null);
+        [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, false)], new PartialDate(1990, 2, 15), null);
 
     static string Canonical(
         ContactFields? f = null,
@@ -37,6 +37,19 @@ public class ContactContentTests
         Assert.NotEqual(baseline, Canonical(profiles: [new ContactSocialProfile { Service = "telegram", Handle = "j" }]));
         Assert.NotEqual(baseline, Canonical(deceased: true));
         Assert.NotEqual(Canonical(deceased: true), Canonical(deceased: true, deathDate: new DateOnly(2020, 1, 1)));
+        Assert.NotEqual(baseline, Canonical(f: Fields with { Notes = "met at KTH" }));
+        Assert.NotEqual(baseline, Canonical(f: Fields with { Pronouns = "they/them" }));
+        Assert.NotEqual(baseline, Canonical(f: Fields with { Birthday = new PartialDate(null, 2, 15) }));   // dropping the year is a real change
+    }
+
+    [Fact]
+    public void Relation_since_and_note_are_content_bearing()
+    {
+        var other = Guid.NewGuid();
+        ContactRelation Edge(DateOnly? since = null, string? note = null) => new() { ToContactId = other, Kind = ContactRelationKind.Friend, Since = since, Note = note };
+        var bare = Canonical(relations: [Edge()]);
+        Assert.NotEqual(bare, Canonical(relations: [Edge(since: new DateOnly(2016, 1, 1))]));
+        Assert.NotEqual(bare, Canonical(relations: [Edge(note: "sailing")]));
     }
 
     [Fact]

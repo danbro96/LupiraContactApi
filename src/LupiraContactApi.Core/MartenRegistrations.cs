@@ -35,6 +35,7 @@ public static class MartenRegistrations
         opts.Events.MapEventType<ContactEmergencyContactsReplaced>("contact_emergency_contacts_replaced");
         opts.Events.MapEventType<ContactMarkedDeceased>("contact_marked_deceased");
         opts.Events.MapEventType<ContactDeceasedCleared>("contact_deceased_cleared");
+        opts.Events.MapEventType<ContactAvatarSet>("contact_avatar_set");
         opts.Events.MapEventType<ContactGroupCreated>("contact_group_created");
         opts.Events.MapEventType<ContactGroupRenamed>("contact_group_renamed");
         opts.Events.MapEventType<ContactAddedToGroup>("contact_added_to_group");

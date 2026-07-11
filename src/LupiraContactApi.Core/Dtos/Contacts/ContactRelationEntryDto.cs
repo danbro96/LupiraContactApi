@@ -15,6 +15,13 @@ public sealed class ContactRelationEntryDto
     public required string DisplayName { get; set; }
     public required ContactRelationKind Kind { get; set; }
     public string? Label { get; set; }
+
+    /// <summary>When the relationship began, on outgoing edges where a precise date is known.</summary>
+    public DateOnly? Since { get; set; }
+
+    /// <summary>Free-text note about the edge, on outgoing edges.</summary>
+    public string? Note { get; set; }
+
     public required ContactRelationDirection Direction { get; set; }
     public RelationProvenance Provenance { get; set; } = RelationProvenance.Explicit;
 

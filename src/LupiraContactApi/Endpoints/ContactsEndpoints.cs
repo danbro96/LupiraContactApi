@@ -81,6 +81,14 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/{id:guid}/avatar", (Guid id, SetContactAvatarRequest body, ContactsHandler h, CancellationToken ct) => h.SetAvatarAsync(id, body, ct))
+            .WithName("SetContactAvatar")
+            .WithSummary("Set (or clear, with an empty value) the contact's avatar — a URL/media id, never image bytes.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapPut("/{id:guid}/addresses", (Guid id, SetContactAddressesRequest body, ContactsHandler h, CancellationToken ct) => h.SetAddressesAsync(id, body, ct))
             .WithName("SetContactAddresses")
             .WithSummary("Replace the contact's postal addresses wholesale; each entry needs a geo place id or a formatted address.")

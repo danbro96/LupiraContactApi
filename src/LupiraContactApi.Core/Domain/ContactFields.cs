@@ -12,5 +12,7 @@ public sealed record ContactFields(
     string? NameSuffix,
     string? Nickname,
     IReadOnlyList<ContactReachChannel>? Channels,
-    DateOnly? Birthday,
-    string[]? Tags);
+    PartialDate? Birthday,
+    string[]? Tags,
+    string? Notes = null,
+    string? Pronouns = null);

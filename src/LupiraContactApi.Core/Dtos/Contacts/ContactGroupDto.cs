@@ -13,7 +13,7 @@ public sealed class ContactGroupDto
     public required ContactGroupKind Kind { get; set; }
 
     public required string Name { get; set; }
-    public required IReadOnlyList<Guid> Members { get; set; }
+    public required IReadOnlyList<GroupMemberDto> Members { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
