@@ -1444,63 +1444,6 @@
         ]
       }
     },
-    "/contacts/relations/normalize": {
-      "post": {
-        "tags": [
-          "Contacts"
-        ],
-        "summary": "One-time, idempotent cleanup: convert explicit Sibling edges whose endpoints have a recorded parent into shared parentage. Scoped to the caller's writable books; returns the number of edges converted.",
-        "operationId": "NormalizeContactSiblings",
-        "parameters": [
-          {
-            "name": "addressBookId",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
     "/contacts/{id}/relations/{toContactId}": {
       "delete": {
         "tags": [
@@ -2019,7 +1962,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/KinshipKind"
+                "$ref": "#/components/schemas/ContactRelationKind"
               }
             ]
           },
@@ -2387,7 +2330,7 @@
             "type": "string"
           },
           "kind": {
-            "$ref": "#/components/schemas/KinshipKind"
+            "$ref": "#/components/schemas/ContactRelationKind"
           },
           "label": {
             "type": [
@@ -2423,7 +2366,12 @@
           "Friend",
           "Colleague",
           "Neighbor",
-          "Other"
+          "Other",
+          "Grandparent",
+          "Grandchild",
+          "AuntUncle",
+          "NieceNephew",
+          "Cousin"
         ]
       },
       "ContactSocialProfile": {
@@ -2587,25 +2535,6 @@
         }
       },
       "JsonNode": { },
-      "KinshipKind": {
-        "enum": [
-          "Parent",
-          "Child",
-          "Sibling",
-          "Spouse",
-          "Partner",
-          "Friend",
-          "Colleague",
-          "Neighbor",
-          "Other",
-          "Grandparent",
-          "Grandchild",
-          "AuntUncle",
-          "NieceNephew",
-          "Cousin",
-          null
-        ]
-      },
       "MeDto": {
         "required": [
           "id",

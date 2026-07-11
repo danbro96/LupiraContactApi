@@ -131,13 +131,6 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPost("/relations/normalize", (Guid? addressBookId, ContactsHandler h, CancellationToken ct) => h.NormalizeSiblingsAsync(addressBookId, ct))
-            .WithName("NormalizeContactSiblings")
-            .WithSummary("One-time, idempotent cleanup: convert explicit Sibling edges whose endpoints have a recorded parent into shared parentage. Scoped to the caller's writable books; returns the number of edges converted.")
-            .Produces<int>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .Produces(StatusCodes.Status401Unauthorized);
-
         group.MapPost("/{id:guid}/relations", (Guid id, AddContactRelationRequest body, ContactsHandler h, CancellationToken ct) => h.AddRelationAsync(id, body, ct))
             .WithName("AddContactRelation")
             .WithSummary("Upsert a relation: 'toContactId is this contact's kind' (re-adding the same target+kind revises the label).")

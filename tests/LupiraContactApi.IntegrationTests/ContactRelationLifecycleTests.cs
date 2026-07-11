@@ -34,7 +34,7 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         await AddRelationAsync(api, focus.Id, parent.Id, ContactRelationKind.Parent);
         await AddRelationAsync(api, sib.Id, parent.Id, ContactRelationKind.Parent);
         var inferred = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{focus.Id}/relations?includeInferred=true");
-        Assert.Contains(inferred!, e => e.ContactId == sib.Id && e.Kind == KinshipKind.Sibling);
+        Assert.Contains(inferred!, e => e.ContactId == sib.Id && e.Kind == ContactRelationKind.Sibling);
 
         var end = await EndRelationAsync(api, focus.Id, parent.Id, ContactRelationKind.Parent, new DateOnly(2024, 6, 1));
         end.EnsureSuccessStatusCode();
@@ -47,7 +47,7 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         // Still listed (flagged), but no longer feeding inference.
         var listed = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{focus.Id}/relations?includeInferred=true");
         Assert.Contains(listed!, e => e.ContactId == parent.Id && e.Ended && e.Until == new DateOnly(2024, 6, 1));
-        Assert.DoesNotContain(listed!, e => e.ContactId == sib.Id && e.Kind == KinshipKind.Sibling);
+        Assert.DoesNotContain(listed!, e => e.ContactId == sib.Id && e.Kind == ContactRelationKind.Sibling);
     }
 
     [Fact]

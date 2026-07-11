@@ -20,9 +20,10 @@ public static class ContactRelationKinds
     {
         ContactRelationKind.Parent => ContactRelationKind.Child,
         ContactRelationKind.Child => ContactRelationKind.Parent,
-        _ => kind,   // remaining kinds are symmetric
+        ContactRelationKind.Grandparent => ContactRelationKind.Grandchild,
+        ContactRelationKind.Grandchild => ContactRelationKind.Grandparent,
+        ContactRelationKind.AuntUncle => ContactRelationKind.NieceNephew,
+        ContactRelationKind.NieceNephew => ContactRelationKind.AuntUncle,
+        _ => kind,   // remaining kinds (incl. Sibling, Cousin) are symmetric
     };
-
-    /// <summary>Widen a stored kind to the read-model <see cref="KinshipKind"/>; the two enums share leading ordinals.</summary>
-    public static KinshipKind AsKinship(this ContactRelationKind kind) => (KinshipKind)(int)kind;
 }

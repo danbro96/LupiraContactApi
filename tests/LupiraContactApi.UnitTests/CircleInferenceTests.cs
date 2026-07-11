@@ -57,10 +57,10 @@ public class CircleInferenceTests
     public void Close_family_holds_spouse_parent_and_inferred_sibling_but_not_the_ex()
     {
         var close = Infer()[CircleKind.CloseFamily].ToDictionary(m => m.ContactId);
-        Assert.Equal(KinshipKind.Spouse, close[S].Kind);
+        Assert.Equal(ContactRelationKind.Spouse, close[S].Kind);
         Assert.Equal(RelationProvenance.Explicit, close[S].Provenance);
-        Assert.Equal(KinshipKind.Parent, close[P].Kind);
-        Assert.Equal(KinshipKind.Sibling, close[B].Kind);
+        Assert.Equal(ContactRelationKind.Parent, close[P].Kind);
+        Assert.Equal(ContactRelationKind.Sibling, close[B].Kind);
         Assert.Equal(RelationProvenance.Inferred, close[B].Provenance);
         Assert.All(close.Values, m => Assert.Equal(1, m.Degree));
         Assert.False(close.ContainsKey(EX));   // ended edges assert no current relationship
@@ -70,7 +70,7 @@ public class CircleInferenceTests
     public void Extended_family_holds_the_grandparent_at_degree_two()
     {
         var extended = Infer()[CircleKind.ExtendedFamily].ToDictionary(m => m.ContactId);
-        Assert.Equal(KinshipKind.Grandparent, extended[G].Kind);
+        Assert.Equal(ContactRelationKind.Grandparent, extended[G].Kind);
         Assert.Equal(2, extended[G].Degree);
         Assert.Equal(RelationProvenance.Inferred, extended[G].Provenance);
     }
@@ -109,6 +109,20 @@ public class CircleInferenceTests
         Assert.Equal(H, member.ContactId);
         Assert.Null(member.Kind);   // co-residency makes no kinship claim
         // W shares F's work place (and even calls it Home on its side) — F's Home set never contained it.
+    }
+
+    [Fact]
+    public void Explicit_grandparent_edge_with_no_chain_lands_in_extended_family()
+    {
+        // The linking parent isn't a contact, so inference can't derive it — the stored edge must still place G.
+        var focus = Guid.NewGuid();
+        var grandpa = Guid.NewGuid();
+        var contacts = new List<Contact> { Person(focus, Edge(grandpa, ContactRelationKind.Grandparent)), Person(grandpa) };
+        var member = Assert.Single(CircleInference.Infer(focus, contacts, []), m => m.Circle == CircleKind.ExtendedFamily);
+        Assert.Equal(grandpa, member.ContactId);
+        Assert.Equal(ContactRelationKind.Grandparent, member.Kind);
+        Assert.Equal(2, member.Degree);
+        Assert.Equal(RelationProvenance.Explicit, member.Provenance);
     }
 
     [Fact]

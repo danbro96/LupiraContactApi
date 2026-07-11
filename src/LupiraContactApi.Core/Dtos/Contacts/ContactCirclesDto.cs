@@ -22,7 +22,7 @@ public sealed class CircleMemberDto
 {
     public required Guid ContactId { get; set; }
     public required string DisplayName { get; set; }
-    public KinshipKind? Kind { get; set; }
+    public ContactRelationKind? Kind { get; set; }
     public required int Degree { get; set; }
     public required RelationProvenance Provenance { get; set; }
 }

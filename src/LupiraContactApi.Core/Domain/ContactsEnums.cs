@@ -10,14 +10,11 @@ public enum ContactGroupKind { Group, Organization }
 [JsonConverter(typeof(JsonStringEnumConverter<ContactAddressType>))]
 public enum ContactAddressType { Home, Work, Other }
 
-/// <summary>Kind of a contact-to-contact edge: the related (To) contact's role relative to the owning contact ("To is my Kind").</summary>
+/// <summary>Kind of a contact-to-contact edge: the related (To) contact's role relative to the owning contact ("To is my Kind").
+/// The extended-family kinds are storable for when the linking relative isn't a contact (a deceased parent, say); the same
+/// kinds are also produced by <see cref="KinshipInference"/> from the parent/child graph, distinguished on read by <see cref="RelationProvenance"/>.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ContactRelationKind>))]
-public enum ContactRelationKind { Parent, Child, Sibling, Spouse, Partner, Friend, Colleague, Neighbor, Other }
-
-/// <summary>Resolved role of a related contact on the read surface: every <see cref="ContactRelationKind"/> plus the
-/// kinships derived from the parent/child graph (never stored — only returned when inferred relations are requested).</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<KinshipKind>))]
-public enum KinshipKind { Parent, Child, Sibling, Spouse, Partner, Friend, Colleague, Neighbor, Other, Grandparent, Grandchild, AuntUncle, NieceNephew, Cousin }
+public enum ContactRelationKind { Parent, Child, Sibling, Spouse, Partner, Friend, Colleague, Neighbor, Other, Grandparent, Grandchild, AuntUncle, NieceNephew, Cousin }
 
 /// <summary>Whether a resolved relation was stored explicitly or derived from the kinship graph.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<RelationProvenance>))]

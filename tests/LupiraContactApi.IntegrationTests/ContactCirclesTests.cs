@@ -56,12 +56,12 @@ public sealed class ContactCirclesTests(ContactApiTestFactory factory) : Integra
         Assert.Equal(5, circles.Circles.Count);
 
         var close = Members(circles, CircleKind.CloseFamily);
-        Assert.Contains(close, m => m.ContactId == spouse.Id && m.Kind == KinshipKind.Spouse && m.Provenance == RelationProvenance.Explicit);
-        Assert.Contains(close, m => m.ContactId == parent.Id && m.Kind == KinshipKind.Parent);
+        Assert.Contains(close, m => m.ContactId == spouse.Id && m.Kind == ContactRelationKind.Spouse && m.Provenance == RelationProvenance.Explicit);
+        Assert.Contains(close, m => m.ContactId == parent.Id && m.Kind == ContactRelationKind.Parent);
 
         var grand = Assert.Single(Members(circles, CircleKind.ExtendedFamily));
         Assert.Equal(grandpa.Id, grand.ContactId);
-        Assert.Equal(KinshipKind.Grandparent, grand.Kind);
+        Assert.Equal(ContactRelationKind.Grandparent, grand.Kind);
         Assert.Equal(2, grand.Degree);
         Assert.Equal(RelationProvenance.Inferred, grand.Provenance);
 

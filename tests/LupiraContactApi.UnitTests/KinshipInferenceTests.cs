@@ -30,17 +30,17 @@ public class KinshipInferenceTests
         Person(C),
     ];
 
-    static Dictionary<Guid, KinshipKind> Infer(Guid focus, IReadOnlyCollection<Contact> contacts) =>
+    static Dictionary<Guid, ContactRelationKind> Infer(Guid focus, IReadOnlyCollection<Contact> contacts) =>
         KinshipInference.Infer(focus, contacts).ToDictionary(k => k.ContactId, k => k.Kind);
 
     [Fact]
     public void Infers_the_two_generation_closure_around_a_child()
     {
         var kin = Infer(A, Family());
-        Assert.Equal(KinshipKind.Sibling, kin[B]);
-        Assert.Equal(KinshipKind.Grandparent, kin[G]);
-        Assert.Equal(KinshipKind.AuntUncle, kin[U]);
-        Assert.Equal(KinshipKind.Cousin, kin[C]);
+        Assert.Equal(ContactRelationKind.Sibling, kin[B]);
+        Assert.Equal(ContactRelationKind.Grandparent, kin[G]);
+        Assert.Equal(ContactRelationKind.AuntUncle, kin[U]);
+        Assert.Equal(ContactRelationKind.Cousin, kin[C]);
         Assert.False(kin.ContainsKey(P));   // P is an explicit parent, surfaced separately
         Assert.False(kin.ContainsKey(A));
     }
@@ -49,9 +49,9 @@ public class KinshipInferenceTests
     public void Infers_grandchildren_from_the_top()
     {
         var kin = Infer(G, Family());
-        Assert.Equal(KinshipKind.Grandchild, kin[A]);
-        Assert.Equal(KinshipKind.Grandchild, kin[B]);
-        Assert.Equal(KinshipKind.Grandchild, kin[C]);
+        Assert.Equal(ContactRelationKind.Grandchild, kin[A]);
+        Assert.Equal(ContactRelationKind.Grandchild, kin[B]);
+        Assert.Equal(ContactRelationKind.Grandchild, kin[C]);
         Assert.False(kin.ContainsKey(P));   // explicit child (incoming Parent edge)
         Assert.False(kin.ContainsKey(U));   // explicit child (outgoing Child edge)
     }
@@ -60,9 +60,9 @@ public class KinshipInferenceTests
     public void Infers_nieces_and_nephews_for_an_uncle()
     {
         var kin = Infer(U, Family());
-        Assert.Equal(KinshipKind.Sibling, kin[P]);       // co-child of G
-        Assert.Equal(KinshipKind.NieceNephew, kin[A]);   // child of sibling P
-        Assert.Equal(KinshipKind.NieceNephew, kin[B]);
+        Assert.Equal(ContactRelationKind.Sibling, kin[P]);       // co-child of G
+        Assert.Equal(ContactRelationKind.NieceNephew, kin[A]);   // child of sibling P
+        Assert.Equal(ContactRelationKind.NieceNephew, kin[B]);
     }
 
     [Fact]
@@ -78,8 +78,8 @@ public class KinshipInferenceTests
             Person(parent, (y, ContactRelationKind.Child)),
             Person(y),
         };
-        Assert.Equal(KinshipKind.Sibling, Infer(x, contacts)[y]);
-        Assert.Equal(KinshipKind.Sibling, Infer(y, contacts)[x]);
+        Assert.Equal(ContactRelationKind.Sibling, Infer(x, contacts)[y]);
+        Assert.Equal(ContactRelationKind.Sibling, Infer(y, contacts)[x]);
     }
 
     [Fact]
@@ -92,20 +92,18 @@ public class KinshipInferenceTests
     }
 
     [Fact]
-    public void Normalize_returns_parents_and_explicit_siblings()
+    public void Explicit_sibling_partner_is_excluded_from_inferred_results()
     {
-        var p1 = Guid.NewGuid();
-        var s1 = Guid.NewGuid();
-        var focus = Guid.NewGuid();
+        // An explicit Sibling edge is surfaced as an explicit relation (ListRelationsAsync), so inference omits it —
+        // that exclusion is what lets explicit edges and shared-parent inference coexist without double-listing.
+        var x = Guid.NewGuid();
+        var y = Guid.NewGuid();
         var contacts = new List<Contact>
         {
-            Person(focus, (p1, ContactRelationKind.Parent), (s1, ContactRelationKind.Sibling)),
-            Person(p1),
-            Person(s1),
+            Person(x, (y, ContactRelationKind.Sibling)),
+            Person(y),
         };
-        var (parents, siblings) = KinshipInference.Normalize(focus, contacts);
-        Assert.Equal([p1], parents);
-        Assert.Equal([s1], siblings);
+        Assert.False(Infer(x, contacts).ContainsKey(y));
     }
 
     [Fact]

@@ -2,7 +2,7 @@ namespace LupiraContactApi.Domain;
 
 /// <summary>A kinship derived from the parent/child graph (never stored). Pure over a supplied set of contacts,
 /// like <see cref="CompletenessScorer"/>; the session-bound loading + access filtering lives in ContactService.</summary>
-public readonly record struct InferredKin(Guid ContactId, KinshipKind Kind);
+public readonly record struct InferredKin(Guid ContactId, ContactRelationKind Kind);
 
 /// <summary>
 /// Derives family relationships from stored <c>Parent</c>/<c>Child</c>/<c>Sibling</c> edges (read from either storage
@@ -22,14 +22,14 @@ public static class KinshipInference
         var children = g.Children(focusId);
 
         // Kinds in precedence order; first assignment for a contact wins.
-        var buckets = new (KinshipKind Kind, IEnumerable<Guid> Ids)[]
+        var buckets = new (ContactRelationKind Kind, IEnumerable<Guid> Ids)[]
         {
-            (KinshipKind.Sibling, g.Siblings(focusId)),
-            (KinshipKind.Grandparent, parents.SelectMany(g.Parents)),
-            (KinshipKind.Grandchild, children.SelectMany(g.Children)),
-            (KinshipKind.AuntUncle, parents.SelectMany(g.Siblings).Except(parents)),
-            (KinshipKind.NieceNephew, g.Siblings(focusId).SelectMany(g.Children)),
-            (KinshipKind.Cousin, parents.SelectMany(g.Siblings).Except(parents).SelectMany(g.Children)),
+            (ContactRelationKind.Sibling, g.Siblings(focusId)),
+            (ContactRelationKind.Grandparent, parents.SelectMany(g.Parents)),
+            (ContactRelationKind.Grandchild, children.SelectMany(g.Children)),
+            (ContactRelationKind.AuntUncle, parents.SelectMany(g.Siblings).Except(parents)),
+            (ContactRelationKind.NieceNephew, g.Siblings(focusId).SelectMany(g.Children)),
+            (ContactRelationKind.Cousin, parents.SelectMany(g.Siblings).Except(parents).SelectMany(g.Children)),
         };
 
         var seen = new HashSet<Guid> { focusId };
@@ -40,14 +40,6 @@ public static class KinshipInference
                 if (g.Known.Contains(id) && seen.Add(id))
                     result.Add(new InferredKin(id, kind));
         return result;
-    }
-
-    /// <summary>The focus's parent ids and explicit-sibling ids — the inputs the sibling invariant needs.</summary>
-    public static (IReadOnlyCollection<Guid> Parents, IReadOnlyCollection<Guid> ExplicitSiblings) Normalize(
-        Guid focusId, IReadOnlyCollection<Contact> contacts)
-    {
-        var g = new Graph(contacts);
-        return (g.Parents(focusId), g.ExplicitSiblings(focusId));
     }
 
     /// <summary>True when recording <paramref name="parentId"/> as a parent of <paramref name="childId"/> would make
@@ -94,7 +86,6 @@ public static class KinshipInference
 
         public IReadOnlyCollection<Guid> Parents(Guid x) => Get(_parents, x);
         public IReadOnlyCollection<Guid> Children(Guid x) => Get(_children, x);
-        public IReadOnlyCollection<Guid> ExplicitSiblings(Guid x) => Get(_siblings, x);
 
         // Co-children of x's parents (minus x) plus any explicit sibling edges.
         public IReadOnlyCollection<Guid> Siblings(Guid x)

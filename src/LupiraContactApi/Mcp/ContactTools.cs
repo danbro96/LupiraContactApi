@@ -38,7 +38,7 @@ public sealed class ContactTools
         ContactService contacts, CurrentUser user,
         [Description("The contact the relation is stored on.")] Guid contactId,
         [Description("The related contact.")] Guid toContactId,
-        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.")] string kind,
+        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind,
         [Description("Optional free-text refinement, e.g. 'dad'.")] string? label = null)
     {
         var u = await user.GetAsync();
@@ -50,7 +50,7 @@ public sealed class ContactTools
         ContactService contacts, CurrentUser user,
         [Description("The contact the relation is stored on.")] Guid contactId,
         [Description("The related contact.")] Guid toContactId,
-        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.")] string kind,
+        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind,
         [Description("When the relationship ended (optional).")] DateOnly? until = null)
     {
         var u = await user.GetAsync();
@@ -62,7 +62,7 @@ public sealed class ContactTools
         ContactService contacts, CurrentUser user,
         [Description("The contact the relation is stored on.")] Guid contactId,
         [Description("The related contact.")] Guid toContactId,
-        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.")] string kind)
+        [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind)
     {
         var u = await user.GetAsync();
         return Require(await contacts.RemoveRelationAsync(u.Id, contactId, toContactId, ParseRelationKind(kind)));
@@ -149,7 +149,7 @@ public sealed class ContactTools
     // Strict: a silently-defaulted kind would corrupt the edge.
     private static ContactRelationKind ParseRelationKind(string kind) =>
         Enum.TryParse<ContactRelationKind>(kind, true, out var k) ? k
-            : throw new McpException($"Unknown kind '{kind}'. Use parent|child|sibling|spouse|partner|friend|colleague|neighbor|other.");
+            : throw new McpException($"Unknown kind '{kind}'. Use parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.");
 
     [McpServerTool, Description("List the address books the caller can access.")]
     public static async Task<IReadOnlyList<AddressBookDto>> list_address_books(AddressBookService books, CurrentUser user)

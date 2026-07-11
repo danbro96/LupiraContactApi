@@ -45,12 +45,6 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkNotFoundProblem(await contacts.ListRelationsAsync(u.Id, id, includeInferred, ct));
     }
 
-    public async Task<Results<Ok<int>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> NormalizeSiblingsAsync(Guid? addressBookId, CancellationToken ct)
-    {
-        var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.NormalizeSiblingsAsync(u.Id, addressBookId, ct));
-    }
-
     public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AddRelationAsync(Guid id, AddContactRelationRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);

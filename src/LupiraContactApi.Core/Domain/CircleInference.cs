@@ -3,7 +3,7 @@ namespace LupiraContactApi.Domain;
 /// <summary>One computed circle membership around a focus contact. <c>Degree</c> is a pragmatic closeness bucket
 /// (1 = immediate, 2 = two-generation kin, 3 = cousin) — not consanguinity. <c>Kind</c> is null when the membership
 /// makes no kinship claim (household co-residency).</summary>
-public readonly record struct CircleMembership(CircleKind Circle, Guid ContactId, KinshipKind? Kind, int Degree, RelationProvenance Provenance);
+public readonly record struct CircleMembership(CircleKind Circle, Guid ContactId, ContactRelationKind? Kind, int Degree, RelationProvenance Provenance);
 
 /// <summary>Derives social circles around a focus contact from relation edges, the kinship graph, shared organization
 /// membership, and shared home places. Pure over supplied data like <see cref="KinshipInference"/>; computed on read,
@@ -18,7 +18,7 @@ public static class CircleInference
 
         var result = new List<CircleMembership>();
         var perCircle = new Dictionary<CircleKind, HashSet<Guid>>();
-        void Add(CircleKind circle, Guid id, KinshipKind? kind, int degree, RelationProvenance provenance)
+        void Add(CircleKind circle, Guid id, ContactRelationKind? kind, int degree, RelationProvenance provenance)
         {
             if (id == focusId || !known.Contains(id)) return;
             if (!perCircle.TryGetValue(circle, out var seen)) perCircle[circle] = seen = [];
@@ -26,6 +26,8 @@ public static class CircleInference
         }
 
         // Explicit live edges, both directions, resolved to the other contact's role relative to the focus.
+        // Extended kinds land here too when stored explicitly (linking relative not a contact); CircleOf keeps
+        // them consistent with the inferred ones, and per-circle dedup lets an explicit membership win.
         foreach (var c in contacts)
             foreach (var r in c.Relations.Where(r => !r.Ended))
             {
@@ -35,34 +37,17 @@ public static class CircleInference
                 else if (r.ToContactId == focusId) { other = c.Id; kind = r.Kind.Inverse(); }
                 else continue;
 
-                CircleKind? circle = kind switch
-                {
-                    ContactRelationKind.Spouse or ContactRelationKind.Partner or ContactRelationKind.Parent
-                        or ContactRelationKind.Child or ContactRelationKind.Sibling => CircleKind.CloseFamily,
-                    ContactRelationKind.Friend => CircleKind.Friends,
-                    ContactRelationKind.Colleague => CircleKind.Colleagues,
-                    _ => null,
-                };
-                if (circle is { } ck) Add(ck, other, kind.AsKinship(), 1, RelationProvenance.Explicit);
+                if (CircleOf(kind) is ({ } ck, var degree)) Add(ck, other, kind, degree, RelationProvenance.Explicit);
             }
 
         // Kinship graph: inferred siblings are close family; two-generation kin and cousins are extended.
         foreach (var kin in KinshipInference.Infer(focusId, contacts))
-        {
-            (CircleKind? circle, var degree) = kin.Kind switch
-            {
-                KinshipKind.Sibling => (CircleKind.CloseFamily, 1),
-                KinshipKind.Grandparent or KinshipKind.Grandchild or KinshipKind.AuntUncle or KinshipKind.NieceNephew => (CircleKind.ExtendedFamily, 2),
-                KinshipKind.Cousin => (CircleKind.ExtendedFamily, 3),
-                _ => ((CircleKind?)null, 0),
-            };
-            if (circle is { } ck) Add(ck, kin.ContactId, kin.Kind, degree, RelationProvenance.Inferred);
-        }
+            if (CircleOf(kin.Kind) is ({ } ck, var degree)) Add(ck, kin.ContactId, kin.Kind, degree, RelationProvenance.Inferred);
 
         // Shared employer: co-members of a live Organization-kind group.
         foreach (var org in organizations.Where(g => g.Kind == ContactGroupKind.Organization && g.DeletedAt is null && g.MemberContactIds.Contains(focusId)))
             foreach (var member in org.MemberContactIds)
-                Add(CircleKind.Colleagues, member, KinshipKind.Colleague, 1, RelationProvenance.Inferred);
+                Add(CircleKind.Colleagues, member, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
 
         // Household: a shared geo place on a Home address (formatted-address-only entries never match by design).
         var focus = contacts.First(c => c.Id == focusId);
@@ -75,4 +60,18 @@ public static class CircleInference
 
         return result;
     }
+
+    // The circle + closeness degree a relation kind maps to (relative to the focus); null = no circle.
+    // Shared by the explicit-edge and inferred passes so both representations of a kind land identically.
+    private static (CircleKind? Circle, int Degree) CircleOf(ContactRelationKind kind) => kind switch
+    {
+        ContactRelationKind.Spouse or ContactRelationKind.Partner or ContactRelationKind.Parent
+            or ContactRelationKind.Child or ContactRelationKind.Sibling => (CircleKind.CloseFamily, 1),
+        ContactRelationKind.Grandparent or ContactRelationKind.Grandchild
+            or ContactRelationKind.AuntUncle or ContactRelationKind.NieceNephew => (CircleKind.ExtendedFamily, 2),
+        ContactRelationKind.Cousin => (CircleKind.ExtendedFamily, 3),
+        ContactRelationKind.Friend => (CircleKind.Friends, 1),
+        ContactRelationKind.Colleague => (CircleKind.Colleagues, 1),
+        _ => (null, 0),
+    };
 }

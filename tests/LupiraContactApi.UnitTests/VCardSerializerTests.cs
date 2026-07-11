@@ -133,6 +133,19 @@ public class VCardSerializerTests
         Assert.Equal(expected, Assert.Single(p.Relations!).Kind);
     }
 
+    [Theory]
+    [InlineData(ContactRelationKind.Grandparent)]
+    [InlineData(ContactRelationKind.AuntUncle)]
+    [InlineData(ContactRelationKind.NieceNephew)]
+    [InlineData(ContactRelationKind.Cousin)]
+    public void Extended_kinds_round_trip_through_related_type(ContactRelationKind kind)
+    {
+        var target = Guid.NewGuid();
+        var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null, null,
+            [new ContactRelation { ToContactId = target, Kind = kind }]);
+        Assert.Equal(kind, Assert.Single(VCardSerializer.ParseVCard(vcf).Relations!).Kind);
+    }
+
     [Fact]
     public void Related_without_type_defaults_to_other()
     {

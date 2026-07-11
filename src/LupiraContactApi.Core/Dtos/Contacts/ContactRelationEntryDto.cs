@@ -13,7 +13,7 @@ public sealed class ContactRelationEntryDto
 {
     public required Guid ContactId { get; set; }
     public required string DisplayName { get; set; }
-    public required KinshipKind Kind { get; set; }
+    public required ContactRelationKind Kind { get; set; }
     public string? Label { get; set; }
     public required ContactRelationDirection Direction { get; set; }
     public RelationProvenance Provenance { get; set; } = RelationProvenance.Explicit;
