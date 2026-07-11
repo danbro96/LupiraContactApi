@@ -7,5 +7,5 @@ namespace LupiraContactApi.Serialization;
 /// the existing value then, instead of clearing it.</summary>
 public sealed record ParsedContact(
     string FullName, string? GivenName, string? FamilyName, string? Organization,
-    string[]? Emails, string[]? Phones, DateOnly? Birthday, ContactRelation[]? Relations,
+    ContactReachChannel[]? Channels, DateOnly? Birthday, ContactRelation[]? Relations,
     Guid[]? EmergencyContactIds, ContactSocialProfile[]? Profiles, bool? Deceased, DateOnly? DeathDate);

@@ -1121,13 +1121,13 @@
         ]
       }
     },
-    "/contacts/{id}/emails": {
+    "/contacts/{id}/channels": {
       "put": {
         "tags": [
           "Contacts"
         ],
-        "summary": "Replace the contact's email addresses wholesale (empty clears). Unlike the merge update, this can remove an address; entries are trimmed and de-duplicated case-insensitively.",
-        "operationId": "SetContactEmails",
+        "summary": "Replace the contact's reach channels (emails + phones) wholesale (empty clears). Unlike the merge update, this can remove a channel; values are trimmed, type tokens lowercased, duplicates dropped, at most one preferred per medium.",
+        "operationId": "SetContactChannels",
         "parameters": [
           {
             "name": "id",
@@ -1143,7 +1143,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetContactEmailsRequest"
+                "$ref": "#/components/schemas/SetContactChannelsRequest"
               }
             }
           },
@@ -1163,8 +1163,8 @@
           "404": {
             "description": "Not Found"
           },
-          "403": {
-            "description": "Forbidden",
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1172,59 +1172,6 @@
                 }
               }
             }
-          },
-          "401": {
-            "description": "Unauthorized"
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
-    "/contacts/{id}/phones": {
-      "put": {
-        "tags": [
-          "Contacts"
-        ],
-        "summary": "Replace the contact's phone numbers wholesale (empty clears). Unlike the merge update, this can remove a number; entries are trimmed and de-duplicated case-insensitively.",
-        "operationId": "SetContactPhones",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetContactPhonesRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContactDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found"
           },
           "403": {
             "description": "Forbidden",
@@ -2085,6 +2032,7 @@
           "addressBookId",
           "externalId",
           "displayName",
+          "channels",
           "addresses",
           "profiles",
           "emergencyContactIds",
@@ -2125,22 +2073,10 @@
               "string"
             ]
           },
-          "emails": {
-            "type": [
-              "null",
-              "array"
-            ],
+          "channels": {
+            "type": "array",
             "items": {
-              "type": "string"
-            }
-          },
-          "phones": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactReachChannel"
             }
           },
           "birthday": {
@@ -2214,6 +2150,26 @@
               }
             ]
           },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "etag": {
             "type": "string"
           }
@@ -2249,6 +2205,26 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2276,6 +2252,32 @@
           },
           "type": {
             "$ref": "#/components/schemas/ContactAddressType"
+          }
+        }
+      },
+      "ContactReachChannel": {
+        "required": [
+          "medium",
+          "value",
+          "type",
+          "preferred"
+        ],
+        "type": "object",
+        "properties": {
+          "medium": {
+            "$ref": "#/components/schemas/ReachMedium"
+          },
+          "value": {
+            "type": "string"
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferred": {
+            "type": "boolean"
           }
         }
       },
@@ -2457,22 +2459,13 @@
               "string"
             ]
           },
-          "emails": {
+          "channels": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "type": "string"
-            }
-          },
-          "phones": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactReachChannel"
             }
           },
           "birthday": {
@@ -2627,6 +2620,12 @@
           }
         }
       },
+      "ReachMedium": {
+        "enum": [
+          "Email",
+          "Phone"
+        ]
+      },
       "RelationProvenance": {
         "enum": [
           "Explicit",
@@ -2672,22 +2671,13 @@
               "string"
             ]
           },
-          "emails": {
+          "channels": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "type": "string"
-            }
-          },
-          "phones": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactReachChannel"
             }
           },
           "birthday": {
@@ -2722,30 +2712,16 @@
           }
         }
       },
-      "SetContactEmailsRequest": {
+      "SetContactChannelsRequest": {
         "required": [
-          "emails"
+          "channels"
         ],
         "type": "object",
         "properties": {
-          "emails": {
+          "channels": {
             "type": "array",
             "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "SetContactPhonesRequest": {
-        "required": [
-          "phones"
-        ],
-        "type": "object",
-        "properties": {
-          "phones": {
-            "type": "array",
-            "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactReachChannel"
             }
           }
         }

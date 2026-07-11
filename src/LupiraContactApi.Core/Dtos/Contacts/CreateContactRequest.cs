@@ -1,3 +1,5 @@
+using LupiraContactApi.Domain;
+
 namespace LupiraContactApi.Dtos.Contacts;
 
 /// <summary>Create a contact via REST/MCP. No <c>FullName</c> — the display name is composed from the structured parts.
@@ -11,8 +13,7 @@ public sealed class CreateContactRequest
     public string? FamilyName { get; set; }
     public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
-    public string[]? Emails { get; set; }
-    public string[]? Phones { get; set; }
+    public List<ContactReachChannel>? Channels { get; set; }
     public DateOnly? Birthday { get; set; }
     public string[]? Tags { get; set; }
 }

@@ -7,7 +7,8 @@ namespace LupiraContactApi.UnitTests;
 /// dimension (including order), and deliberately blind to addresses.</summary>
 public class ContactContentTests
 {
-    static readonly ContactFields Fields = new(null, "Jane", null, "Smith", null, null, ["j@x.com"], ["+46123"], new DateOnly(1990, 2, 15), null);
+    static readonly ContactFields Fields = new(null, "Jane", null, "Smith", null, null,
+        [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, false)], new DateOnly(1990, 2, 15), null);
 
     static string Canonical(
         ContactFields? f = null,
@@ -28,7 +29,9 @@ public class ContactContentTests
         var other = Guid.NewGuid();
 
         Assert.NotEqual(baseline, Canonical(f: Fields with { GivenName = "Janet" }));
-        Assert.NotEqual(baseline, Canonical(f: Fields with { Emails = ["j@x.com", "extra@x.com"] }));
+        Assert.NotEqual(baseline, Canonical(f: Fields with { Channels = [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, false), new ContactReachChannel(ReachMedium.Email, "extra@x.com", null, false)] }));
+        Assert.NotEqual(baseline, Canonical(f: Fields with { Channels = [new ContactReachChannel(ReachMedium.Email, "j@x.com", "work", false)] }));   // type is content-bearing
+        Assert.NotEqual(baseline, Canonical(f: Fields with { Channels = [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, true)] }));     // preferred is content-bearing
         Assert.NotEqual(baseline, Canonical(relations: [new ContactRelation { ToContactId = other, Kind = ContactRelationKind.Friend }]));
         Assert.NotEqual(baseline, Canonical(emergency: [other]));
         Assert.NotEqual(baseline, Canonical(profiles: [new ContactSocialProfile { Service = "telegram", Handle = "j" }]));

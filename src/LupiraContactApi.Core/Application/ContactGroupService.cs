@@ -11,6 +11,7 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
     public async Task<OpResult<ContactGroupDto>> CreateAsync(Guid principalId, Guid addressBookId, string? kind, string name, CancellationToken ct = default)
     {
         if (!await access.CanWriteAddressBookAsync(principalId, addressBookId, ct)) return OpResult<ContactGroupDto>.Forbidden("No write access to this address book.");
+        Stamp(principalId);
         var id = Guid.NewGuid();
         session.Events.StartStream<ContactGroup>(id, new ContactGroupCreated(id, addressBookId, ParseKind(kind), name, null));
         await session.SaveChangesAsync(ct);
@@ -29,10 +30,10 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
         MutateAsync(principalId, groupId, new ContactGroupRenamed(groupId, name), ct);
 
     public Task<OpResult<ContactGroupDto>> AddMemberAsync(Guid principalId, Guid groupId, Guid contactId, CancellationToken ct = default) =>
-        MutateAsync(principalId, groupId, new ContactAddedToGroup(groupId, contactId, DateTimeOffset.UtcNow), ct);
+        MutateAsync(principalId, groupId, new ContactAddedToGroup(groupId, contactId), ct);
 
     public Task<OpResult<ContactGroupDto>> RemoveMemberAsync(Guid principalId, Guid groupId, Guid contactId, CancellationToken ct = default) =>
-        MutateAsync(principalId, groupId, new ContactRemovedFromGroup(groupId, contactId, DateTimeOffset.UtcNow), ct);
+        MutateAsync(principalId, groupId, new ContactRemovedFromGroup(groupId, contactId), ct);
 
     public async Task<OpResult> DeleteAsync(Guid principalId, Guid groupId, CancellationToken ct = default)
     {
@@ -40,9 +41,17 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
         var g = stream.Aggregate;
         if (g is null || g.DeletedAt is not null) return OpResult.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, g.AddressBookId, ct)) return OpResult.Forbidden("No write access to this group.");
-        stream.AppendOne(new ContactGroupDeleted(groupId, DateTimeOffset.UtcNow));
+        Stamp(principalId);
+        stream.AppendOne(new ContactGroupDeleted(groupId));
         await session.SaveChangesAsync(ct);
         return OpResult.Ok();
+    }
+
+    // Stamp the acting principal + trace correlation onto every event in this unit of work (before SaveChangesAsync).
+    private void Stamp(Guid principalId)
+    {
+        session.SetHeader(EventActor.HeaderKey, principalId.ToString());
+        if (System.Diagnostics.Activity.Current?.TraceId is { } t) session.CorrelationId = t.ToString();
     }
 
     private async Task<OpResult<ContactGroupDto>> MutateAsync(Guid principalId, Guid groupId, object @event, CancellationToken ct)
@@ -51,12 +60,17 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
         var g = stream.Aggregate;
         if (g is null || g.DeletedAt is not null) return OpResult<ContactGroupDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, g.AddressBookId, ct)) return OpResult<ContactGroupDto>.Forbidden("No write access to this group.");
+        Stamp(principalId);
         stream.AppendOne(@event);
         await session.SaveChangesAsync(ct);
         var updated = await session.LoadAsync<ContactGroup>(groupId, ct);
         return OpResult<ContactGroupDto>.Ok(ToDto(updated!));
     }
 
-    private static ContactGroupDto ToDto(ContactGroup g) => new() { Id = g.Id, AddressBookId = g.AddressBookId, Kind = g.Kind, Name = g.Name, Members = g.MemberContactIds };
+    private static ContactGroupDto ToDto(ContactGroup g) => new()
+    {
+        Id = g.Id, AddressBookId = g.AddressBookId, Kind = g.Kind, Name = g.Name, Members = g.MemberContactIds,
+        CreatedAt = g.CreatedAt, CreatedBy = g.CreatedBy, UpdatedAt = g.UpdatedAt, UpdatedBy = g.UpdatedBy,
+    };
     private static ContactGroupKind ParseKind(string? s) => Enum.TryParse<ContactGroupKind>(s, true, out var v) ? v : ContactGroupKind.Group;
 }

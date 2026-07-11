@@ -5,13 +5,41 @@ using Weasel.Core;
 namespace LupiraContactApi.Domain;
 
 /// <summary>Configures the single Marten store for the Contact API: event-sourced aggregates (inline snapshots)
-/// + plain documents, in the <c>contact</c> schema. Enums serialize as strings.</summary>
+/// + plain documents, in the <c>contact</c> schema. Enums serialize as strings. Every event has a stable, explicit
+/// type name so the CLR types can be renamed freely; shape changes after go-live register an upcaster (see
+/// <c>Domain/Events/Upcasters</c>) rather than mutating a record in place.</summary>
 public static class MartenRegistrations
 {
     public static StoreOptions UseLupiraContact(this StoreOptions opts)
     {
         opts.DatabaseSchemaName = "contact";
         opts.UseSystemTextJsonForSerialization(EnumStorage.AsString);
+
+        // Capture provenance on every event — actor (header) + correlation/causation. Unbackfillable, so on from day one.
+        opts.Events.MetadataConfig.HeadersEnabled = true;
+        opts.Events.MetadataConfig.CorrelationIdEnabled = true;
+        opts.Events.MetadataConfig.CausationIdEnabled = true;
+
+        // Stable event type names (persisted as mt_events.type), decoupled from the CLR type name.
+        opts.Events.MapEventType<ContactCreated>("contact_created");
+        opts.Events.MapEventType<ContactImported>("contact_imported");
+        opts.Events.MapEventType<ContactRevised>("contact_revised");
+        opts.Events.MapEventType<ContactDeleted>("contact_deleted");
+        opts.Events.MapEventType<ContactRestored>("contact_restored");
+        opts.Events.MapEventType<ContactAddressesReplaced>("contact_addresses_replaced");
+        opts.Events.MapEventType<ContactProfilesReplaced>("contact_profiles_replaced");
+        opts.Events.MapEventType<ContactRelationAdded>("contact_relation_added");
+        opts.Events.MapEventType<ContactRelationRemoved>("contact_relation_removed");
+        opts.Events.MapEventType<ContactRelationEnded>("contact_relation_ended");
+        opts.Events.MapEventType<ContactRelationsReplaced>("contact_relations_replaced");
+        opts.Events.MapEventType<ContactEmergencyContactsReplaced>("contact_emergency_contacts_replaced");
+        opts.Events.MapEventType<ContactMarkedDeceased>("contact_marked_deceased");
+        opts.Events.MapEventType<ContactDeceasedCleared>("contact_deceased_cleared");
+        opts.Events.MapEventType<ContactGroupCreated>("contact_group_created");
+        opts.Events.MapEventType<ContactGroupRenamed>("contact_group_renamed");
+        opts.Events.MapEventType<ContactAddedToGroup>("contact_added_to_group");
+        opts.Events.MapEventType<ContactRemovedFromGroup>("contact_removed_from_group");
+        opts.Events.MapEventType<ContactGroupDeleted>("contact_group_deleted");
 
         // Event-sourced aggregates (resource read models) — inline for read-your-write.
         opts.Projections.Snapshot<Contact>(SnapshotLifecycle.Inline);

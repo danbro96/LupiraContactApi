@@ -1,3 +1,4 @@
+using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.AddressBooks;
 using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Dtos.Me;
@@ -35,7 +36,7 @@ public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLif
 
     protected static async Task<ContactDto> CreateContactAsync(HttpClient api, Guid addressBookId, string given = "Jane", string family = "Doe", string? email = null)
     {
-        var req = new CreateContactRequest { AddressBookId = addressBookId, GivenName = given, FamilyName = family, Emails = email is null ? null : [email] };
+        var req = new CreateContactRequest { AddressBookId = addressBookId, GivenName = given, FamilyName = family, Channels = email is null ? null : [new ContactReachChannel(ReachMedium.Email, email, null, false)] };
         var resp = await api.PostAsJsonAsync("/contacts", req);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;

@@ -60,6 +60,5 @@ public static class CompletenessScorer
         !string.IsNullOrWhiteSpace(c.GivenName) || !string.IsNullOrWhiteSpace(c.FamilyName) || !string.IsNullOrWhiteSpace(c.Nickname) ? 1 : 0;
 
     private static bool AnyReach(Contact c) => ReachCount(c) >= 1;
-    private static int ReachCount(Contact c) =>
-        (c.Emails?.Length ?? 0) + (c.Phones?.Length ?? 0) + c.Profiles.Count;
+    private static int ReachCount(Contact c) => c.Channels.Count + c.Profiles.Count;
 }

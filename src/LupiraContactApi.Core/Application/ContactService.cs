@@ -14,12 +14,15 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     {
         if (!await access.CanWriteAddressBookAsync(principalId, r.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this address book.");
 
+        var channels = ReachChannelNormalizer.Normalize(r.Channels ?? []);
+        if (ReachChannelNormalizer.HasPreferredConflict(channels)) return OpResult<ContactDto>.Invalid("At most one preferred channel per medium.");
+        Stamp(principalId);
+
         var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
         var id = DeterministicGuid.From(uid);
-        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, r.Emails, r.Phones, r.Birthday, r.Tags);
-        var hash = ContentHash.Of(ContactContent.Canonical(uid, fields, [], [], [], false, null));
+        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, channels, r.Birthday, r.Tags);
 
-        session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields, hash));
+        session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
         await session.SaveChangesAsync(ct);
         var c = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(c!, ct));
@@ -62,6 +65,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
+        Stamp(principalId);
 
         var merged = new ContactFields(
             r.NamePrefix ?? c.NamePrefix,
@@ -70,13 +74,11 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             r.FamilyName ?? c.FamilyName,
             r.NameSuffix ?? c.NameSuffix,
             r.Nickname ?? c.Nickname,
-            MergeDistinct(c.Emails, r.Emails),
-            MergeDistinct(c.Phones, r.Phones),
+            MergeChannels(c.Channels, r.Channels),
             r.Birthday ?? c.Birthday,
             MergeDistinct(c.Tags, r.Tags));
-        var hash = HashOf(c, fields: merged);
 
-        stream.AppendOne(new ContactRevised(id, merged, hash));
+        stream.AppendOne(new ContactRevised(id, merged));
         await session.SaveChangesAsync(ct);
         var updated = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(updated!, ct));
@@ -91,14 +93,41 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return [.. existing.Concat(incoming).Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
-    // ---- Multi-value replace (emails / phones / tags — the removable counterpart to ReviseContact's union-merge) ----
-    // These carry the whole resulting field set, so they reuse ContactRevised (whose Apply sets fields wholesale).
+    // Union incoming channels onto existing (enrichment — never clears): dedupe by (medium, value); a new value keeps
+    // its preferred flag only if that medium has no preferred yet, so the merge can't create a preferred conflict.
+    private static IReadOnlyList<ContactReachChannel> MergeChannels(IReadOnlyList<ContactReachChannel> existing, IReadOnlyList<ContactReachChannel>? incoming)
+    {
+        var inc = ReachChannelNormalizer.Normalize(incoming ?? []);
+        if (inc.Count == 0) return existing;
+        var result = existing.ToList();
+        var have = result.Select(c => (c.Medium, V: c.Value.ToLowerInvariant())).ToHashSet();
+        var preferredMedia = result.Where(c => c.Preferred).Select(c => c.Medium).ToHashSet();
+        foreach (var ch in inc)
+        {
+            if (!have.Add((ch.Medium, ch.Value.ToLowerInvariant()))) continue;   // value already present — keep existing entry
+            result.Add(ch with { Preferred = ch.Preferred && preferredMedia.Add(ch.Medium) });
+        }
+        return result;
+    }
 
-    public Task<OpResult<ContactDto>> SetEmailsAsync(Guid principalId, Guid id, string[] emails, CancellationToken ct = default) =>
-        ReplaceMultiAsync(principalId, id, emails, c => c.Emails, (c, next) => FieldsOf(c) with { Emails = next }, ct);
+    // ---- Reach channels (emails + phones) + tags — the removable, wholesale counterpart to ReviseContact's union-merge ----
 
-    public Task<OpResult<ContactDto>> SetPhonesAsync(Guid principalId, Guid id, string[] phones, CancellationToken ct = default) =>
-        ReplaceMultiAsync(principalId, id, phones, c => c.Phones, (c, next) => FieldsOf(c) with { Phones = next }, ct);
+    public async Task<OpResult<ContactDto>> SetChannelsAsync(Guid principalId, Guid id, IReadOnlyList<ContactReachChannel> channels, CancellationToken ct = default)
+    {
+        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
+        var c = stream.Aggregate;
+        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
+        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
+
+        var next = ReachChannelNormalizer.Normalize(channels);
+        if (ReachChannelNormalizer.HasPreferredConflict(next)) return OpResult<ContactDto>.Invalid("At most one preferred channel per medium.");
+        if (ChannelsEqual(c.Channels, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
+
+        stream.AppendOne(new ContactRevised(id, FieldsOf(c) with { Channels = next }));
+        await session.SaveChangesAsync(ct);
+        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+    }
 
     public Task<OpResult<ContactDto>> SetTagsAsync(Guid principalId, Guid id, string[] tags, CancellationToken ct = default) =>
         ReplaceMultiAsync(principalId, id, tags, c => c.Tags, (c, next) => FieldsOf(c) with { Tags = next }, ct);
@@ -113,9 +142,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var next = NormalizeMulti(incoming);
         if (NormalizeMulti(current(c)).SequenceEqual(next, StringComparer.Ordinal)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // no event, no ETag churn
+        Stamp(principalId);
 
         var merged = apply(c, next);
-        stream.AppendOne(new ContactRevised(id, merged, HashOf(c, fields: merged)));
+        stream.AppendOne(new ContactRevised(id, merged));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -130,7 +160,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult.Forbidden("No write access to this contact.");
-        stream.AppendOne(new ContactDeleted(id, DateTimeOffset.UtcNow));
+        Stamp(principalId);
+        stream.AppendOne(new ContactDeleted(id));
         await session.SaveChangesAsync(ct);
         return OpResult.Ok();
     }
@@ -144,8 +175,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
         if (c.Deceased && c.DeathDate == deathDate) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // no event, no ETag churn
+        Stamp(principalId);
 
-        stream.AppendOne(new ContactMarkedDeceased(id, deathDate, HashOf(c, deceased: true, deathDate: deathDate)));
+        stream.AppendOne(new ContactMarkedDeceased(id, deathDate));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -157,8 +189,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
         if (!c.Deceased) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
 
-        stream.AppendOne(new ContactDeceasedCleared(id, HashOf(c, deceased: false, deathDate: null)));
+        stream.AppendOne(new ContactDeceasedCleared(id));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -177,8 +210,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var next = normalized.DistinctBy(p => (p.Service, Handle: p.Handle.ToLowerInvariant())).ToList();
         if (next.GroupBy(p => p.Service).Any(g => g.Count(p => p.Preferred) > 1)) return OpResult<ContactDto>.Invalid("At most one preferred handle per service.");
         if (ProfilesEqual(c.Profiles, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
 
-        stream.AppendOne(new ContactProfilesReplaced(id, next, HashOf(c, profiles: next)));
+        stream.AppendOne(new ContactProfilesReplaced(id, next));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -193,8 +227,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, FormattedAddress = string.IsNullOrWhiteSpace(a.FormattedAddress) ? null : a.FormattedAddress.Trim(), Type = a.Type }).ToList();
         if (next.Any(a => a.PlaceId is null && a.FormattedAddress is null)) return OpResult<ContactDto>.Invalid("Each address needs a place id or a formatted address.");
         if (AddressesEqual(c.Addresses, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
 
-        stream.AppendOne(new ContactAddressesReplaced(id, next));   // addresses are outside the canonical content — no hash, ETag unchanged
+        stream.AppendOne(new ContactAddressesReplaced(id, next));   // addresses are outside the canonical content — ETag unchanged
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -217,8 +252,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             if (!await access.CanReadAddressBookAsync(principalId, target.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No access to an emergency contact.");
         }
         if (c.EmergencyContactIds.SequenceEqual(next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
 
-        stream.AppendOne(new ContactEmergencyContactsReplaced(id, next, HashOf(c, emergencyIds: next)));
+        stream.AppendOne(new ContactEmergencyContactsReplaced(id, next));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -252,10 +288,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var label = string.IsNullOrWhiteSpace(r.Label) ? null : r.Label.Trim();
         if (c.Relations.Any(x => x.ToContactId == r.ToContactId && x.Kind == r.Kind && x.Label == label && !x.Ended))
             return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // identical live edge: no event, no ETag churn
+        Stamp(principalId);
 
-        var next = c.Relations.Where(x => x.ToContactId != r.ToContactId || x.Kind != r.Kind).ToList();   // upsert on the natural key
-        next.Add(new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = label });
-        stream.AppendOne(new ContactRelationAdded(id, r.ToContactId, r.Kind, label, HashOf(c, relations: next)));
+        stream.AppendOne(new ContactRelationAdded(id, r.ToContactId, r.Kind, label));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -267,9 +302,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
         if (!c.Relations.Any(x => x.ToContactId == toContactId && x.Kind == kind)) return OpResult<ContactDto>.NotFound();
+        Stamp(principalId);
 
-        var next = c.Relations.Where(x => x.ToContactId != toContactId || x.Kind != kind).ToList();
-        stream.AppendOne(new ContactRelationRemoved(id, toContactId, kind, HashOf(c, relations: next)));
+        stream.AppendOne(new ContactRelationRemoved(id, toContactId, kind));
         await session.SaveChangesAsync(ct);
         var updated = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(updated!, ct));
@@ -286,9 +321,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var edge = c.Relations.FirstOrDefault(x => x.ToContactId == toContactId && x.Kind == kind);
         if (edge is null) return OpResult<ContactDto>.NotFound();
         if (edge.Ended && edge.Until == until) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        Stamp(principalId);
 
-        var next = c.Relations.Select(x => x == edge ? new ContactRelation { ToContactId = x.ToContactId, Kind = x.Kind, Label = x.Label, Ended = true, Until = until } : x).ToList();
-        stream.AppendOne(new ContactRelationEnded(id, toContactId, kind, until, HashOf(c, relations: next)));
+        stream.AppendOne(new ContactRelationEnded(id, toContactId, kind, until));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -387,6 +422,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     private static bool AddressesEqual(IReadOnlyList<ContactPostalAddress>? a, IReadOnlyList<ContactPostalAddress> b) =>
         (a ?? []).Select(x => (x.PlaceId, x.FormattedAddress, x.Type)).SequenceEqual(b.Select(x => (x.PlaceId, x.FormattedAddress, x.Type)));
 
+    private static bool ChannelsEqual(IReadOnlyList<ContactReachChannel> a, IReadOnlyList<ContactReachChannel> b) =>
+        a.SequenceEqual(b);   // records — structural equality, order-sensitive
+
     // ---- Sync write path (the DAV seam parses/serializes; this applies parsed state) ----
 
     public async Task<OpResult<DavWriteResult>> PutVcfAsync(
@@ -404,9 +442,11 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var live = existing is { DeletedAt: null };
         if (ifNoneMatchStar && live) return OpResult<DavWriteResult>.Conflict("Resource already exists.");
         if (ifMatch is not null && (!live || existing!.ContentHash != ifMatch)) return OpResult<DavWriteResult>.Conflict("ETag mismatch.");
+        Stamp(principalId);
 
         var p = VCardSerializer.ParseVCard(rawVcard);
-        var fields = new ContactFields(null, p.GivenName, null, p.FamilyName, null, null, p.Emails, p.Phones, p.Birthday, null);
+        var fields = new ContactFields(null, p.GivenName, null, p.FamilyName, null, null,
+            p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null);
         // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
         // Unresolvable target uuids are stored as-is — the target may sync in later or be unreadable to this caller; resolved reads filter.
         // Parent cycles are tolerated here (deliberately laxer import); inference is bounded, so they cannot hang it.
@@ -423,15 +463,15 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             ? p.Profiles.Select(SocialProfileNormalizer.Normalize).Where(x => x.Service.Length > 0 && x.Handle.Length > 0).DistinctBy(x => (x.Service, Handle: x.Handle.ToLowerInvariant())).ToList()
             : existing?.Profiles ?? [];
 
-        // The hash covers the final state including preserved values, so the returned ETag matches a subsequent GET.
-        var hash = ContentHash.Of(ContactContent.Canonical(externalId, fields, relations, emergency, profiles, deceased, deathDate));
-        stream.AppendOne(new ContactImported(id, addressBookId, externalId, fields, hash));   // also clears soft-delete
+        stream.AppendOne(new ContactImported(id, addressBookId, externalId, fields));   // also clears soft-delete
         if (!RelationsEqual(existing?.Relations, relations)) stream.AppendOne(new ContactRelationsReplaced(id, relations));
-        if (!(existing?.EmergencyContactIds ?? []).SequenceEqual(emergency)) stream.AppendOne(new ContactEmergencyContactsReplaced(id, emergency, hash));
-        if (!ProfilesEqual(existing?.Profiles, profiles)) stream.AppendOne(new ContactProfilesReplaced(id, profiles, hash));
-        if (deceased && (existing is null || !existing.Deceased || existing.DeathDate != deathDate)) stream.AppendOne(new ContactMarkedDeceased(id, deathDate, hash));
+        if (!(existing?.EmergencyContactIds ?? []).SequenceEqual(emergency)) stream.AppendOne(new ContactEmergencyContactsReplaced(id, emergency));
+        if (!ProfilesEqual(existing?.Profiles, profiles)) stream.AppendOne(new ContactProfilesReplaced(id, profiles));
+        if (deceased && (existing is null || !existing.Deceased || existing.DeathDate != deathDate)) stream.AppendOne(new ContactMarkedDeceased(id, deathDate));
         await session.SaveChangesAsync(ct);
-        return OpResult<DavWriteResult>.Ok(new DavWriteResult(!live, hash));
+        // The hash is derived by the projection from the final state (incl. preserved values), so it matches a subsequent GET.
+        var saved = await session.LoadAsync<Contact>(id, ct);
+        return OpResult<DavWriteResult>.Ok(new DavWriteResult(!live, saved!.ContentHash));
     }
 
     public async Task<OpResult> DeleteByUidAsync(Guid principalId, Guid addressBookId, string externalId, string? ifMatch, CancellationToken ct = default)
@@ -443,7 +483,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         // c.AddressBookId != addressBookId guards the uid-collision case (the contact lives in another book).
         if (c is null || c.DeletedAt is not null || c.AddressBookId != addressBookId) return OpResult.NotFound();
         if (ifMatch is not null && c.ContentHash != ifMatch) return OpResult.Conflict("ETag mismatch.");
-        stream.AppendOne(new ContactDeleted(id, DateTimeOffset.UtcNow));
+        Stamp(principalId);
+        stream.AppendOne(new ContactDeleted(id));
         await session.SaveChangesAsync(ct);
         return OpResult.Ok();
     }
@@ -451,13 +492,13 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     private async Task<ContactDto> ToDtoAsync(Contact c, CancellationToken ct) =>
         c.ToResponse(await completeness.ScoreContactAsync(c, ct));
 
-    /// <summary>Content hash of a contact's snapshot with any dimension overridden by the prospective value.</summary>
-    private static string HashOf(Contact c, ContactFields? fields = null, IReadOnlyList<ContactRelation>? relations = null,
-        IReadOnlyList<Guid>? emergencyIds = null, IReadOnlyList<ContactSocialProfile>? profiles = null,
-        bool? deceased = null, DateOnly? deathDate = null) =>
-        ContentHash.Of(ContactContent.Canonical(c.ExternalId, fields ?? FieldsOf(c), relations ?? c.Relations,
-            emergencyIds ?? c.EmergencyContactIds, profiles ?? c.Profiles, deceased ?? c.Deceased, deceased is null ? c.DeathDate : deathDate));
+    // Stamp the acting principal + trace correlation onto every event appended in this unit of work (before SaveChangesAsync).
+    private void Stamp(Guid principalId)
+    {
+        session.SetHeader(EventActor.HeaderKey, principalId.ToString());
+        if (System.Diagnostics.Activity.Current?.TraceId is { } t) session.CorrelationId = t.ToString();
+    }
 
     private static ContactFields FieldsOf(Contact c) =>
-        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Emails, c.Phones, c.Birthday, c.Tags);
+        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Channels, c.Birthday, c.Tags);
 }

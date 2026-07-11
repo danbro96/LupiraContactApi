@@ -17,8 +17,7 @@ internal static class ContactMapper
         GivenName = c.GivenName,
         FamilyName = c.FamilyName,
         Nickname = c.Nickname,
-        Emails = c.Emails,
-        Phones = c.Phones,
+        Channels = c.Channels,
         Birthday = c.Birthday,
         Deceased = c.Deceased,
         DeathDate = c.DeathDate,
@@ -29,6 +28,10 @@ internal static class ContactMapper
         Relations = c.Relations,
         Metadata = JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata),
         Completeness = completeness,
+        CreatedAt = c.CreatedAt,
+        CreatedBy = c.CreatedBy,
+        UpdatedAt = c.UpdatedAt,
+        UpdatedBy = c.UpdatedBy,
         Etag = c.ContentHash,
     };
 }

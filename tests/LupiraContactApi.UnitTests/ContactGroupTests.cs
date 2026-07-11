@@ -1,16 +1,28 @@
+using JasperFx.Events;
 using LupiraContactApi.Domain;
 using Xunit;
 
 namespace LupiraContactApi.UnitTests;
 
 /// <summary>Event-replay behavior of the <see cref="ContactGroup"/> aggregate: creation, rename, soft-delete,
-/// and idempotent membership add/remove.</summary>
+/// idempotent membership add/remove, and metadata attribution.</summary>
 public class ContactGroupTests
 {
+    const string Actor = "principal-1";
+    static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+
+    static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
+    {
+        var e = Event.For(data);
+        e.Timestamp = at ?? T0;
+        if (actor is not null) e.Headers = new Dictionary<string, object> { [EventActor.HeaderKey] = actor };
+        return e;
+    }
+
     static ContactGroup Created(Guid gid, ContactGroupKind kind = ContactGroupKind.Organization, string name = "Acme")
     {
         var g = new ContactGroup();
-        g.Apply(new ContactGroupCreated(gid, Guid.NewGuid(), kind, name, null));
+        g.Apply(Ev(new ContactGroupCreated(gid, Guid.NewGuid(), kind, name, null)));
         return g;
     }
 
@@ -22,11 +34,21 @@ public class ContactGroupTests
         var g = Created(gid);
         Assert.Equal(ContactGroupKind.Organization, g.Kind);
 
-        g.Apply(new ContactAddedToGroup(gid, contact, DateTimeOffset.UtcNow));
+        g.Apply(Ev(new ContactAddedToGroup(gid, contact)));
         Assert.Contains(contact, g.MemberContactIds);
 
-        g.Apply(new ContactRemovedFromGroup(gid, contact, DateTimeOffset.UtcNow));
+        g.Apply(Ev(new ContactRemovedFromGroup(gid, contact)));
         Assert.DoesNotContain(contact, g.MemberContactIds);
+    }
+
+    [Fact]
+    public void Created_sets_attribution()
+    {
+        var g = Created(Guid.NewGuid());
+        Assert.Equal(T0, g.CreatedAt);
+        Assert.Equal(Actor, g.CreatedBy);
+        Assert.Equal(T0, g.UpdatedAt);
+        Assert.Equal(Actor, g.UpdatedBy);
     }
 
     [Fact]
@@ -38,22 +60,25 @@ public class ContactGroupTests
     }
 
     [Fact]
-    public void Renamed_changes_the_name()
+    public void Renamed_changes_the_name_and_updated_attribution()
     {
         var gid = Guid.NewGuid();
         var g = Created(gid);
-        g.Apply(new ContactGroupRenamed(gid, "Acme Corp"));
+        var t1 = T0.AddDays(1);
+        g.Apply(Ev(new ContactGroupRenamed(gid, "Acme Corp"), at: t1, actor: "principal-2"));
         Assert.Equal("Acme Corp", g.Name);
+        Assert.Equal(t1, g.UpdatedAt);
+        Assert.Equal("principal-2", g.UpdatedBy);
     }
 
     [Fact]
-    public void Deleted_tombstones_the_group()
+    public void Deleted_records_the_event_timestamp()
     {
         var gid = Guid.NewGuid();
-        var stamp = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+        var t1 = T0.AddHours(2);
         var g = Created(gid);
-        g.Apply(new ContactGroupDeleted(gid, stamp));
-        Assert.Equal(stamp, g.DeletedAt);   // deterministic on replay: the timestamp lives on the event
+        g.Apply(Ev(new ContactGroupDeleted(gid), at: t1));
+        Assert.Equal(t1, g.DeletedAt);   // deterministic on replay
     }
 
     [Fact]
@@ -62,8 +87,8 @@ public class ContactGroupTests
         var gid = Guid.NewGuid();
         var contact = Guid.NewGuid();
         var g = Created(gid);
-        g.Apply(new ContactAddedToGroup(gid, contact, DateTimeOffset.UtcNow));
-        g.Apply(new ContactAddedToGroup(gid, contact, DateTimeOffset.UtcNow));
+        g.Apply(Ev(new ContactAddedToGroup(gid, contact)));
+        g.Apply(Ev(new ContactAddedToGroup(gid, contact)));
         Assert.Single(g.MemberContactIds);
     }
 
@@ -72,7 +97,7 @@ public class ContactGroupTests
     {
         var gid = Guid.NewGuid();
         var g = Created(gid);
-        g.Apply(new ContactRemovedFromGroup(gid, Guid.NewGuid(), DateTimeOffset.UtcNow));
+        g.Apply(Ev(new ContactRemovedFromGroup(gid, Guid.NewGuid())));
         Assert.Empty(g.MemberContactIds);
     }
 }

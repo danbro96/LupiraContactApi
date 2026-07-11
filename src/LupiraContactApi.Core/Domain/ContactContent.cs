@@ -17,8 +17,7 @@ public static class ContactContent
         var sb = new StringBuilder();
         Line(sb, "id", externalId);
         Line(sb, "name", f.NamePrefix, f.GivenName, f.MiddleName, f.FamilyName, f.NameSuffix, f.Nickname);
-        foreach (var e in f.Emails ?? []) Line(sb, "email", e);
-        foreach (var p in f.Phones ?? []) Line(sb, "phone", p);
+        foreach (var ch in f.Channels ?? []) Line(sb, "channel", ch.Medium.ToString(), ch.Value, ch.Type, ch.Preferred ? "1" : "0");
         Line(sb, "birthday", Date(f.Birthday));
         Line(sb, "deceased", deceased ? "1" : "0", Date(deathDate));
         foreach (var p in profiles) Line(sb, "profile", p.Service, p.Handle, p.Url, p.Preferred ? "1" : "0");

@@ -12,8 +12,7 @@ public sealed class ContactDto
     public string? GivenName { get; set; }
     public string? FamilyName { get; set; }
     public string? Nickname { get; set; }
-    public string[]? Emails { get; set; }
-    public string[]? Phones { get; set; }
+    public required IReadOnlyList<ContactReachChannel> Channels { get; set; }
     public DateOnly? Birthday { get; set; }
     public bool Deceased { get; set; }
     public DateOnly? DeathDate { get; set; }
@@ -30,6 +29,11 @@ public sealed class ContactDto
 
     /// <summary>How well-documented this contact is. Drives contact-enrichment ranking (completeness × relevance).</summary>
     public CompletenessScore? Completeness { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
 
     public required string Etag { get; set; }
 }

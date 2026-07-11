@@ -12,7 +12,7 @@ public static class VCardSerializer
     /// <summary>Regenerate the vCard for a contact from its structured fields (organisation lives on a ContactGroup, so it's omitted).</summary>
     public static string From(Contact c) =>
         Build(c.ExternalId, ComposeFullName(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname),
-            c.GivenName, c.FamilyName, null, c.Emails, c.Phones, c.Birthday, c.Relations,
+            c.GivenName, c.FamilyName, null, c.Channels, c.Birthday, c.Relations,
             c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate);
 
     /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty.</summary>
@@ -24,7 +24,7 @@ public static class VCardSerializer
 
     public static string Build(
         string uid, string fullName, string? given, string? family, string? organization,
-        IEnumerable<string>? emails, IEnumerable<string>? phones, DateOnly? birthday,
+        IReadOnlyList<ContactReachChannel>? channels, DateOnly? birthday,
         IReadOnlyList<ContactRelation>? relations = null,
         IReadOnlyList<Guid>? emergencyContacts = null,
         IReadOnlyList<ContactSocialProfile>? profiles = null,
@@ -37,8 +37,15 @@ public static class VCardSerializer
         sb.Append("FN:").Append(Escape(fullName)).Append("\r\n");
         sb.Append("N:").Append(Escape(family ?? "")).Append(';').Append(Escape(given ?? "")).Append(";;;\r\n");
         if (!string.IsNullOrWhiteSpace(organization)) sb.Append("ORG:").Append(Escape(organization)).Append("\r\n");
-        foreach (var email in emails ?? []) sb.Append("EMAIL:").Append(Escape(email)).Append("\r\n");
-        foreach (var phone in phones ?? []) sb.Append("TEL:").Append(Escape(phone)).Append("\r\n");
+        foreach (var ch in channels ?? [])
+        {
+            sb.Append(ch.Medium == ReachMedium.Email ? "EMAIL" : "TEL");
+            var types = new List<string>();
+            if (ch.Type is { Length: > 0 } t && IsSafeParamValue(t)) types.Add(t);
+            if (ch.Preferred) types.Add("pref");
+            if (types.Count > 0) sb.Append(";TYPE=").Append(string.Join(',', types));
+            sb.Append(':').Append(Escape(ch.Value)).Append("\r\n");
+        }
         if (birthday is { } b) sb.Append("BDAY:").Append(b.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
         if (deathDate is { } dd) sb.Append("X-DEATHDATE:").Append(dd.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
         else if (deceased) sb.Append("X-LUPIRA-DECEASED:1\r\n");
@@ -71,8 +78,7 @@ public static class VCardSerializer
         string? fn = null, org = null, given = null, family = null;
         DateOnly? bday = null, deathDate = null;
         bool? deceased = null;
-        var emails = new List<string>();
-        var phones = new List<string>();
+        var channels = new List<ContactReachChannel>();
         var relations = new List<ContactRelation>();
         List<Guid>? emergency = null;
         List<ContactSocialProfile>? profiles = null;
@@ -94,8 +100,8 @@ public static class VCardSerializer
                     if (parts.Length > 0) family = Unescape(parts[0]);
                     if (parts.Length > 1) given = Unescape(parts[1]);
                     break;
-                case "EMAIL": emails.Add(Unescape(val)); break;
-                case "TEL": phones.Add(Unescape(val)); break;
+                case "EMAIL": channels.Add(ParseChannel(ReachMedium.Email, l[..colon], Unescape(val))); break;
+                case "TEL": channels.Add(ParseChannel(ReachMedium.Phone, l[..colon], Unescape(val))); break;
                 case "BDAY": bday = ParseDate(val); break;
                 case "X-DEATHDATE":
                     deceased = true;
@@ -117,9 +123,21 @@ public static class VCardSerializer
         }
         if (string.IsNullOrWhiteSpace(fn)) fn = string.Join(' ', new[] { given, family }.Where(s => !string.IsNullOrWhiteSpace(s)));
         return new ParsedContact(fn ?? "", given, family, org,
-            emails.Count > 0 ? [.. emails] : null, phones.Count > 0 ? [.. phones] : null, bday,
+            channels.Count > 0 ? [.. channels] : null, bday,
             relations.Count > 0 ? [.. relations] : null,
             emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate);
+    }
+
+    // EMAIL/TEL → reach channel: TYPE tokens (comma-joined or repeated params) yield the first non-pref type + a pref flag.
+    static ContactReachChannel ParseChannel(ReachMedium medium, string nameAndParams, string val)
+    {
+        var types = nameAndParams.Split(';').Skip(1)
+            .Where(p => p.StartsWith("TYPE=", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(p => p[5..].Split(','))
+            .Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        var preferred = types.Any(x => x.Equals("pref", StringComparison.OrdinalIgnoreCase));
+        var type = types.FirstOrDefault(x => !x.Equals("pref", StringComparison.OrdinalIgnoreCase));
+        return new ContactReachChannel(medium, val, string.IsNullOrEmpty(type) ? null : type.ToLowerInvariant(), preferred);
     }
 
     static DateOnly? ParseDate(string val)

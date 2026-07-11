@@ -126,6 +126,16 @@ public sealed class ContactTools
         return Require(await contacts.SetAddressesAsync(u.Id, contactId, addresses));
     }
 
+    [McpServerTool, Description("Replace a contact's reach channels (emails + phones) wholesale (empty clears). Each channel: medium=email|phone, value, optional type (home|work|cell|fax|…), preferred. At most one preferred per medium.")]
+    public static async Task<ContactDto> set_contact_channels(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("The full new list — an empty list clears.")] List<ContactReachChannel> channels)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.SetChannelsAsync(u.Id, contactId, channels));
+    }
+
     [McpServerTool, Description("Replace a contact's emergency-contact designation wholesale (order = priority, empty clears). A designation, not a relation kind.")]
     public static async Task<ContactDto> set_emergency_contacts(
         ContactService contacts, CurrentUser user,

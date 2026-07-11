@@ -49,7 +49,7 @@ public class CompletenessScorerTests
     public void Living_contact_with_a_phone_gains_primary_reach()
     {
         var c = Person();
-        c.Phones = ["+46123"];
+        c.Channels = [new ContactReachChannel(ReachMedium.Phone, "+46123", null, false)];
         var s = CompletenessScorer.ScoreContact(c, hasOrganisation: false)!;
         Assert.DoesNotContain(s.Gaps, g => g.Field == "primaryReach");
         Assert.Contains(s.Gaps, g => g.Field == "secondaryReach");

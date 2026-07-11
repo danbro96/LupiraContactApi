@@ -99,19 +99,12 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/emails", (Guid id, SetContactEmailsRequest body, ContactsHandler h, CancellationToken ct) => h.SetEmailsAsync(id, body, ct))
-            .WithName("SetContactEmails")
-            .WithSummary("Replace the contact's email addresses wholesale (empty clears). Unlike the merge update, this can remove an address; entries are trimmed and de-duplicated case-insensitively.")
+        group.MapPut("/{id:guid}/channels", (Guid id, SetContactChannelsRequest body, ContactsHandler h, CancellationToken ct) => h.SetChannelsAsync(id, body, ct))
+            .WithName("SetContactChannels")
+            .WithSummary("Replace the contact's reach channels (emails + phones) wholesale (empty clears). Unlike the merge update, this can remove a channel; values are trimmed, type tokens lowercased, duplicates dropped, at most one preferred per medium.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .Produces(StatusCodes.Status401Unauthorized);
-
-        group.MapPut("/{id:guid}/phones", (Guid id, SetContactPhonesRequest body, ContactsHandler h, CancellationToken ct) => h.SetPhonesAsync(id, body, ct))
-            .WithName("SetContactPhones")
-            .WithSummary("Replace the contact's phone numbers wholesale (empty clears). Unlike the merge update, this can remove a number; entries are trimmed and de-duplicated case-insensitively.")
-            .Produces<ContactDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 

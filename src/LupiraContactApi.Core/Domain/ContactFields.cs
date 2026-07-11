@@ -1,7 +1,7 @@
 namespace LupiraContactApi.Domain;
 
 /// <summary>
-/// Structured contact fields (name parts + nickname + multi-valued email/phone). No <c>FullName</c> — the display
+/// Structured contact fields (name parts + nickname + typed reach channels). No <c>FullName</c> — the display
 /// name is composed from the parts, and every serialized representation is regenerated from these fields (no raw blob is stored).
 /// </summary>
 public sealed record ContactFields(
@@ -11,7 +11,6 @@ public sealed record ContactFields(
     string? FamilyName,
     string? NameSuffix,
     string? Nickname,
-    string[]? Emails,
-    string[]? Phones,
+    IReadOnlyList<ContactReachChannel>? Channels,
     DateOnly? Birthday,
     string[]? Tags);
