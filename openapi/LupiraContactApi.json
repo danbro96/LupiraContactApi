@@ -2530,12 +2530,12 @@
       "JsonNode": { },
       "MeDto": {
         "required": [
-          "id",
+          "principalId",
           "email"
         ],
         "type": "object",
         "properties": {
-          "id": {
+          "principalId": {
             "type": "string",
             "format": "uuid"
           },
@@ -2576,6 +2576,12 @@
           },
           "email": {
             "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "access": {
             "$ref": "#/components/schemas/Access"

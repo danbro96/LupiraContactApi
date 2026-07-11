@@ -12,7 +12,7 @@ public sealed class MeHandler(CurrentUser user, AddressBookService books, Contac
     public async Task<Results<Ok<MeDto>, UnauthorizedHttpResult>> GetAsync(CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return TypedResults.Ok(new MeDto { Id = u.Id, Email = u.Email, DisplayName = u.DisplayName, ContactId = u.ContactId });
+        return TypedResults.Ok(new MeDto { PrincipalId = u.Id, Email = u.Email, DisplayName = u.DisplayName, ContactId = u.ContactId });
     }
 
     public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetContactAsync(SetMyContactRequest body, CancellationToken ct)

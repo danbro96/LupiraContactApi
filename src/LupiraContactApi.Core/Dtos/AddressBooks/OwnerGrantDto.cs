@@ -9,6 +9,7 @@ public sealed class OwnerGrantDto
     public required Guid ContainerId { get; set; }
     public required Guid PrincipalId { get; set; }
     public required string Email { get; set; }
+    public string? DisplayName { get; set; }
 
     [JsonConverter(typeof(JsonStringEnumConverter<Access>))]
     public required Access Access { get; set; }

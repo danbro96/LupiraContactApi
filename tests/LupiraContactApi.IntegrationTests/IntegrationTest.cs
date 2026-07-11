@@ -23,7 +23,7 @@ public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLif
     protected static async Task<Guid> GetMyIdAsync(HttpClient api)
     {
         var me = await api.GetFromJsonAsync<MeDto>("/me");
-        return me!.Id;
+        return me!.PrincipalId;
     }
 
     protected static async Task<Guid> CreateAddressBookAsync(HttpClient api, string slug = "people", string? displayName = "People")

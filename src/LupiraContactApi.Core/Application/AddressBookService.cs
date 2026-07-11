@@ -89,7 +89,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         // Deterministic id → re-granting upserts the access level instead of duplicating the grant.
         session.Store(new AddressBookOwner { Id = AddressBookOwner.MakeId(addressBookId, target.Id), AddressBookId = addressBookId, PrincipalId = target.Id, Access = level });
         await session.SaveChangesAsync(ct);
-        return OpResult<OwnerGrantDto>.Ok(new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = target.Id, Email = target.Email, Access = level });
+        return OpResult<OwnerGrantDto>.Ok(new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = target.Id, Email = target.Email, DisplayName = target.DisplayName, Access = level });
     }
 
     public async Task<OpResult> RevokeOwnerAsync(Guid callerId, Guid addressBookId, string email, CancellationToken ct = default)
@@ -119,7 +119,11 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         var grants = await session.Query<AddressBookOwner>().Where(o => o.AddressBookId == addressBookId).ToListAsync(ct);
         var byId = (await session.LoadManyAsync<Principal>(ct, grants.Select(g => g.PrincipalId).Distinct().ToArray())).ToDictionary(p => p.Id);
         return OpResult<List<OwnerGrantDto>>.Ok([.. grants
-            .Select(g => new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = g.PrincipalId, Email = byId.TryGetValue(g.PrincipalId, out var p) ? p.Email : "", Access = g.Access })
+            .Select(g =>
+            {
+                byId.TryGetValue(g.PrincipalId, out var p);
+                return new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = g.PrincipalId, Email = p?.Email ?? "", DisplayName = p?.DisplayName, Access = g.Access };
+            })
             .OrderByDescending(o => o.Access == Access.Owner).ThenBy(o => o.Email, StringComparer.OrdinalIgnoreCase)]);
     }
 }
