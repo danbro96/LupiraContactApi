@@ -28,6 +28,45 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         return OpResult<AddressBookDto>.Ok(new AddressBookDto { Id = b.Id, Slug = b.Slug, DisplayName = b.DisplayName, Access = Access.Owner });
     }
 
+    /// <summary>Rename an address book / change its display name (owner-only, merge — null keeps the current value).</summary>
+    public async Task<OpResult<AddressBookDto>> UpdateAsync(Guid callerId, Guid addressBookId, UpdateAddressBookRequest r, CancellationToken ct = default)
+    {
+        var book = await session.LoadAsync<AddressBook>(addressBookId, ct);
+        if (book is null) return OpResult<AddressBookDto>.NotFound();
+        if (!await access.IsAddressBookOwnerAsync(callerId, addressBookId, ct)) return OpResult<AddressBookDto>.Forbidden("Only an owner may update this address book.");
+
+        if (r.Slug is not null)
+        {
+            var slug = r.Slug.Trim();
+            if (slug.Length == 0) return OpResult<AddressBookDto>.Invalid("Slug cannot be blank.");
+            book.Slug = slug;
+        }
+        if (r.DisplayName is not null) book.DisplayName = string.IsNullOrWhiteSpace(r.DisplayName) ? null : r.DisplayName.Trim();
+        session.Store(book);
+        await session.SaveChangesAsync(ct);
+        return OpResult<AddressBookDto>.Ok(new AddressBookDto { Id = book.Id, Slug = book.Slug, DisplayName = book.DisplayName, Access = Access.Owner });
+    }
+
+    /// <summary>Delete an empty address book (owner-only). Refuses the <c>personal</c> book and any book that still holds
+    /// live contacts or groups; on success also removes every access grant on the book.</summary>
+    public async Task<OpResult> DeleteAsync(Guid callerId, Guid addressBookId, CancellationToken ct = default)
+    {
+        var book = await session.LoadAsync<AddressBook>(addressBookId, ct);
+        if (book is null) return OpResult.NotFound();
+        if (!await access.IsAddressBookOwnerAsync(callerId, addressBookId, ct)) return OpResult.Forbidden("Only an owner may delete this address book.");
+        if (book.Slug == "personal") return OpResult.Conflict("The personal address book cannot be deleted.");
+        if (await session.Query<Contact>().AnyAsync(c => c.AddressBookId == addressBookId && c.DeletedAt == null, ct))
+            return OpResult.Conflict("Address book is not empty: move or delete its contacts first.");
+        if (await session.Query<ContactGroup>().AnyAsync(g => g.AddressBookId == addressBookId && g.DeletedAt == null, ct))
+            return OpResult.Conflict("Address book is not empty: delete its groups first.");
+
+        foreach (var grant in await session.Query<AddressBookOwner>().Where(o => o.AddressBookId == addressBookId).ToListAsync(ct))
+            session.Delete(grant);
+        session.Delete(book);
+        await session.SaveChangesAsync(ct);
+        return OpResult.Ok();
+    }
+
     /// <summary>Ensures the caller has a <c>personal</c> address book; idempotent — matched on slug, so a second call creates nothing.</summary>
     public async Task<OpResult<List<AddressBookDto>>> BootstrapPersonalAsync(Guid principalId, CancellationToken ct = default)
     {
@@ -69,5 +108,18 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         session.Delete(targetGrant);
         await session.SaveChangesAsync(ct);
         return OpResult.Ok();
+    }
+
+    /// <summary>Lists who has access to an address book and at what level (owner-only). Fills the read side of the sharing panel.</summary>
+    public async Task<OpResult<List<OwnerGrantDto>>> ListOwnersAsync(Guid callerId, Guid addressBookId, CancellationToken ct = default)
+    {
+        if (await session.LoadAsync<AddressBook>(addressBookId, ct) is null) return OpResult<List<OwnerGrantDto>>.NotFound();
+        if (!await access.IsAddressBookOwnerAsync(callerId, addressBookId, ct)) return OpResult<List<OwnerGrantDto>>.Forbidden("Only an owner may list access grants.");
+
+        var grants = await session.Query<AddressBookOwner>().Where(o => o.AddressBookId == addressBookId).ToListAsync(ct);
+        var byId = (await session.LoadManyAsync<Principal>(ct, grants.Select(g => g.PrincipalId).Distinct().ToArray())).ToDictionary(p => p.Id);
+        return OpResult<List<OwnerGrantDto>>.Ok([.. grants
+            .Select(g => new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = g.PrincipalId, Email = byId.TryGetValue(g.PrincipalId, out var p) ? p.Email : "", Access = g.Access })
+            .OrderByDescending(o => o.Access == Access.Owner).ThenBy(o => o.Email, StringComparer.OrdinalIgnoreCase)]);
     }
 }

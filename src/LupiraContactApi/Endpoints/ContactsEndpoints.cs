@@ -99,6 +99,30 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/{id:guid}/emails", (Guid id, SetContactEmailsRequest body, ContactsHandler h, CancellationToken ct) => h.SetEmailsAsync(id, body, ct))
+            .WithName("SetContactEmails")
+            .WithSummary("Replace the contact's email addresses wholesale (empty clears). Unlike the merge update, this can remove an address; entries are trimmed and de-duplicated case-insensitively.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/{id:guid}/phones", (Guid id, SetContactPhonesRequest body, ContactsHandler h, CancellationToken ct) => h.SetPhonesAsync(id, body, ct))
+            .WithName("SetContactPhones")
+            .WithSummary("Replace the contact's phone numbers wholesale (empty clears). Unlike the merge update, this can remove a number; entries are trimmed and de-duplicated case-insensitively.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/{id:guid}/tags", (Guid id, SetContactTagsRequest body, ContactsHandler h, CancellationToken ct) => h.SetTagsAsync(id, body, ct))
+            .WithName("SetContactTags")
+            .WithSummary("Replace the contact's tags wholesale (empty clears). Unlike the merge update, this can remove a tag; entries are trimmed and de-duplicated case-insensitively.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapGet("/{id:guid}/relations", (Guid id, bool? includeInferred, ContactsHandler h, CancellationToken ct) => h.ListRelationsAsync(id, includeInferred ?? false, ct))
             .WithName("ListContactRelations")
             .WithSummary("Resolved relations, both directions: each entry's kind is the other contact's role relative to this one (incoming = derived inverse). Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), tagged Provenance=Inferred.")

@@ -20,6 +20,24 @@ public sealed class AddressBooksHandler(CurrentUser user, AddressBookService boo
         return OpResultMap.OkOnly(await books.CreateAsync(u.Id, body, ct));
     }
 
+    public async Task<Results<Ok<AddressBookDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> UpdateAsync(Guid addressBookId, UpdateAddressBookRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await books.UpdateAsync(u.Id, addressBookId, body, ct));
+    }
+
+    public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> DeleteAsync(Guid addressBookId, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.NoContentNotFoundProblem(await books.DeleteAsync(u.Id, addressBookId, ct));
+    }
+
+    public async Task<Results<Ok<List<OwnerGrantDto>>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ListOwnersAsync(Guid addressBookId, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await books.ListOwnersAsync(u.Id, addressBookId, ct));
+    }
+
     public async Task<Results<Ok<OwnerGrantDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> GrantOwnerAsync(Guid addressBookId, GrantOwnerRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);

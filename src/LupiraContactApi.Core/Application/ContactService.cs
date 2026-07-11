@@ -92,6 +92,39 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return [.. existing.Concat(incoming).Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
+    // ---- Multi-value replace (emails / phones / tags — the removable counterpart to ReviseContact's union-merge) ----
+    // These carry the whole resulting field set, so they reuse ContactRevised (whose Apply sets fields wholesale).
+
+    public Task<OpResult<ContactDto>> SetEmailsAsync(Guid principalId, Guid id, string[] emails, CancellationToken ct = default) =>
+        ReplaceMultiAsync(principalId, id, emails, c => c.Emails, (c, next) => FieldsOf(c) with { Emails = next }, ct);
+
+    public Task<OpResult<ContactDto>> SetPhonesAsync(Guid principalId, Guid id, string[] phones, CancellationToken ct = default) =>
+        ReplaceMultiAsync(principalId, id, phones, c => c.Phones, (c, next) => FieldsOf(c) with { Phones = next }, ct);
+
+    public Task<OpResult<ContactDto>> SetTagsAsync(Guid principalId, Guid id, string[] tags, CancellationToken ct = default) =>
+        ReplaceMultiAsync(principalId, id, tags, c => c.Tags, (c, next) => FieldsOf(c) with { Tags = next }, ct);
+
+    private async Task<OpResult<ContactDto>> ReplaceMultiAsync(Guid principalId, Guid id, string[] incoming,
+        Func<Contact, string[]?> current, Func<Contact, string[], ContactFields> apply, CancellationToken ct)
+    {
+        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
+        var c = stream.Aggregate;
+        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
+        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
+
+        var next = NormalizeMulti(incoming);
+        if (NormalizeMulti(current(c)).SequenceEqual(next, StringComparer.Ordinal)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // no event, no ETag churn
+
+        var merged = apply(c, next);
+        stream.AppendOne(new ContactRevised(id, merged, HashOf(c, fields: merged)));
+        await session.SaveChangesAsync(ct);
+        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+    }
+
+    // Trim, drop blanks, de-duplicate case-insensitively (first casing wins). Order is preserved and significant.
+    private static string[] NormalizeMulti(string[]? values) =>
+        [.. (values ?? []).Select(v => v.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)];
+
     public async Task<OpResult> DeleteAsync(Guid principalId, Guid id, CancellationToken ct = default)
     {
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);

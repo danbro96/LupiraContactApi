@@ -99,6 +99,24 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkNotFoundProblem(await contacts.SetEmergencyContactsAsync(u.Id, id, body.ContactIds, ct));
     }
 
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetEmailsAsync(Guid id, SetContactEmailsRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetEmailsAsync(u.Id, id, body.Emails, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetPhonesAsync(Guid id, SetContactPhonesRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetPhonesAsync(u.Id, id, body.Phones, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetTagsAsync(Guid id, SetContactTagsRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.SetTagsAsync(u.Id, id, body.Tags, ct));
+    }
+
     public async Task<Results<Ok<ContactCirclesDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> CirclesAsync(Guid? focusId, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);

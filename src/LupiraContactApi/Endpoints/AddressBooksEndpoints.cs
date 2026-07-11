@@ -21,6 +21,27 @@ public static class AddressBooksEndpoints
             .Produces<AddressBookDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapPut("/{addressBookId:guid}", (Guid addressBookId, UpdateAddressBookRequest body, AddressBooksHandler h, CancellationToken ct) => h.UpdateAsync(addressBookId, body, ct))
+            .WithName("UpdateAddressBook")
+            .WithSummary("Rename an address book or change its display name (owner only; merge — omitted fields are kept).")
+            .Produces<AddressBookDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest).ProducesProblem(StatusCodes.Status403Forbidden);
+
+        group.MapDelete("/{addressBookId:guid}", (Guid addressBookId, AddressBooksHandler h, CancellationToken ct) => h.DeleteAsync(addressBookId, ct))
+            .WithName("DeleteAddressBook")
+            .WithSummary("Delete an empty address book (owner only). 409 if it still holds contacts or groups, or is the personal book.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden).ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapGet("/{addressBookId:guid}/owners", (Guid addressBookId, AddressBooksHandler h, CancellationToken ct) => h.ListOwnersAsync(addressBookId, ct))
+            .WithName("ListAddressBookOwners")
+            .WithSummary("List who has access to an address book and at what level (owner only).")
+            .Produces<List<OwnerGrantDto>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapPost("/{addressBookId:guid}/owners", (Guid addressBookId, GrantOwnerRequest body, AddressBooksHandler h, CancellationToken ct) => h.GrantOwnerAsync(addressBookId, body, ct))
             .WithName("GrantAddressBookOwner")
             .WithSummary("Grant a member access to an address book (access = owner|read-write|read; default owner).")
