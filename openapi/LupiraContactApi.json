@@ -588,6 +588,130 @@
         ]
       }
     },
+    "/contacts/batch": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Create many contacts in one transaction (each carries its AddressBookId); returned index-for-index with the request.",
+        "operationId": "CreateContactsBatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContactsBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/resolve-names": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Substring + normalized-name match, not phonetic.",
+        "operationId": "ResolveContactsByName",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveContactsByNameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactNameMatch"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/contacts/{id}": {
       "get": {
         "tags": [
@@ -2362,6 +2486,35 @@
           "Organization"
         ]
       },
+      "ContactNameMatch": {
+        "required": [
+          "name",
+          "outcome",
+          "candidates"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "contactId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/NameMatchOutcome"
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactRef"
+            }
+          }
+        }
+      },
       "ContactPostalAddress": {
         "type": "object",
         "properties": {
@@ -2400,6 +2553,22 @@
           },
           "preferred": {
             "type": "boolean"
+          }
+        }
+      },
+      "ContactRef": {
+        "required": [
+          "contactId",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "contactId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
           }
         }
       },
@@ -2571,12 +2740,6 @@
             "type": "string",
             "format": "uuid"
           },
-          "namePrefix": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "givenName": {
             "type": [
               "null",
@@ -2590,12 +2753,6 @@
             ]
           },
           "familyName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "nameSuffix": {
             "type": [
               "null",
               "string"
@@ -2656,6 +2813,20 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CreateContactsBatchRequest": {
+        "required": [
+          "contacts"
+        ],
+        "type": "object",
+        "properties": {
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateContactRequest"
+            }
           }
         }
       },
@@ -2768,6 +2939,13 @@
             "format": "uuid"
           }
         }
+      },
+      "NameMatchOutcome": {
+        "enum": [
+          "Matched",
+          "Ambiguous",
+          "NotFound"
+        ]
       },
       "OwnerGrantDto": {
         "required": [
@@ -2885,15 +3063,30 @@
           "Inferred"
         ]
       },
-      "ReviseContactRequest": {
+      "ResolveContactsByNameRequest": {
+        "required": [
+          "names"
+        ],
         "type": "object",
         "properties": {
-          "namePrefix": {
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "addressBookId": {
             "type": [
               "null",
               "string"
-            ]
-          },
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ReviseContactRequest": {
+        "type": "object",
+        "properties": {
           "givenName": {
             "type": [
               "null",
@@ -2907,12 +3100,6 @@
             ]
           },
           "familyName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "nameSuffix": {
             "type": [
               "null",
               "string"

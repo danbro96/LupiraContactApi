@@ -21,6 +21,18 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkProblem(await contacts.CreateAsync(u.Id, body, ct));
     }
 
+    public async Task<Results<Ok<List<ContactDto>>, ProblemHttpResult, UnauthorizedHttpResult>> CreateBatchAsync(CreateContactsBatchRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkProblem(await contacts.CreateBatchAsync(u.Id, body.Contacts, ct));
+    }
+
+    public async Task<Results<Ok<List<ContactNameMatch>>, ProblemHttpResult, UnauthorizedHttpResult>> ResolveByNameAsync(ResolveContactsByNameRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkProblem(await contacts.ResolveByNameAsync(u.Id, body.Names, body.AddressBookId, ct));
+    }
+
     public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> GetAsync(Guid id, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);

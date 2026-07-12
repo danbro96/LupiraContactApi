@@ -49,6 +49,92 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return OpResult<List<ContactDto>>.Ok([.. ordered.Select(c => c.ToResponse(scores[c.Id]))]);
     }
 
+    public const int MaxBatch = 100;
+
+    /// <summary>Create many contacts in one unit of work; returns them in input order. Fails the whole batch on any
+    /// forbidden book or channel conflict (nothing is committed). Mirrors <see cref="CreateAsync"/> per item.</summary>
+    public async Task<OpResult<List<ContactDto>>> CreateBatchAsync(Guid principalId, IReadOnlyList<CreateContactRequest> requests, CancellationToken ct = default)
+    {
+        if (requests.Count == 0) return OpResult<List<ContactDto>>.Invalid("At least one contact is required.");
+        if (requests.Count > MaxBatch) return OpResult<List<ContactDto>>.Invalid($"At most {MaxBatch} contacts per batch.");
+
+        foreach (var abid in requests.Select(r => r.AddressBookId).Distinct())
+            if (!await access.CanWriteAddressBookAsync(principalId, abid, ct))
+                return OpResult<List<ContactDto>>.Forbidden($"No write access to address book {abid}.");
+
+        Stamp(principalId);
+        var ids = new List<Guid>(requests.Count);
+        foreach (var r in requests)
+        {
+            var channels = ReachChannelNormalizer.Normalize(r.Channels ?? []);
+            if (ReachChannelNormalizer.HasPreferredConflict(channels))
+                return OpResult<List<ContactDto>>.Invalid($"Contact '{r.GivenName} {r.FamilyName}': at most one preferred channel per medium.");
+            var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
+            var id = DeterministicGuid.From(uid);
+            var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full);
+            session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
+            ids.Add(id);
+        }
+        await session.SaveChangesAsync(ct);
+
+        var loaded = (await session.Query<Contact>().Where(c => ids.Contains(c.Id)).ToListAsync(ct)).ToDictionary(c => c.Id);
+        var ordered = ids.Select(i => loaded[i]).ToList();
+        var scores = await completeness.ScoreContactsAsync(ordered, ct);
+        return OpResult<List<ContactDto>>.Ok([.. ordered.Select(c => c.ToResponse(scores[c.Id]))]);
+    }
+
+    /// <summary>Batch-match input names to accessible contacts for import disambiguation. Per name: exactly one
+    /// normalized-display-name equal (or lone substring hit) → Matched; several → Ambiguous; none → NotFound.
+    /// Substring + normalized-name only (not phonetic). Candidates are capped.</summary>
+    public async Task<OpResult<List<ContactNameMatch>>> ResolveByNameAsync(Guid principalId, IReadOnlyList<string> names, Guid? addressBookId, CancellationToken ct = default)
+    {
+        if (names.Count == 0) return OpResult<List<ContactNameMatch>>.Invalid("At least one name is required.");
+        if (names.Count > MaxBatch) return OpResult<List<ContactNameMatch>>.Invalid($"At most {MaxBatch} names per batch.");
+
+        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
+        if (addressBookId is { } abid)
+        {
+            if (!bookIds.Contains(abid)) return OpResult<List<ContactNameMatch>>.Forbidden("No access to this address book.");
+            bookIds = [abid];
+        }
+        var pool = (await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct))
+            .Where(c => bookIds.Contains(c.AddressBookId)).ToList();
+
+        const int maxCandidates = 5;
+        var results = new List<ContactNameMatch>(names.Count);
+        foreach (var raw in names)
+        {
+            var query = (raw ?? "").Trim();
+            var norm = Norm(query);
+            if (norm.Length == 0)
+            {
+                results.Add(new ContactNameMatch { Name = raw ?? "", Outcome = NameMatchOutcome.NotFound, Candidates = [] });
+                continue;
+            }
+            var candidates = pool.Where(c => c.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+            var exact = candidates.Where(c => Norm(c.DisplayName) == norm).ToList();
+
+            NameMatchOutcome outcome;
+            Guid? matchId = null;
+            List<Contact> refs;
+            if (exact.Count == 1) { outcome = NameMatchOutcome.Matched; matchId = exact[0].Id; refs = exact; }
+            else if (candidates.Count == 0) { outcome = NameMatchOutcome.NotFound; refs = []; }
+            else { outcome = NameMatchOutcome.Ambiguous; refs = exact.Count > 1 ? exact : candidates; }
+
+            results.Add(new ContactNameMatch
+            {
+                Name = raw ?? "",
+                ContactId = matchId,
+                Outcome = outcome,
+                Candidates = [.. refs.OrderBy(c => c.SortName).Take(maxCandidates).Select(c => new ContactRef { ContactId = c.Id, DisplayName = c.DisplayName })],
+            });
+        }
+        return OpResult<List<ContactNameMatch>>.Ok(results);
+    }
+
+    // Ported from LupiraAssistantApi ContactResolveStrategy.Norm: lowercase + collapse whitespace.
+    private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
     public async Task<OpResult<ContactDto>> GetAsync(Guid principalId, Guid id, CancellationToken ct = default)
     {
         var c = await session.LoadAsync<Contact>(id, ct);

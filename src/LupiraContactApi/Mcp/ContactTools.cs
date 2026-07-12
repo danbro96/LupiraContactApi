@@ -33,6 +33,20 @@ public sealed class ContactTools
         return Require(await contacts.CreateAsync(u.Id, request));
     }
 
+    [McpServerTool, Description("Create many contacts in one call (each item carries its AddressBookId). Returns them in input order. Use for imports instead of repeated create_contact. Max 100; the whole batch fails on any forbidden book or channel conflict.")]
+    public static async Task<IReadOnlyList<ContactDto>> create_contacts_batch(ContactService contacts, CurrentUser user, CreateContactsBatchRequest request)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.CreateBatchAsync(u.Id, request.Contacts));
+    }
+
+    [McpServerTool, Description("Batch-match a list of names to existing contacts for import disambiguation. Per name: outcome Matched (one normalized-name/substring hit → contactId), Ambiguous (several → see candidates), or NotFound; candidates are id+displayName. Substring + normalized-name match, not phonetic. Optionally scope to one AddressBookId.")]
+    public static async Task<IReadOnlyList<ContactNameMatch>> resolve_contacts(ContactService contacts, CurrentUser user, ResolveContactsByNameRequest request)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.ResolveByNameAsync(u.Id, request.Names, request.AddressBookId));
+    }
+
     [McpServerTool, Description("Fetch one contact by id (query_contacts searches by name).")]
     public static async Task<ContactDto> get_contact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
     {

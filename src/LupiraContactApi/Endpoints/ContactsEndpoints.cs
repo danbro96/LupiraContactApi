@@ -25,6 +25,22 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/batch", (CreateContactsBatchRequest body, ContactsHandler h, CancellationToken ct) => h.CreateBatchAsync(body, ct))
+            .WithName("CreateContactsBatch")
+            .WithSummary("Create many contacts in one transaction (each carries its AddressBookId); returned index-for-index with the request.")
+            .Produces<List<ContactDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPost("/resolve-names", (ResolveContactsByNameRequest body, ContactsHandler h, CancellationToken ct) => h.ResolveByNameAsync(body, ct))
+            .WithName("ResolveContactsByName")
+            .WithSummary("Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Substring + normalized-name match, not phonetic.")
+            .Produces<List<ContactNameMatch>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapGet("/{id:guid}", (Guid id, ContactsHandler h, CancellationToken ct) => h.GetAsync(id, ct))
             .WithName("GetContact")
             .WithSummary("Get a single contact.")
