@@ -11,14 +11,14 @@ public static class VCardSerializer
 {
     /// <summary>Regenerate the vCard for a contact from its structured fields (organisation lives on a ContactGroup, so it's omitted).</summary>
     public static string From(Contact c) =>
-        Build(c.ExternalId, ComposeFullName(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname),
+        Build(c.ExternalId, ComposeFullName(c.GivenName, c.MiddleName, c.FamilyName, c.Nickname),
             c.GivenName, c.FamilyName, null, c.Channels, c.Birthday, c.Relations,
             c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate, c.Notes, c.Pronouns, c.AvatarRef);
 
     /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty.</summary>
-    public static string ComposeFullName(string? prefix, string? given, string? middle, string? family, string? suffix, string? nickname)
+    public static string ComposeFullName(string? given, string? middle, string? family, string? nickname)
     {
-        var name = string.Join(' ', new[] { prefix, given, middle, family, suffix }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        var name = string.Join(' ', new[] { given, middle, family }.Where(s => !string.IsNullOrWhiteSpace(s)));
         return name.Length > 0 ? name : (nickname ?? "");
     }
 

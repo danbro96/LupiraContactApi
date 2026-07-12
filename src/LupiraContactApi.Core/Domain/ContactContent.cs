@@ -16,7 +16,7 @@ public static class ContactContent
     {
         var sb = new StringBuilder();
         Line(sb, "id", externalId);
-        Line(sb, "name", f.NamePrefix, f.GivenName, f.MiddleName, f.FamilyName, f.NameSuffix, f.Nickname);
+        Line(sb, "name", f.GivenName, f.MiddleName, f.FamilyName, f.Nickname);
         // f.DisplayNameFormat is a rendering preference — deliberately excluded so it never moves the ETag.
         foreach (var ch in f.Channels ?? []) Line(sb, "channel", ch.Medium.ToString(), ch.Value, ch.Type, ch.Preferred ? "1" : "0");
         Line(sb, "birthday", f.Birthday?.ToCanonical());

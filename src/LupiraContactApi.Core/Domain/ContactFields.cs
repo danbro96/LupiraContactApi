@@ -6,11 +6,9 @@ namespace LupiraContactApi.Domain;
 /// <c>DisplayNameFormat</c> is a rendering preference that rides here for persistence but is excluded from the content hash.
 /// </summary>
 public sealed record ContactFields(
-    string? NamePrefix,
     string? GivenName,
     string? MiddleName,
     string? FamilyName,
-    string? NameSuffix,
     string? Nickname,
     IReadOnlyList<ContactReachChannel>? Channels,
     PartialDate? Birthday,

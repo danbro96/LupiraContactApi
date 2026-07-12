@@ -34,11 +34,9 @@ public sealed class Contact
     public Guid AddressBookId { get; set; }
     public string ExternalId { get; set; } = "";
 
-    public string? NamePrefix { get; set; }
     public string? GivenName { get; set; }
     public string? MiddleName { get; set; }
     public string? FamilyName { get; set; }
-    public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
     public DisplayNameFormat DisplayNameFormat { get; set; }
     public List<ContactReachChannel> Channels { get; set; } = new();
@@ -88,12 +86,12 @@ public sealed class Contact
     public string SortName => ComposeFull();
 
     /// <summary>Every name token plus the nickname, for search matching — a contact is findable by nickname or real name regardless of the display format.</summary>
-    public string SearchText => string.Join(' ', new[] { NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname }
+    public string SearchText => string.Join(' ', new[] { GivenName, MiddleName, FamilyName, Nickname }
         .Where(s => !string.IsNullOrWhiteSpace(s)));
 
     private string ComposeFull()
     {
-        var name = string.Join(' ', new[] { NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix }
+        var name = string.Join(' ', new[] { GivenName, MiddleName, FamilyName }
             .Where(s => !string.IsNullOrWhiteSpace(s)));
         return name.Length > 0 ? name : (Nickname ?? ExternalId);
     }
@@ -236,15 +234,13 @@ public sealed class Contact
         ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), Relations, EmergencyContactIds, Profiles, Deceased, DeathDate));
 
     private ContactFields Fields() =>
-        new(NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname, Channels, Birthday, Tags, Notes, Pronouns, DisplayNameFormat);
+        new(GivenName, MiddleName, FamilyName, Nickname, Channels, Birthday, Tags, Notes, Pronouns, DisplayNameFormat);
 
     private void SetFields(ContactFields f)
     {
-        NamePrefix = f.NamePrefix;
         GivenName = f.GivenName;
         MiddleName = f.MiddleName;
         FamilyName = f.FamilyName;
-        NameSuffix = f.NameSuffix;
         Nickname = f.Nickname;
         DisplayNameFormat = f.DisplayNameFormat;
         Channels = f.Channels is null ? [] : [.. f.Channels];   // channels are vCard-authoritative (wholesale, like the old Emails/Phones)

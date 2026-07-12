@@ -11,8 +11,8 @@ public class ContactTests
     const string Actor = "principal-1";
     static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
 
-    static ContactFields Name(string? prefix, string? given, string? middle, string? family, string? suffix, string? nickname, DisplayNameFormat format = DisplayNameFormat.Full) =>
-        new(prefix, given, middle, family, suffix, nickname, null, null, null, null, null, format);
+    static ContactFields Name(string? given, string? middle, string? family, string? nickname, DisplayNameFormat format = DisplayNameFormat.Full) =>
+        new(given, middle, family, nickname, null, null, null, null, null, format);
 
     // Wrap an event payload as an IEvent<T> carrying a timestamp + actor header, as Marten hydrates on replay.
     static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
@@ -26,42 +26,42 @@ public class ContactTests
     static Contact Created(Guid id, ContactFields? fields = null)
     {
         var c = new Contact();
-        c.Apply(Ev(new ContactCreated(id, Guid.NewGuid(), "u@x", fields ?? Name(null, "A", null, "B", null, null))));
+        c.Apply(Ev(new ContactCreated(id, Guid.NewGuid(), "u@x", fields ?? Name("A", null, "B", null))));
         return c;
     }
 
     [Fact]
     public void DisplayName_is_composed_from_name_parts()
     {
-        var c = Created(Guid.NewGuid(), Name("Dr", "Jane", "Q", "Smith", "Jr", null));
-        Assert.Equal("Dr Jane Q Smith Jr", c.DisplayName);
+        var c = Created(Guid.NewGuid(), Name("Jane", "Q", "Smith", null));
+        Assert.Equal("Jane Q Smith", c.DisplayName);
     }
 
     [Fact]
     public void DisplayName_falls_back_to_nickname()
     {
-        var c = Created(Guid.NewGuid(), Name(null, null, null, null, null, "Mom"));
+        var c = Created(Guid.NewGuid(), Name(null, null, null, "Mom"));
         Assert.Equal("Mom", c.DisplayName);
     }
 
     [Fact]
     public void DisplayName_FirstLast_uses_only_given_and_family()
     {
-        var c = Created(Guid.NewGuid(), Name("Dr", "Jane", "Q", "Smith", "Jr", "Janie", DisplayNameFormat.FirstLast));
+        var c = Created(Guid.NewGuid(), Name("Jane", "Q", "Smith", "Janie", DisplayNameFormat.FirstLast));
         Assert.Equal("Jane Smith", c.DisplayName);
     }
 
     [Fact]
     public void DisplayName_NickName_uses_the_nickname()
     {
-        var c = Created(Guid.NewGuid(), Name(null, "Jane", null, "Smith", null, "Janie", DisplayNameFormat.NickName));
+        var c = Created(Guid.NewGuid(), Name("Jane", null, "Smith", "Janie", DisplayNameFormat.NickName));
         Assert.Equal("Janie", c.DisplayName);
     }
 
     [Fact]
     public void DisplayName_NickName_without_a_nickname_falls_back_to_the_full_composition()
     {
-        var c = Created(Guid.NewGuid(), Name(null, "Jane", null, "Smith", null, null, DisplayNameFormat.NickName));
+        var c = Created(Guid.NewGuid(), Name("Jane", null, "Smith", null, DisplayNameFormat.NickName));
         Assert.Equal("Jane Smith", c.DisplayName);
     }
 
@@ -69,14 +69,14 @@ public class ContactTests
     public void SortName_stays_the_full_composition_regardless_of_format()
     {
         var full = new[] { DisplayNameFormat.Full, DisplayNameFormat.FirstLast, DisplayNameFormat.NickName }
-            .Select(f => Created(Guid.NewGuid(), Name("Dr", "Jane", "Q", "Smith", "Jr", "Janie", f)).SortName);
-        Assert.All(full, s => Assert.Equal("Dr Jane Q Smith Jr", s));
+            .Select(f => Created(Guid.NewGuid(), Name("Jane", "Q", "Smith", "Janie", f)).SortName);
+        Assert.All(full, s => Assert.Equal("Jane Q Smith", s));
     }
 
     [Fact]
     public void SearchText_includes_the_nickname_even_when_name_parts_are_present()
     {
-        var c = Created(Guid.NewGuid(), Name(null, "Jane", null, "Smith", null, "Janie", DisplayNameFormat.NickName));
+        var c = Created(Guid.NewGuid(), Name("Jane", null, "Smith", "Janie", DisplayNameFormat.NickName));
         Assert.Contains("Janie", c.SearchText);
         Assert.Contains("Smith", c.SearchText);
     }
@@ -85,9 +85,9 @@ public class ContactTests
     public void DisplayNameFormat_change_via_revise_does_not_move_the_hash()
     {
         var id = Guid.NewGuid();
-        var c = Created(id, Name(null, "Jane", null, "Smith", null, "Janie"));
+        var c = Created(id, Name("Jane", null, "Smith", "Janie"));
         var h0 = c.ContentHash;
-        c.Apply(Ev(new ContactRevised(id, Name(null, "Jane", null, "Smith", null, "Janie", DisplayNameFormat.NickName))));
+        c.Apply(Ev(new ContactRevised(id, Name("Jane", null, "Smith", "Janie", DisplayNameFormat.NickName))));
 
         Assert.Equal("Janie", c.DisplayName);
         Assert.Equal(h0, c.ContentHash);   // rendering preference — hash-neutral
@@ -110,7 +110,7 @@ public class ContactTests
         var id = Guid.NewGuid();
         var c = Created(id);
         var t1 = T0.AddDays(1);
-        c.Apply(Ev(new ContactRevised(id, Name(null, "Robert", null, "Jones", null, null)), at: t1, actor: "principal-2"));
+        c.Apply(Ev(new ContactRevised(id, Name("Robert", null, "Jones", null)), at: t1, actor: "principal-2"));
 
         Assert.Equal(T0, c.CreatedAt);
         Assert.Equal(Actor, c.CreatedBy);
@@ -136,10 +136,10 @@ public class ContactTests
         var id = Guid.NewGuid();
         var book = Guid.NewGuid();
         var c = new Contact();
-        c.Apply(Ev(new ContactCreated(id, book, "u@x", Name(null, "A", null, "B", null, null))));
+        c.Apply(Ev(new ContactCreated(id, book, "u@x", Name("A", null, "B", null))));
         c.Apply(Ev(new ContactDeleted(id)));
 
-        c.Apply(Ev(new ContactImported(id, book, "u@x", Name(null, "A", null, "B", null, null))));
+        c.Apply(Ev(new ContactImported(id, book, "u@x", Name("A", null, "B", null))));
         Assert.Null(c.DeletedAt);
         Assert.NotEmpty(c.ContentHash);
     }
@@ -148,9 +148,9 @@ public class ContactTests
     public void Revised_updates_the_name_and_the_hash()
     {
         var id = Guid.NewGuid();
-        var c = Created(id, Name(null, "Bob", null, "Jones", null, null));
+        var c = Created(id, Name("Bob", null, "Jones", null));
         var h0 = c.ContentHash;
-        c.Apply(Ev(new ContactRevised(id, Name(null, "Robert", null, "Jones", null, null))));
+        c.Apply(Ev(new ContactRevised(id, Name("Robert", null, "Jones", null))));
 
         Assert.Equal("Robert Jones", c.DisplayName);
         Assert.NotEqual(h0, c.ContentHash);
@@ -327,8 +327,8 @@ public class ContactTests
     public void Recomputed_hash_is_deterministic_for_identical_state()
     {
         var id = Guid.NewGuid();
-        var a = Created(id, Name(null, "Sam", null, "Vimes", null, null));
-        var b = Created(id, Name(null, "Sam", null, "Vimes", null, null));
+        var a = Created(id, Name("Sam", null, "Vimes", null));
+        var b = Created(id, Name("Sam", null, "Vimes", null));
         Assert.Equal(a.ContentHash, b.ContentHash);
     }
 

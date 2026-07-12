@@ -20,7 +20,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
         var id = DeterministicGuid.From(uid);
-        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full);
+        var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full);
 
         session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
         await session.SaveChangesAsync(ct);
@@ -68,11 +68,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         var merged = new ContactFields(
-            r.NamePrefix ?? c.NamePrefix,
             r.GivenName ?? c.GivenName,
             r.MiddleName ?? c.MiddleName,
             r.FamilyName ?? c.FamilyName,
-            r.NameSuffix ?? c.NameSuffix,
             r.Nickname ?? c.Nickname,
             MergeChannels(c.Channels, r.Channels),
             r.Birthday ?? c.Birthday,
@@ -469,7 +467,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var p = VCardSerializer.ParseVCard(rawVcard);
         // Notes/pronouns are preserve-if-absent (most clients never emit them): set from the card when present, else keep existing.
         // DisplayNameFormat isn't a vCard field — always preserve the existing choice so a re-sync never resets it.
-        var fields = new ContactFields(null, p.GivenName, null, p.FamilyName, null, null,
+        var fields = new ContactFields(p.GivenName, null, p.FamilyName, null,
             p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
             p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.Full);
         // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
@@ -525,5 +523,5 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     }
 
     private static ContactFields FieldsOf(Contact c) =>
-        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns, c.DisplayNameFormat);
+        new(c.GivenName, c.MiddleName, c.FamilyName, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns, c.DisplayNameFormat);
 }

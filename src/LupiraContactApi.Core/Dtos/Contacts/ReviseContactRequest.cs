@@ -7,11 +7,9 @@ namespace LupiraContactApi.Dtos.Contacts;
 /// wipes what it didn't mention. Use <c>PUT /contacts/{id}/channels</c> to remove channels. The address book isn't changeable here.</summary>
 public sealed class ReviseContactRequest
 {
-    public string? NamePrefix { get; set; }
     public string? GivenName { get; set; }
     public string? MiddleName { get; set; }
     public string? FamilyName { get; set; }
-    public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
     public DisplayNameFormat? DisplayNameFormat { get; set; }
     public List<ContactReachChannel>? Channels { get; set; }
