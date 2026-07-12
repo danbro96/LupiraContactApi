@@ -13,6 +13,7 @@ public sealed class ReviseContactRequest
     public string? FamilyName { get; set; }
     public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
+    public DisplayNameFormat? DisplayNameFormat { get; set; }
     public List<ContactReachChannel>? Channels { get; set; }
     public PartialDate? Birthday { get; set; }
     public string[]? Tags { get; set; }

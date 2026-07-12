@@ -39,6 +39,38 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
     }
 
     [Fact]
+    public async Task DisplayNameFormat_governs_the_label_is_hash_neutral_and_search_stays_by_real_name()
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+
+        var created = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
+        {
+            AddressBookId = abId,
+            GivenName = "Zaphod",
+            FamilyName = "Beeblebrox",
+            Nickname = "Zippy",
+            DisplayNameFormat = DisplayNameFormat.NickName,
+        })).Content.ReadFromJsonAsync<ContactDto>())!;
+
+        Assert.Equal("Zippy", created.DisplayName);
+        Assert.Equal(DisplayNameFormat.NickName, created.DisplayNameFormat);
+
+        // Found by nickname AND by real family name, whatever the display format.
+        var byNick = await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?query=Zippy&addressBookId={abId}");
+        Assert.Contains(byNick!, c => c.Id == created.Id);
+        var byFamily = await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?query=Beeblebrox&addressBookId={abId}");
+        Assert.Contains(byFamily!, c => c.Id == created.Id);
+
+        // Changing only the format flips the label but leaves the ETag untouched (rendering preference).
+        var resp = await api.PutAsJsonAsync($"/contacts/{created.Id}", new ReviseContactRequest { DisplayNameFormat = DisplayNameFormat.FirstLast });
+        resp.EnsureSuccessStatusCode();
+        var revised = (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+        Assert.Equal("Zaphod Beeblebrox", revised.DisplayName);
+        Assert.Equal(created.Etag, revised.Etag);
+    }
+
+    [Fact]
     public async Task Revise_merges_new_fields_without_wiping_existing()
     {
         var api = Factory.ApiClient(Email);

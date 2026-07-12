@@ -9,6 +9,7 @@ public sealed class ContactDto
     public required Guid AddressBookId { get; set; }
     public required string ExternalId { get; set; }
     public required string DisplayName { get; set; }
+    public DisplayNameFormat DisplayNameFormat { get; set; }
     public string? GivenName { get; set; }
     public string? MiddleName { get; set; }
     public string? FamilyName { get; set; }

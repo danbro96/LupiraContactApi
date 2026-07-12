@@ -11,8 +11,8 @@ public class ContactTests
     const string Actor = "principal-1";
     static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
 
-    static ContactFields Name(string? prefix, string? given, string? middle, string? family, string? suffix, string? nickname) =>
-        new(prefix, given, middle, family, suffix, nickname, null, null, null);
+    static ContactFields Name(string? prefix, string? given, string? middle, string? family, string? suffix, string? nickname, DisplayNameFormat format = DisplayNameFormat.Full) =>
+        new(prefix, given, middle, family, suffix, nickname, null, null, null, null, null, format);
 
     // Wrap an event payload as an IEvent<T> carrying a timestamp + actor header, as Marten hydrates on replay.
     static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
@@ -42,6 +42,55 @@ public class ContactTests
     {
         var c = Created(Guid.NewGuid(), Name(null, null, null, null, null, "Mom"));
         Assert.Equal("Mom", c.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_FirstLast_uses_only_given_and_family()
+    {
+        var c = Created(Guid.NewGuid(), Name("Dr", "Jane", "Q", "Smith", "Jr", "Janie", DisplayNameFormat.FirstLast));
+        Assert.Equal("Jane Smith", c.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_NickName_uses_the_nickname()
+    {
+        var c = Created(Guid.NewGuid(), Name(null, "Jane", null, "Smith", null, "Janie", DisplayNameFormat.NickName));
+        Assert.Equal("Janie", c.DisplayName);
+    }
+
+    [Fact]
+    public void DisplayName_NickName_without_a_nickname_falls_back_to_the_full_composition()
+    {
+        var c = Created(Guid.NewGuid(), Name(null, "Jane", null, "Smith", null, null, DisplayNameFormat.NickName));
+        Assert.Equal("Jane Smith", c.DisplayName);
+    }
+
+    [Fact]
+    public void SortName_stays_the_full_composition_regardless_of_format()
+    {
+        var full = new[] { DisplayNameFormat.Full, DisplayNameFormat.FirstLast, DisplayNameFormat.NickName }
+            .Select(f => Created(Guid.NewGuid(), Name("Dr", "Jane", "Q", "Smith", "Jr", "Janie", f)).SortName);
+        Assert.All(full, s => Assert.Equal("Dr Jane Q Smith Jr", s));
+    }
+
+    [Fact]
+    public void SearchText_includes_the_nickname_even_when_name_parts_are_present()
+    {
+        var c = Created(Guid.NewGuid(), Name(null, "Jane", null, "Smith", null, "Janie", DisplayNameFormat.NickName));
+        Assert.Contains("Janie", c.SearchText);
+        Assert.Contains("Smith", c.SearchText);
+    }
+
+    [Fact]
+    public void DisplayNameFormat_change_via_revise_does_not_move_the_hash()
+    {
+        var id = Guid.NewGuid();
+        var c = Created(id, Name(null, "Jane", null, "Smith", null, "Janie"));
+        var h0 = c.ContentHash;
+        c.Apply(Ev(new ContactRevised(id, Name(null, "Jane", null, "Smith", null, "Janie", DisplayNameFormat.NickName))));
+
+        Assert.Equal("Janie", c.DisplayName);
+        Assert.Equal(h0, c.ContentHash);   // rendering preference — hash-neutral
     }
 
     [Fact]

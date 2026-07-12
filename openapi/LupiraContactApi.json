@@ -2154,6 +2154,9 @@
           "displayName": {
             "type": "string"
           },
+          "displayNameFormat": {
+            "$ref": "#/components/schemas/DisplayNameFormat"
+          },
           "givenName": {
             "type": [
               "null",
@@ -2610,6 +2613,16 @@
               "string"
             ]
           },
+          "displayNameFormat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DisplayNameFormat"
+              }
+            ]
+          },
           "channels": {
             "type": [
               "null",
@@ -2651,6 +2664,13 @@
             ]
           }
         }
+      },
+      "DisplayNameFormat": {
+        "enum": [
+          "Full",
+          "FirstLast",
+          "NickName"
+        ]
       },
       "EndContactRelationRequest": {
         "required": [
@@ -2908,6 +2928,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "displayNameFormat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DisplayNameFormat"
+              }
             ]
           },
           "channels": {

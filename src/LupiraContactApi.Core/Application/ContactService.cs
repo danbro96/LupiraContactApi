@@ -20,7 +20,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
         var id = DeterministicGuid.From(uid);
-        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns);
+        var fields = new ContactFields(r.NamePrefix, r.GivenName, r.MiddleName, r.FamilyName, r.NameSuffix, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full);
 
         session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
         await session.SaveChangesAsync(ct);
@@ -42,9 +42,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
-            contacts = contacts.Where(c => c.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase));
+            contacts = contacts.Where(c => c.SearchText.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
-        var ordered = contacts.OrderBy(c => c.DisplayName).ToList();
+        var ordered = contacts.OrderBy(c => c.SortName).ToList();
         var scores = await completeness.ScoreContactsAsync(ordered, ct);
         return OpResult<List<ContactDto>>.Ok([.. ordered.Select(c => c.ToResponse(scores[c.Id]))]);
     }
@@ -78,7 +78,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             r.Birthday ?? c.Birthday,
             MergeDistinct(c.Tags, r.Tags),
             r.Notes ?? c.Notes,
-            r.Pronouns ?? c.Pronouns);
+            r.Pronouns ?? c.Pronouns,
+            r.DisplayNameFormat ?? c.DisplayNameFormat);
 
         stream.AppendOne(new ContactRevised(id, merged));
         await session.SaveChangesAsync(ct);
@@ -369,7 +370,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var sources = await session.Query<Contact>()
             .Where(x => x.DeletedAt == null && x.Relations.Any(r => r.ToContactId == id)).ToListAsync(ct);
-        foreach (var s in sources.Where(s => s.Id != id && books.Contains(s.AddressBookId)).OrderBy(s => s.DisplayName))
+        foreach (var s in sources.Where(s => s.Id != id && books.Contains(s.AddressBookId)).OrderBy(s => s.SortName))
             foreach (var edge in s.Relations.Where(r => r.ToContactId == id))
                 entries.Add(new ContactRelationEntryDto { ContactId = s.Id, DisplayName = s.DisplayName, Kind = edge.Kind.Inverse(), Label = null, Direction = ContactRelationDirection.Incoming, Ended = edge.Ended, Until = edge.Until });
 
@@ -413,7 +414,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             Kind = kind,
             Members = memberships.Where(m => m.Circle == kind)
                 .Select(m => new CircleMemberDto { ContactId = m.ContactId, DisplayName = byId[m.ContactId].DisplayName, Kind = m.Kind, Degree = m.Degree, Provenance = m.Provenance })
-                .OrderBy(m => m.Degree).ThenBy(m => m.DisplayName).ToList(),
+                .OrderBy(m => m.Degree).ThenBy(m => byId[m.ContactId].SortName).ToList(),
         }).ToList();
         return OpResult<ContactCirclesDto>.Ok(new ContactCirclesDto { FocusContactId = fid, Circles = circles });
     }
@@ -467,9 +468,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var p = VCardSerializer.ParseVCard(rawVcard);
         // Notes/pronouns are preserve-if-absent (most clients never emit them): set from the card when present, else keep existing.
+        // DisplayNameFormat isn't a vCard field — always preserve the existing choice so a re-sync never resets it.
         var fields = new ContactFields(null, p.GivenName, null, p.FamilyName, null, null,
             p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
-            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns);
+            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.Full);
         // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
         // Unresolvable target uuids are stored as-is — the target may sync in later or be unreadable to this caller; resolved reads filter.
         // Parent cycles are tolerated here (deliberately laxer import); inference is bounded, so they cannot hang it.
@@ -523,5 +525,5 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     }
 
     private static ContactFields FieldsOf(Contact c) =>
-        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns);
+        new(c.NamePrefix, c.GivenName, c.MiddleName, c.FamilyName, c.NameSuffix, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns, c.DisplayNameFormat);
 }

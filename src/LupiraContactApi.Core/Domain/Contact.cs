@@ -39,6 +39,7 @@ public sealed class Contact
     public string? FamilyName { get; set; }
     public string? NameSuffix { get; set; }
     public string? Nickname { get; set; }
+    public DisplayNameFormat DisplayNameFormat { get; set; }
     public List<ContactReachChannel> Channels { get; set; } = new();
     public PartialDate? Birthday { get; set; }
     public string[]? Tags { get; set; }
@@ -67,15 +68,33 @@ public sealed class Contact
     public DateTimeOffset UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 
-    /// <summary>Composed display name (no stored full name). Falls back to the nickname, then the external id.</summary>
+    /// <summary>Composed display label, per <see cref="DisplayNameFormat"/>. Falls back to the full composition, then nickname, then external id — never empty.</summary>
     public string DisplayName
     {
         get
         {
-            var name = string.Join(' ', new[] { NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix }
-                .Where(s => !string.IsNullOrWhiteSpace(s)));
-            return name.Length > 0 ? name : (Nickname ?? ExternalId);
+            var label = DisplayNameFormat switch
+            {
+                DisplayNameFormat.FirstLast => string.Join(' ', new[] { GivenName, FamilyName }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                DisplayNameFormat.NickName => Nickname ?? "",
+                _ => "",   // Full → the full composition below
+            };
+            return string.IsNullOrWhiteSpace(label) ? ComposeFull() : label;
         }
+    }
+
+    /// <summary>Stable full-name composition for ordering — independent of <see cref="DisplayNameFormat"/>.</summary>
+    public string SortName => ComposeFull();
+
+    /// <summary>Every name token plus the nickname, for search matching — a contact is findable by nickname or real name regardless of the display format.</summary>
+    public string SearchText => string.Join(' ', new[] { NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname }
+        .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    private string ComposeFull()
+    {
+        var name = string.Join(' ', new[] { NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix }
+            .Where(s => !string.IsNullOrWhiteSpace(s)));
+        return name.Length > 0 ? name : (Nickname ?? ExternalId);
     }
 
     public void Apply(IEvent<ContactCreated> e)
@@ -216,7 +235,7 @@ public sealed class Contact
         ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), Relations, EmergencyContactIds, Profiles, Deceased, DeathDate));
 
     private ContactFields Fields() =>
-        new(NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname, Channels, Birthday, Tags, Notes, Pronouns);
+        new(NamePrefix, GivenName, MiddleName, FamilyName, NameSuffix, Nickname, Channels, Birthday, Tags, Notes, Pronouns, DisplayNameFormat);
 
     private void SetFields(ContactFields f)
     {
@@ -226,6 +245,7 @@ public sealed class Contact
         FamilyName = f.FamilyName;
         NameSuffix = f.NameSuffix;
         Nickname = f.Nickname;
+        DisplayNameFormat = f.DisplayNameFormat;
         Channels = f.Channels is null ? [] : [.. f.Channels];   // channels are vCard-authoritative (wholesale, like the old Emails/Phones)
         Birthday = f.Birthday;
         Notes = f.Notes;

@@ -14,6 +14,7 @@ internal static class ContactMapper
         AddressBookId = c.AddressBookId,
         ExternalId = c.ExternalId,
         DisplayName = c.DisplayName,
+        DisplayNameFormat = c.DisplayNameFormat,
         GivenName = c.GivenName,
         MiddleName = c.MiddleName,
         FamilyName = c.FamilyName,

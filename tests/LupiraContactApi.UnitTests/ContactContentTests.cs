@@ -43,6 +43,14 @@ public class ContactContentTests
     }
 
     [Fact]
+    public void DisplayNameFormat_is_rendering_only_and_does_not_change_the_text()
+    {
+        var baseline = Canonical();
+        Assert.Equal(baseline, Canonical(f: Fields with { DisplayNameFormat = DisplayNameFormat.FirstLast }));
+        Assert.Equal(baseline, Canonical(f: Fields with { DisplayNameFormat = DisplayNameFormat.NickName }));
+    }
+
+    [Fact]
     public void Relation_since_and_note_are_content_bearing()
     {
         var other = Guid.NewGuid();
