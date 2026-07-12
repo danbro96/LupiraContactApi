@@ -3,11 +3,12 @@ using static LupiraContactApi.Domain.ContentHash;   // Of(); the type name clash
 
 namespace LupiraContactApi.Domain;
 
-/// <summary>A contact's postal address: an optional LupiraGeoApi place id + a denormalized formatted address, with a home/work type.</summary>
+/// <summary>A contact's postal address: a LupiraGeoApi place id (the sole source of truth — no free-text) with a home/work
+/// type. The write path requires a real id; the property is nullable only so legacy pre-migration events (which carried a
+/// null id + free-text) still deserialize.</summary>
 public sealed class ContactPostalAddress
 {
     public Guid? PlaceId { get; set; }
-    public string? FormattedAddress { get; set; }
     public ContactAddressType Type { get; set; }
 }
 
@@ -143,7 +144,7 @@ public sealed class Contact
 
     public void Apply(IEvent<ContactAddressesReplaced> e)
     {
-        Addresses = e.Data.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, FormattedAddress = a.FormattedAddress, Type = a.Type }).ToList();
+        Addresses = e.Data.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type }).ToList();
         Touch(e);   // addresses are outside the canonical content — no RecomputeHash, ETag unchanged
     }
 

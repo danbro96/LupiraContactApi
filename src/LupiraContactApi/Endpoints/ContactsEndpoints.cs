@@ -91,7 +91,7 @@ public static class ContactsEndpoints
 
         group.MapPut("/{id:guid}/addresses", (Guid id, SetContactAddressesRequest body, ContactsHandler h, CancellationToken ct) => h.SetAddressesAsync(id, body, ct))
             .WithName("SetContactAddresses")
-            .WithSummary("Replace the contact's postal addresses wholesale; each entry needs a geo place id or a formatted address.")
+            .WithSummary("Replace the contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text).")
             .Produces<ContactDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest)

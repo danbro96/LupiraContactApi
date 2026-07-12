@@ -90,7 +90,7 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
 
         var invalid = await api.PutAsJsonAsync($"/contacts/{c.Id}/addresses", new SetContactAddressesRequest
         {
-            Addresses = [new ContactPostalAddress { Type = ContactAddressType.Home }],   // neither place nor text
+            Addresses = [new ContactPostalAddress { Type = ContactAddressType.Home }],   // no place id -> rejected
         });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
     }

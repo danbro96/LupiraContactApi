@@ -138,7 +138,7 @@ public sealed class ContactTools
         return Require(await contacts.SetProfilesAsync(u.Id, contactId, profiles));
     }
 
-    [McpServerTool, Description("Replace a contact's postal addresses wholesale; each entry needs a geo place id (LupiraGeoApi) or a formatted address.")]
+    [McpServerTool, Description("Replace a contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text). Empty clears.")]
     public static async Task<ContactDto> set_contact_addresses(
         ContactService contacts, CurrentUser user,
         [Description("The contact.")] Guid contactId,

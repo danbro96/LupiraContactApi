@@ -1043,7 +1043,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Replace the contact's postal addresses wholesale; each entry needs a geo place id or a formatted address.",
+        "summary": "Replace the contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text).",
         "operationId": "SetContactAddresses",
         "parameters": [
           {
@@ -2371,12 +2371,6 @@
               "string"
             ],
             "format": "uuid"
-          },
-          "formattedAddress": {
-            "type": [
-              "null",
-              "string"
-            ]
           },
           "type": {
             "$ref": "#/components/schemas/ContactAddressType"

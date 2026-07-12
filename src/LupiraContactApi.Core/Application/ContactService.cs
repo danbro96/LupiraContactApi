@@ -245,8 +245,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
 
-        var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, FormattedAddress = string.IsNullOrWhiteSpace(a.FormattedAddress) ? null : a.FormattedAddress.Trim(), Type = a.Type }).ToList();
-        if (next.Any(a => a.PlaceId is null && a.FormattedAddress is null)) return OpResult<ContactDto>.Invalid("Each address needs a place id or a formatted address.");
+        var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type }).ToList();
+        if (next.Any(a => a.PlaceId is null || a.PlaceId == Guid.Empty)) return OpResult<ContactDto>.Invalid("Each address must reference a geo place id.");
         if (AddressesEqual(c.Addresses, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
@@ -442,7 +442,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         (a ?? []).Select(p => (p.Service, p.Handle, p.Url, p.Preferred)).SequenceEqual(b.Select(p => (p.Service, p.Handle, p.Url, p.Preferred)));
 
     private static bool AddressesEqual(IReadOnlyList<ContactPostalAddress>? a, IReadOnlyList<ContactPostalAddress> b) =>
-        (a ?? []).Select(x => (x.PlaceId, x.FormattedAddress, x.Type)).SequenceEqual(b.Select(x => (x.PlaceId, x.FormattedAddress, x.Type)));
+        (a ?? []).Select(x => (x.PlaceId, x.Type)).SequenceEqual(b.Select(x => (x.PlaceId, x.Type)));
 
     private static bool ChannelsEqual(IReadOnlyList<ContactReachChannel> a, IReadOnlyList<ContactReachChannel> b) =>
         a.SequenceEqual(b);   // records — structural equality, order-sensitive
