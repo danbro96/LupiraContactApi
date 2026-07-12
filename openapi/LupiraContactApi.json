@@ -2160,6 +2160,12 @@
               "string"
             ]
           },
+          "middleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "familyName": {
             "type": [
               "null",

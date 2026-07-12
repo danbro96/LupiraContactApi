@@ -15,6 +15,7 @@ internal static class ContactMapper
         ExternalId = c.ExternalId,
         DisplayName = c.DisplayName,
         GivenName = c.GivenName,
+        MiddleName = c.MiddleName,
         FamilyName = c.FamilyName,
         Nickname = c.Nickname,
         Channels = c.Channels,

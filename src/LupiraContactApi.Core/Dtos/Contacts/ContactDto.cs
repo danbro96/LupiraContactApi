@@ -10,6 +10,7 @@ public sealed class ContactDto
     public required string ExternalId { get; set; }
     public required string DisplayName { get; set; }
     public string? GivenName { get; set; }
+    public string? MiddleName { get; set; }
     public string? FamilyName { get; set; }
     public string? Nickname { get; set; }
     public required IReadOnlyList<ContactReachChannel> Channels { get; set; }
