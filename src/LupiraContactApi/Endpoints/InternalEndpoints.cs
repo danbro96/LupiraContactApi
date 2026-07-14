@@ -11,6 +11,10 @@ public static class InternalEndpoints
                 (ResolveContactsRequest body, InternalContactsHandler h, CancellationToken ct) => h.ResolveAsync(body, ct))
             .RequireAuthorization("ApiPolicy")
             .ExcludeFromDescription();
+        app.MapGet("/internal/contacts/birthdays",
+                (InternalContactsHandler h, CancellationToken ct) => h.BirthdaysAsync(ct))
+            .RequireAuthorization("ApiPolicy")
+            .ExcludeFromDescription();
         return app;
     }
 }
