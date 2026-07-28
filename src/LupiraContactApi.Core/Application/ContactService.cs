@@ -1,4 +1,5 @@
 using LupiraContactApi.Auth;
+using LupiraContactApi.Data;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Mappers;
@@ -8,22 +9,49 @@ using System.Text.Json.Nodes;
 
 namespace LupiraContactApi.Application;
 
-/// <summary>Contact core shared by REST, CardDAV, and MCP. Event-sourced like <see cref="CalendarItemService"/>; a contact belongs to one address book.</summary>
-public sealed class ContactService(IDocumentSession session, AccessResolver access, CompletenessResolver completeness)
+/// <summary>Contact core shared by REST, the legacy sync gateway, and MCP. Event-sourced; a contact belongs to one
+/// address book. Mutations may carry an <c>Idempotency-Key</c> command id (see <see cref="Idempotency"/>) and an
+/// <c>occurredAt</c> client stamp (see <see cref="SectionLww"/>); creates dedup on <c>SourceKey</c> instead.</summary>
+public sealed class ContactService(IDocumentSession session, AccessResolver access, CompletenessResolver completeness, Idempotency idempotency)
 {
+    /// <summary>Commit staged events + the dedup ledger row in one transaction. False when the dedup race was
+    /// lost — the caller re-reads and returns the already-committed state (idempotent success).</summary>
+    private async Task<bool> SaveGuardedAsync(Guid? commandId, Guid aggregateId, int resultVersion, CancellationToken ct)
+    {
+        idempotency.Record(commandId, aggregateId, resultVersion);
+        try { await session.SaveChangesAsync(ct); }
+        catch (Exception ex) when (Idempotency.IsDuplicate(ex)) { return false; }
+        return true;
+    }
+
+    /// <summary>Response for a mutation whose command id is already in the ledger: the current state, deleted or
+    /// not — the original call succeeded, so the replay must too.</summary>
+    private async Task<OpResult<ContactDto>> ReplayedAsync(Guid id, CancellationToken ct) =>
+        await session.LoadAsync<Contact>(id, ct) is { } current
+            ? OpResult<ContactDto>.Ok(await ToDtoAsync(current, ct))
+            : OpResult<ContactDto>.NotFound();
+
     public async Task<OpResult<ContactDto>> CreateAsync(Guid principalId, CreateContactRequest r, CancellationToken ct = default)
     {
         if (!await access.CanWriteAddressBookAsync(principalId, r.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this address book.");
 
         var channels = ReachChannelNormalizer.Normalize(r.Channels ?? []);
         if (ReachChannelNormalizer.HasPreferredConflict(channels)) return OpResult<ContactDto>.Invalid("At most one preferred channel per medium.");
+
+        // A client SourceKey pins the stream id (offline replay-safe create); else a random uid.
+        var hasKey = !string.IsNullOrWhiteSpace(r.SourceKey);
+        var uid = hasKey ? r.SourceKey!.Trim() : $"{Guid.NewGuid():N}@cal.lupira.com";
+        var id = DeterministicGuid.From(uid);
+        var stream = hasKey ? await session.Events.FetchForWriting<Contact>(id, ct) : null;
+        if (stream?.Aggregate is { DeletedAt: null } existing)
+            return OpResult<ContactDto>.Ok(await ToDtoAsync(existing, ct));   // idempotent hit — no new events
         Stamp(principalId);
 
-        var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
-        var id = DeterministicGuid.From(uid);
         var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full, r.Kind ?? ContactKind.Individual);
 
-        session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
+        var created = new ContactCreated(id, r.AddressBookId, uid, fields);
+        if (stream is not null) stream.AppendOne(created);   // keyed create over a soft-deleted stream resurrects it
+        else session.Events.StartStream<Contact>(id, created);
         await session.SaveChangesAsync(ct);
         var c = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(c!, ct));
@@ -146,8 +174,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     /// <summary>Merge-update an existing contact: provided scalars overwrite, provided email/phone/tag arrays
     /// union onto the existing values (deduped), null fields are kept. Never wipes unmentioned fields.</summary>
-    public async Task<OpResult<ContactDto>> ReviseAsync(Guid principalId, Guid id, ReviseContactRequest r, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> ReviseAsync(Guid principalId, Guid id, ReviseContactRequest r, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -167,8 +196,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             r.DisplayNameFormat ?? c.DisplayNameFormat,
             r.Kind ?? c.Kind);
 
-        stream.AppendOne(new ContactRevised(id, merged));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactRevised(id, merged, r.OccurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         var updated = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(updated!, ct));
     }
@@ -201,8 +230,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     // ---- Reach channels (emails + phones) + tags — the removable, wholesale counterpart to ReviseContact's union-merge ----
 
-    public async Task<OpResult<ContactDto>> SetChannelsAsync(Guid principalId, Guid id, IReadOnlyList<ContactReachChannel> channels, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> SetChannelsAsync(Guid principalId, Guid id, IReadOnlyList<ContactReachChannel> channels, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -213,17 +243,18 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (ChannelsEqual(c.Channels, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
-        stream.AppendOne(new ContactRevised(id, FieldsOf(c) with { Channels = next }));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactRevised(id, FieldsOf(c) with { Channels = next }, occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
-    public Task<OpResult<ContactDto>> SetTagsAsync(Guid principalId, Guid id, string[] tags, CancellationToken ct = default) =>
-        ReplaceMultiAsync(principalId, id, tags, c => c.Tags, (c, next) => FieldsOf(c) with { Tags = next }, ct);
+    public Task<OpResult<ContactDto>> SetTagsAsync(Guid principalId, Guid id, string[] tags, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default) =>
+        ReplaceMultiAsync(principalId, id, tags, c => c.Tags, (c, next) => FieldsOf(c) with { Tags = next }, occurredAt, commandId, ct);
 
     private async Task<OpResult<ContactDto>> ReplaceMultiAsync(Guid principalId, Guid id, string[] incoming,
-        Func<Contact, string[]?> current, Func<Contact, string[], ContactFields> apply, CancellationToken ct)
+        Func<Contact, string[]?> current, Func<Contact, string[], ContactFields> apply, DateTimeOffset? occurredAt, Guid? commandId, CancellationToken ct)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -234,8 +265,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         var merged = apply(c, next);
-        stream.AppendOne(new ContactRevised(id, merged));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactRevised(id, merged, occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -243,22 +274,26 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     private static string[] NormalizeMulti(string[]? values) =>
         [.. (values ?? []).Select(v => v.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    public async Task<OpResult> DeleteAsync(Guid principalId, Guid id, CancellationToken ct = default)
+    public async Task<OpResult> DeleteAsync(Guid principalId, Guid id, Guid? commandId = null, CancellationToken ct = default)
     {
+        // A replayed delete after a lost response finds the contact already gone — 404 would wedge an offline
+        // client's outbox, so the ledger turns it into an idempotent success.
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return OpResult.Ok();
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult.Forbidden("No write access to this contact.");
         Stamp(principalId);
         stream.AppendOne(new ContactDeleted(id));
-        await session.SaveChangesAsync(ct);
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult.Ok();
     }
 
     // ---- Deceased (death is not deletion — the contact stays in the kinship graph) ----
 
-    public async Task<OpResult<ContactDto>> SetDeceasedAsync(Guid principalId, Guid id, DateOnly? deathDate, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> SetDeceasedAsync(Guid principalId, Guid id, DateOnly? deathDate, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -266,13 +301,14 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c.Deceased && c.DeathDate == deathDate) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // no event, no ETag churn
         Stamp(principalId);
 
-        stream.AppendOne(new ContactMarkedDeceased(id, deathDate));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactMarkedDeceased(id, deathDate, occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
-    public async Task<OpResult<ContactDto>> ClearDeceasedAsync(Guid principalId, Guid id, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> ClearDeceasedAsync(Guid principalId, Guid id, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -280,15 +316,16 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (!c.Deceased) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
-        stream.AppendOne(new ContactDeceasedCleared(id));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactDeceasedCleared(id, occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
     // ---- Avatar (a pointer to an image, never bytes — outside the canonical content, like addresses) ----
 
-    public async Task<OpResult<ContactDto>> SetAvatarAsync(Guid principalId, Guid id, string? avatarRef, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> SetAvatarAsync(Guid principalId, Guid id, string? avatarRef, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -298,15 +335,16 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c.AvatarRef == next) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
-        stream.AppendOne(new ContactAvatarSet(id, next));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactAvatarSet(id, next, occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
     /// <summary>Shallow-merge a JSON object into the contact's annotation metadata (top-level keys overwrite).
     /// The channel for completeness N/A acknowledgments: <c>{"completeness":{"na":["organisation"]}}</c>.</summary>
-    public async Task<OpResult<ContactDto>> AttachMetadataAsync(Guid principalId, Guid id, JsonNode patch, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> AttachMetadataAsync(Guid principalId, Guid id, JsonNode patch, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -316,8 +354,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var current = (JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata) as JsonObject) ?? new JsonObject();
         if (patch is JsonObject obj)
             foreach (var kv in obj) current[kv.Key] = kv.Value?.DeepClone();
-        stream.AppendOne(new ContactMetadataAttached(id, current.ToJsonString()));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactMetadataAttached(id, current.ToJsonString(), occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -349,8 +387,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     // ---- Profiles + addresses (wholesale replace) ----
 
-    public async Task<OpResult<ContactDto>> SetProfilesAsync(Guid principalId, Guid id, IReadOnlyList<ContactSocialProfile> profiles, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> SetProfilesAsync(Guid principalId, Guid id, IReadOnlyList<ContactSocialProfile> profiles, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -363,13 +402,14 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (ProfilesEqual(c.Profiles, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
-        stream.AppendOne(new ContactProfilesReplaced(id, next));
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactProfilesReplaced(id, next, occurredAt, commandId));
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
-    public async Task<OpResult<ContactDto>> SetAddressesAsync(Guid principalId, Guid id, IReadOnlyList<ContactPostalAddress> addresses, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> SetAddressesAsync(Guid principalId, Guid id, IReadOnlyList<ContactPostalAddress> addresses, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
+        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
@@ -380,8 +420,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (AddressesEqual(c.Addresses, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
-        stream.AppendOne(new ContactAddressesReplaced(id, next));   // addresses are outside the canonical content — ETag unchanged
-        await session.SaveChangesAsync(ct);
+        stream.AppendOne(new ContactAddressesReplaced(id, next, occurredAt, commandId));   // addresses are outside the canonical content — ETag unchanged
+        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 

@@ -28,10 +28,12 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<CompletenessResolver>();
         services.AddScoped<AccessResolver>();
         services.AddScoped<PrincipalDirectory>();
+        services.AddScoped<LupiraContactApi.Data.Idempotency>();
         services.AddScoped<AddressBookService>();
         services.AddScoped<ContactService>();
         services.AddScoped<ContactGroupService>();
         services.AddScoped<DavChangeFeed>();
+        services.AddScoped<SyncFeed>();
         return services;
     }
 }

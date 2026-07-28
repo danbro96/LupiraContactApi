@@ -68,6 +68,29 @@ public sealed class Contact
     public DateTimeOffset UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 
+    /// <summary>Global event sequence of the last event applied — the per-contact watermark the sync changes
+    /// feed queries by (indexed). Bumped on every event, even one whose section guard rejects it.</summary>
+    public long UpdatedSequence { get; set; }
+
+    /// <summary>Stream version, populated by Marten's aggregate versioning.</summary>
+    public int Version { get; set; }
+
+    // ---- per-section LWW guards (see SectionLww): the (occurredAt, commandId) of each section's last winner.
+    // Core covers ContactFields wholesale — channels and tags ride inside ContactRevised, so they share it. ----
+
+    public DateTimeOffset CoreTs { get; set; }
+    public Guid CoreCmd { get; set; }
+    public DateTimeOffset AddressesTs { get; set; }
+    public Guid AddressesCmd { get; set; }
+    public DateTimeOffset ProfilesTs { get; set; }
+    public Guid ProfilesCmd { get; set; }
+    public DateTimeOffset AvatarTs { get; set; }
+    public Guid AvatarCmd { get; set; }
+    public DateTimeOffset MetadataTs { get; set; }
+    public Guid MetadataCmd { get; set; }
+    public DateTimeOffset DeceasedTs { get; set; }
+    public Guid DeceasedCmd { get; set; }
+
     /// <summary>Composed display label, per <see cref="DisplayNameFormat"/>. Falls back to the full composition, then nickname, then external id — never empty.</summary>
     public string DisplayName
     {
@@ -106,6 +129,8 @@ public sealed class Contact
         SetFields(d.Fields);
         DeletedAt = null;
         Created(e);
+        // Creation seeds the core guard from the server stamp: a stale offline edit predating the create loses.
+        (CoreTs, CoreCmd) = SectionLww.Stamp(e, null, null);
         RecomputeHash();
     }
 
@@ -118,13 +143,17 @@ public sealed class Contact
         SetFields(d.Parsed);
         DeletedAt = null;
         if (CreatedAt == default) Created(e); else Touch(e);   // import is create-or-replace (also the resurrection path)
+        (CoreTs, CoreCmd) = SectionLww.Stamp(e, null, null);
         RecomputeHash();
     }
 
     public void Apply(IEvent<ContactRevised> e)
     {
-        SetFields(e.Data.Fields);
         Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, CoreTs, CoreCmd)) return;
+        SetFields(e.Data.Fields);
+        (CoreTs, CoreCmd) = (ts, cmd);
         RecomputeHash();
     }
 
@@ -143,14 +172,21 @@ public sealed class Contact
 
     public void Apply(IEvent<ContactAddressesReplaced> e)
     {
+        Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, AddressesTs, AddressesCmd)) return;
         Addresses = e.Data.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type }).ToList();
-        Touch(e);   // addresses are outside the canonical content — no RecomputeHash, ETag unchanged
+        (AddressesTs, AddressesCmd) = (ts, cmd);
+        // addresses are outside the canonical content — no RecomputeHash, ETag unchanged
     }
 
     public void Apply(IEvent<ContactProfilesReplaced> e)
     {
-        Profiles = e.Data.Profiles.Select(p => new ContactSocialProfile { Service = p.Service, Handle = p.Handle, Url = p.Url, Preferred = p.Preferred }).ToList();
         Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, ProfilesTs, ProfilesCmd)) return;
+        Profiles = e.Data.Profiles.Select(p => new ContactSocialProfile { Service = p.Service, Handle = p.Handle, Url = p.Url, Preferred = p.Preferred }).ToList();
+        (ProfilesTs, ProfilesCmd) = (ts, cmd);
         RecomputeHash();
     }
 
@@ -161,32 +197,45 @@ public sealed class Contact
         RecomputeHash();
     }
 
+    // Mark/clear deceased compete for the same state, so they share one guard and resolve against each other.
     public void Apply(IEvent<ContactMarkedDeceased> e)
     {
+        Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, DeceasedTs, DeceasedCmd)) return;
         Deceased = true;
         DeathDate = e.Data.DeathDate;
-        Touch(e);
+        (DeceasedTs, DeceasedCmd) = (ts, cmd);
         RecomputeHash();
     }
 
     public void Apply(IEvent<ContactDeceasedCleared> e)
     {
+        Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, DeceasedTs, DeceasedCmd)) return;
         Deceased = false;
         DeathDate = null;
-        Touch(e);
+        (DeceasedTs, DeceasedCmd) = (ts, cmd);
         RecomputeHash();
     }
 
     public void Apply(IEvent<ContactMetadataAttached> e)
     {
+        Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, MetadataTs, MetadataCmd)) return;
         Metadata = e.Data.MetadataJson;
-        Touch(e);   // annotation only — outside the canonical content, ETag unchanged
+        (MetadataTs, MetadataCmd) = (ts, cmd);   // annotation only — outside the canonical content, ETag unchanged
     }
 
     public void Apply(IEvent<ContactAvatarSet> e)
     {
+        Touch(e);
+        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
+        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, AvatarTs, AvatarCmd)) return;
         AvatarRef = string.IsNullOrWhiteSpace(e.Data.Ref) ? null : e.Data.Ref.Trim();
-        Touch(e);   // avatar is a mutable pointer outside the canonical content — no RecomputeHash, ETag unchanged
+        (AvatarTs, AvatarCmd) = (ts, cmd);   // avatar is a mutable pointer outside the canonical content — ETag unchanged
     }
 
     public void Apply(IEvent<ContactRelationAdded> e)
@@ -233,6 +282,7 @@ public sealed class Contact
     {
         UpdatedAt = e.Timestamp;
         UpdatedBy = EventActor.Of(e);
+        UpdatedSequence = e.Sequence;
     }
 
     /// <summary>Derives <see cref="ContentHash"/> from the current content-bearing state. Called after every content change;

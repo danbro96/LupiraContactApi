@@ -5,4 +5,7 @@ namespace LupiraContactApi.Dtos.Contacts;
 public sealed class SetContactTagsRequest
 {
     public required string[] Tags { get; set; }
+    /// <summary>Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.</summary>
+    public DateTimeOffset? OccurredAt { get; set; }
+
 }

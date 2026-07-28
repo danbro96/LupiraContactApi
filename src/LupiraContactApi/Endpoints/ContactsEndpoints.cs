@@ -1,6 +1,7 @@
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Handlers;
+using Microsoft.AspNetCore.Mvc;
 
 namespace LupiraContactApi.Endpoints;
 
@@ -57,7 +58,7 @@ public static class ContactsEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}", (Guid id, ReviseContactRequest body, ContactsHandler h, CancellationToken ct) => h.ReviseAsync(id, body, ct))
+        group.MapPut("/{id:guid}", (Guid id, ReviseContactRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.ReviseAsync(id, body, idempotencyKey, ct))
             .WithName("ReviseContact")
             .WithSummary("Update a contact (merge — provided fields overwrite/append, unmentioned fields are kept).")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -65,14 +66,14 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPost("/{id:guid}/metadata", (Guid id, System.Text.Json.Nodes.JsonNode patch, ContactsHandler h, CancellationToken ct) => h.AttachMetadataAsync(id, patch, ct))
+        group.MapPost("/{id:guid}/metadata", (Guid id, System.Text.Json.Nodes.JsonNode patch, DateTimeOffset? occurredAt, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.AttachMetadataAsync(id, patch, occurredAt, idempotencyKey, ct))
             .WithName("MergeContactMetadata")
             .WithSummary("Merge arbitrary JSON metadata into a contact (top-level keys overwrite). Also the channel for completeness N/A acknowledgments: {\"completeness\":{\"na\":[\"organisation\"]}}.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapDelete("/{id:guid}", (Guid id, ContactsHandler h, CancellationToken ct) => h.DeleteAsync(id, ct))
+        group.MapDelete("/{id:guid}", (Guid id, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.DeleteAsync(id, idempotencyKey, ct))
             .WithName("DeleteContact")
             .WithSummary("Delete a contact (soft delete + tombstone).")
             .Produces(StatusCodes.Status204NoContent)
@@ -88,7 +89,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/deceased", (Guid id, SetDeceasedRequest body, ContactsHandler h, CancellationToken ct) => h.SetDeceasedAsync(id, body, ct))
+        group.MapPut("/{id:guid}/deceased", (Guid id, SetDeceasedRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetDeceasedAsync(id, body, idempotencyKey, ct))
             .WithName("MarkContactDeceased")
             .WithSummary("Mark a contact as deceased (idempotent; the date may be unknown). Deceased contacts stay in the kinship graph — death is not deletion.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -96,7 +97,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapDelete("/{id:guid}/deceased", (Guid id, ContactsHandler h, CancellationToken ct) => h.ClearDeceasedAsync(id, ct))
+        group.MapDelete("/{id:guid}/deceased", (Guid id, DateTimeOffset? occurredAt, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.ClearDeceasedAsync(id, occurredAt, idempotencyKey, ct))
             .WithName("ClearContactDeceased")
             .WithSummary("Undo a deceased marking recorded in error. (CardDAV can set but never clear deceased — clearing is API-only.)")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -104,7 +105,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/profiles", (Guid id, SetContactProfilesRequest body, ContactsHandler h, CancellationToken ct) => h.SetProfilesAsync(id, body, ct))
+        group.MapPut("/{id:guid}/profiles", (Guid id, SetContactProfilesRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetProfilesAsync(id, body, idempotencyKey, ct))
             .WithName("SetContactProfiles")
             .WithSummary("Replace the contact's social/IM handles wholesale. Service names are canonicalized; well-known services (telegram, messenger, whatsapp…) get the profile URL derived from the handle. At most one preferred handle per service.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -113,7 +114,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/avatar", (Guid id, SetContactAvatarRequest body, ContactsHandler h, CancellationToken ct) => h.SetAvatarAsync(id, body, ct))
+        group.MapPut("/{id:guid}/avatar", (Guid id, SetContactAvatarRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetAvatarAsync(id, body, idempotencyKey, ct))
             .WithName("SetContactAvatar")
             .WithSummary("Set (or clear, with an empty value) the contact's avatar — a URL/media id, never image bytes.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -121,7 +122,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/addresses", (Guid id, SetContactAddressesRequest body, ContactsHandler h, CancellationToken ct) => h.SetAddressesAsync(id, body, ct))
+        group.MapPut("/{id:guid}/addresses", (Guid id, SetContactAddressesRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetAddressesAsync(id, body, idempotencyKey, ct))
             .WithName("SetContactAddresses")
             .WithSummary("Replace the contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text).")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -139,7 +140,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/channels", (Guid id, SetContactChannelsRequest body, ContactsHandler h, CancellationToken ct) => h.SetChannelsAsync(id, body, ct))
+        group.MapPut("/{id:guid}/channels", (Guid id, SetContactChannelsRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetChannelsAsync(id, body, idempotencyKey, ct))
             .WithName("SetContactChannels")
             .WithSummary("Replace the contact's reach channels (emails + phones) wholesale (empty clears). Unlike the merge update, this can remove a channel; values are trimmed, type tokens lowercased, duplicates dropped, at most one preferred per medium.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
@@ -148,7 +149,7 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
-        group.MapPut("/{id:guid}/tags", (Guid id, SetContactTagsRequest body, ContactsHandler h, CancellationToken ct) => h.SetTagsAsync(id, body, ct))
+        group.MapPut("/{id:guid}/tags", (Guid id, SetContactTagsRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetTagsAsync(id, body, idempotencyKey, ct))
             .WithName("SetContactTags")
             .WithSummary("Replace the contact's tags wholesale (empty clears). Unlike the merge update, this can remove a tag; entries are trimmed and de-duplicated case-insensitively.")
             .Produces<ContactDto>(StatusCodes.Status200OK)

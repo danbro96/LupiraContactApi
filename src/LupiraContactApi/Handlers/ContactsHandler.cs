@@ -21,10 +21,10 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkProblem(await contacts.ThinContactsAsync(u.Id, addressBookId, maxScore, take, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AttachMetadataAsync(Guid id, System.Text.Json.Nodes.JsonNode patch, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AttachMetadataAsync(Guid id, System.Text.Json.Nodes.JsonNode patch, DateTimeOffset? occurredAt, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.AttachMetadataAsync(u.Id, id, patch, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.AttachMetadataAsync(u.Id, id, patch, occurredAt, idempotencyKey, ct));
     }
 
     public async Task<Results<Ok<ContactDto>, ProblemHttpResult, UnauthorizedHttpResult>> CreateAsync(CreateContactRequest body, CancellationToken ct)
@@ -51,16 +51,16 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkNotFoundProblem(await contacts.GetAsync(u.Id, id, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ReviseAsync(Guid id, ReviseContactRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ReviseAsync(Guid id, ReviseContactRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.ReviseAsync(u.Id, id, body, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.ReviseAsync(u.Id, id, body, idempotencyKey, ct));
     }
 
-    public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> DeleteAsync(Guid id, CancellationToken ct)
+    public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> DeleteAsync(Guid id, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.NoContentNotFoundProblem(await contacts.DeleteAsync(u.Id, id, ct));
+        return OpResultMap.NoContentNotFoundProblem(await contacts.DeleteAsync(u.Id, id, idempotencyKey, ct));
     }
 
     public async Task<Results<Ok<List<ContactRelationEntryDto>>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ListRelationsAsync(Guid id, bool includeInferred, CancellationToken ct)
@@ -87,34 +87,34 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkNotFoundProblem(await contacts.EndRelationAsync(u.Id, id, toContactId, body.Kind, body.Until, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetDeceasedAsync(Guid id, SetDeceasedRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetDeceasedAsync(Guid id, SetDeceasedRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetDeceasedAsync(u.Id, id, body.DeathDate, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.SetDeceasedAsync(u.Id, id, body.DeathDate, body.OccurredAt, idempotencyKey, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ClearDeceasedAsync(Guid id, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ClearDeceasedAsync(Guid id, DateTimeOffset? occurredAt, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.ClearDeceasedAsync(u.Id, id, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.ClearDeceasedAsync(u.Id, id, occurredAt, idempotencyKey, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetProfilesAsync(Guid id, SetContactProfilesRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetProfilesAsync(Guid id, SetContactProfilesRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetProfilesAsync(u.Id, id, body.Profiles, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.SetProfilesAsync(u.Id, id, body.Profiles, body.OccurredAt, idempotencyKey, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAddressesAsync(Guid id, SetContactAddressesRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAddressesAsync(Guid id, SetContactAddressesRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetAddressesAsync(u.Id, id, body.Addresses, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.SetAddressesAsync(u.Id, id, body.Addresses, body.OccurredAt, idempotencyKey, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAvatarAsync(Guid id, SetContactAvatarRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAvatarAsync(Guid id, SetContactAvatarRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetAvatarAsync(u.Id, id, body.AvatarRef, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.SetAvatarAsync(u.Id, id, body.AvatarRef, body.OccurredAt, idempotencyKey, ct));
     }
 
     public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetEmergencyContactsAsync(Guid id, SetEmergencyContactsRequest body, CancellationToken ct)
@@ -123,16 +123,16 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkNotFoundProblem(await contacts.SetEmergencyContactsAsync(u.Id, id, body.ContactIds, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetChannelsAsync(Guid id, SetContactChannelsRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetChannelsAsync(Guid id, SetContactChannelsRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetChannelsAsync(u.Id, id, body.Channels, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.SetChannelsAsync(u.Id, id, body.Channels, body.OccurredAt, idempotencyKey, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetTagsAsync(Guid id, SetContactTagsRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetTagsAsync(Guid id, SetContactTagsRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetTagsAsync(u.Id, id, body.Tags, ct));
+        return OpResultMap.OkNotFoundProblem(await contacts.SetTagsAsync(u.Id, id, body.Tags, body.OccurredAt, idempotencyKey, ct));
     }
 
     public async Task<Results<Ok<ContactCirclesDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> CirclesAsync(Guid? focusId, CancellationToken ct)

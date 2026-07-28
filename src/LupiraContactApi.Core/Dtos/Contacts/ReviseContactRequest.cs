@@ -18,4 +18,8 @@ public sealed class ReviseContactRequest
     public string[]? Tags { get; set; }
     public string? Notes { get; set; }
     public string? Pronouns { get; set; }
+
+    /// <summary>Client wall-clock of the edit, for last-writer-wins conflict resolution of the core fields.
+    /// Omitted ⇒ server receive time.</summary>
+    public DateTimeOffset? OccurredAt { get; set; }
 }

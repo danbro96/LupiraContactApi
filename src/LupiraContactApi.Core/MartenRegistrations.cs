@@ -15,6 +15,11 @@ public static class MartenRegistrations
         opts.DatabaseSchemaName = "contact";
         opts.UseSystemTextJsonForSerialization(EnumStorage.AsString);
 
+        // Rich append: sequences + versions are reserved client-side BEFORE inline projections run, so
+        // Contact.Touch can stamp UpdatedSequence (the sync feed's cursor watermark) from IEvent.Sequence.
+        // Under the default Quick mode the sequence is assigned server-side at INSERT and reads 0 in Apply.
+        opts.Events.AppendMode = JasperFx.Events.EventAppendMode.Rich;
+
         // Capture provenance on every event — actor (header) + correlation/causation. Unbackfillable, so on from day one.
         opts.Events.MetadataConfig.HeadersEnabled = true;
         opts.Events.MetadataConfig.CorrelationIdEnabled = true;
@@ -46,6 +51,12 @@ public static class MartenRegistrations
         // Event-sourced aggregates (resource read models) — inline for read-your-write.
         opts.Projections.Snapshot<Contact>(SnapshotLifecycle.Inline);
         opts.Projections.Snapshot<ContactGroup>(SnapshotLifecycle.Inline);
+        // The sync changes feed pages contacts by "touched since cursor" — indexed so the delta query never scans.
+        opts.Schema.For<Contact>().Index(x => x.UpdatedSequence);
+
+        // Idempotency ledger (Idempotency-Key on mutations); identity = the client's command id, so a duplicate
+        // key is a PK violation that rolls back the whole transaction (see Data/Idempotency).
+        opts.Schema.For<ProcessedCommand>().Identity(x => x.CommandId);
 
         // Plain documents (collections, identity) + the indexes the services query by.
         opts.Schema.For<Principal>().Index(x => x.AuthentikSub).Index(x => x.Email);

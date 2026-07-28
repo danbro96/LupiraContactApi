@@ -7,4 +7,7 @@ namespace LupiraContactApi.Dtos.Contacts;
 public sealed class SetContactProfilesRequest
 {
     public required List<ContactSocialProfile> Profiles { get; set; }
+    /// <summary>Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.</summary>
+    public DateTimeOffset? OccurredAt { get; set; }
+
 }

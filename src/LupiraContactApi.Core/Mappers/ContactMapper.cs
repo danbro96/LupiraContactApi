@@ -38,6 +38,7 @@ internal static class ContactMapper
         CreatedBy = c.CreatedBy,
         UpdatedAt = c.UpdatedAt,
         UpdatedBy = c.UpdatedBy,
+        Version = c.Version,
         Etag = c.ContentHash,
     };
 }

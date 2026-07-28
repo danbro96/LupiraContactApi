@@ -855,6 +855,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -916,6 +924,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -948,6 +964,22 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "occurredAt",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -1067,6 +1099,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -1128,6 +1168,22 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "occurredAt",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -1177,6 +1233,14 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -1254,6 +1318,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -1313,6 +1385,14 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -1463,6 +1543,14 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -1532,6 +1620,14 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -2168,6 +2264,95 @@
           }
         ]
       }
+    },
+    "/sync/changes": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Delta feed for offline mirrors: every contact the caller can read that changed past the cursor, plus tombstone ids for contacts deleted or no longer visible (incl. moved to an unreadable address book). Omit since for a full sync; loop while hasMore, persisting cursor between calls.",
+        "operationId": "GetChanges",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncChangesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/sync/containers": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Snapshot of the caller's address books + contact groups for mirror reconciliation (no cursor — fetch once per sync cycle and diff locally).",
+        "operationId": "GetSyncContainers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncContainersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2399,6 +2584,7 @@
           "profiles",
           "emergencyContactIds",
           "relations",
+          "version",
           "etag"
         ],
         "type": "object",
@@ -2564,6 +2750,14 @@
               "null",
               "string"
             ]
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "etag": {
             "type": "string"
@@ -2887,6 +3081,12 @@
           "addressBookId": {
             "type": "string",
             "format": "uuid"
+          },
+          "sourceKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "kind": {
             "oneOf": [
@@ -3328,6 +3528,61 @@
               "null",
               "string"
             ]
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "SectionGuardDto": {
+        "required": [
+          "ts",
+          "cmd"
+        ],
+        "type": "object",
+        "properties": {
+          "ts": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cmd": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SectionGuardsDto": {
+        "required": [
+          "core",
+          "addresses",
+          "profiles",
+          "avatar",
+          "metadata",
+          "deceased"
+        ],
+        "type": "object",
+        "properties": {
+          "core": {
+            "$ref": "#/components/schemas/SectionGuardDto"
+          },
+          "addresses": {
+            "$ref": "#/components/schemas/SectionGuardDto"
+          },
+          "profiles": {
+            "$ref": "#/components/schemas/SectionGuardDto"
+          },
+          "avatar": {
+            "$ref": "#/components/schemas/SectionGuardDto"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SectionGuardDto"
+          },
+          "deceased": {
+            "$ref": "#/components/schemas/SectionGuardDto"
           }
         }
       },
@@ -3342,6 +3597,13 @@
             "items": {
               "$ref": "#/components/schemas/ContactPostalAddress"
             }
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3353,6 +3615,13 @@
               "null",
               "string"
             ]
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3367,6 +3636,13 @@
             "items": {
               "$ref": "#/components/schemas/ContactReachChannel"
             }
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3381,6 +3657,13 @@
             "items": {
               "$ref": "#/components/schemas/ContactSocialProfile"
             }
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3395,6 +3678,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3407,6 +3697,13 @@
               "string"
             ],
             "format": "date"
+          },
+          "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -3434,6 +3731,72 @@
           "contactId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "SyncChangeDto": {
+        "required": [
+          "contact",
+          "guards"
+        ],
+        "type": "object",
+        "properties": {
+          "contact": {
+            "$ref": "#/components/schemas/ContactDto"
+          },
+          "guards": {
+            "$ref": "#/components/schemas/SectionGuardsDto"
+          }
+        }
+      },
+      "SyncChangesResponse": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncChangeDto"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "SyncContainersResponse": {
+        "required": [
+          "addressBooks",
+          "groups"
+        ],
+        "type": "object",
+        "properties": {
+          "addressBooks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressBookDto"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactGroupDto"
+            }
           }
         }
       },
@@ -3476,6 +3839,9 @@
     },
     {
       "name": "ContactGroups"
+    },
+    {
+      "name": "Sync"
     }
   ]
 }

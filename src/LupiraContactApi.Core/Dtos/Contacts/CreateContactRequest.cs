@@ -7,6 +7,11 @@ namespace LupiraContactApi.Dtos.Contacts;
 public sealed class CreateContactRequest
 {
     public required Guid AddressBookId { get; set; }
+
+    /// <summary>Client-chosen stable key that pins the contact's identity (offline clients mint a UUIDv7): a
+    /// replayed create with the same key returns the existing contact instead of duplicating it.</summary>
+    public string? SourceKey { get; set; }
+
     /// <summary>Individual (default) or Organization — a business/venue card that skips person-only enrichment.</summary>
     public ContactKind? Kind { get; set; }
     public string? GivenName { get; set; }

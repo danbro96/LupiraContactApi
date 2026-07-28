@@ -33,6 +33,7 @@ builder.Services.AddScoped<AddressBooksHandler>();
 builder.Services.AddScoped<ContactsHandler>();
 builder.Services.AddScoped<ContactGroupsHandler>();
 builder.Services.AddScoped<InternalContactsHandler>();
+builder.Services.AddScoped<SyncHandler>();
 builder.Services.AddScoped<DavBackendHandler>();
 
 // --- Auth: OIDC JWT for the REST/MCP surface; the /dav-backend seam additionally requires the DAV
@@ -163,6 +164,17 @@ if (args.Contains("--apply-schema"))
     return;
 }
 
+// One-shot contact projection rebuild (deploy step after the sync-surface release: pre-existing contact
+// documents carry no UpdatedSequence watermark until their snapshots are recomputed from the event log).
+if (args.Contains("--rebuild-contacts"))
+{
+    var store = app.Services.GetRequiredService<IDocumentStore>();
+    using var daemon = await store.BuildProjectionDaemonAsync();
+    await daemon.RebuildProjectionAsync<Contact>(CancellationToken.None);
+    Console.WriteLine("Contact projection rebuilt.");
+    return;
+}
+
 // Behind the Cloudflare Tunnel the public host differs from the container, so honor forwarded headers.
 var forwarded = new ForwardedHeadersOptions
 {
@@ -198,6 +210,7 @@ app.MapMe();
 app.MapAddressBooks();
 app.MapContacts();
 app.MapContactGroups();
+app.MapSync();
 
 // Service-to-service seams (LAN-only).
 app.MapInternal();

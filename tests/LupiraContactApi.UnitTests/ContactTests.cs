@@ -14,10 +14,15 @@ public class ContactTests
     static ContactFields Name(string? given, string? middle, string? family, string? nickname, DisplayNameFormat format = DisplayNameFormat.Full) =>
         new(given, middle, family, nickname, null, null, null, null, null, format);
 
-    // Wrap an event payload as an IEvent<T> carrying a timestamp + actor header, as Marten hydrates on replay.
+    static long _seq;
+
+    // Wrap an event payload as an IEvent<T> carrying a timestamp, actor header, and a monotonically increasing
+    // global sequence, as Marten hydrates on replay. The sequence matters: SectionLww's unstamped fallback
+    // tiebreaks equal timestamps by sequence order, exactly like a live store.
     static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
     {
         var e = Event.For(data);
+        e.Sequence = Interlocked.Increment(ref _seq);
         e.Timestamp = at ?? T0;
         if (actor is not null) e.Headers = new Dictionary<string, object> { [EventActor.HeaderKey] = actor };
         return e;

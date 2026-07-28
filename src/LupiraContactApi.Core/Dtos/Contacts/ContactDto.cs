@@ -43,5 +43,8 @@ public sealed class ContactDto
     public DateTimeOffset UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 
+    /// <summary>Stream version — the offline clients' optimistic-versioning surface (<c>Etag</c> stays content-derived).</summary>
+    public required int Version { get; set; }
+
     public required string Etag { get; set; }
 }
