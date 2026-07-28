@@ -26,7 +26,29 @@ public sealed class ContactTools
         return Require(await contacts.QueryAsync(u.Id, query, null));
     }
 
-    [McpServerTool, Description("Create a contact in an address book (AddressBookId required). Name is structured parts; employer is set separately as an organization group. Notes/pronouns and a year-optional birthday can be set here.")]
+    [McpServerTool, Description("Check-in worklist: contacts ranked thinnest-first by completeness score (0..1 ascending). Kind-aware: organisation/venue cards are only scored on name/reach/address; the deceased on remembrance data. Each contact carries Completeness with ranked Gaps — the fields worth asking about. When a gap doesn't apply (grandma has no employer), acknowledge it via attach_metadata with {\"completeness\":{\"na\":[\"organisation\"]}} so it stops counting.")]
+    public static async Task<IReadOnlyList<ContactDto>> list_thin_contacts(
+        ContactService contacts, CurrentUser user,
+        [Description("Restrict to one address book id.")] Guid? addressBookId = null,
+        [Description("Only contacts scoring strictly below this (0..1). Default 1 = any contact with gaps.")] double? maxScore = null,
+        [Description("Max contacts returned (default 25).")] int? take = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.ThinContactsAsync(u.Id, addressBookId, maxScore, take));
+    }
+
+    [McpServerTool, Description("Merge an arbitrary JSON object of metadata into a contact (top-level keys overwrite). Also the channel for completeness N/A acknowledgments: {\"completeness\":{\"na\":[\"organisation\",\"birthday\"]}} marks those rubric fields as not applicable so the contact's completeness score stops counting them.")]
+    public static async Task<ContactDto> attach_metadata(
+        ContactService contacts, CurrentUser user,
+        [Description("The contact id.")] Guid contactId,
+        [Description("A JSON object of metadata keys to merge.")] string metadataJson)
+    {
+        var u = await user.GetAsync();
+        var node = System.Text.Json.Nodes.JsonNode.Parse(metadataJson) ?? new System.Text.Json.Nodes.JsonObject();
+        return Require(await contacts.AttachMetadataAsync(u.Id, contactId, node));
+    }
+
+    [McpServerTool, Description("Create a contact in an address book (AddressBookId required). Kind = Individual (default) or Organization — use Organization for a business/venue card (a restaurant, clinic, airline); it skips person-only completeness asks. Name is structured parts; employer is set separately as an organization group. Notes/pronouns and a year-optional birthday can be set here.")]
     public static async Task<ContactDto> create_contact(ContactService contacts, CurrentUser user, CreateContactRequest request)
     {
         var u = await user.GetAsync();

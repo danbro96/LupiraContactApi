@@ -43,3 +43,7 @@ public record ContactDeceasedCleared(Guid ContactId);
 /// <summary>Sets (or clears, when null) the avatar reference — a URL/media id, never image bytes. Outside the
 /// canonical content like postal addresses, so it does not move the ETag.</summary>
 public record ContactAvatarSet(Guid ContactId, string? Ref);
+
+/// <summary>Replaces the contact's annotation metadata (the merged JSON object — merge happens in the service).
+/// Outside the canonical content like the avatar, so it does not move the ETag. Carries completeness N/A acknowledgments.</summary>
+public record ContactMetadataAttached(Guid ContactId, string MetadataJson);

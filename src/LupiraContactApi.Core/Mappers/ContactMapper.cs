@@ -13,6 +13,7 @@ internal static class ContactMapper
         Id = c.Id,
         AddressBookId = c.AddressBookId,
         ExternalId = c.ExternalId,
+        Kind = c.Kind,
         DisplayName = c.DisplayName,
         DisplayNameFormat = c.DisplayNameFormat,
         GivenName = c.GivenName,

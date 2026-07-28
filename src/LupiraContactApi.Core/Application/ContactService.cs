@@ -4,6 +4,7 @@ using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Mappers;
 using LupiraContactApi.Serialization;
 using Marten;
+using System.Text.Json.Nodes;
 
 namespace LupiraContactApi.Application;
 
@@ -20,7 +21,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
         var id = DeterministicGuid.From(uid);
-        var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full);
+        var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full, r.Kind ?? ContactKind.Individual);
 
         session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
         await session.SaveChangesAsync(ct);
@@ -71,7 +72,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
                 return OpResult<List<ContactDto>>.Invalid($"Contact '{r.GivenName} {r.FamilyName}': at most one preferred channel per medium.");
             var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
             var id = DeterministicGuid.From(uid);
-            var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full);
+            var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full, r.Kind ?? ContactKind.Individual);
             session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
             ids.Add(id);
         }
@@ -163,7 +164,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             MergeDistinct(c.Tags, r.Tags),
             r.Notes ?? c.Notes,
             r.Pronouns ?? c.Pronouns,
-            r.DisplayNameFormat ?? c.DisplayNameFormat);
+            r.DisplayNameFormat ?? c.DisplayNameFormat,
+            r.Kind ?? c.Kind);
 
         stream.AppendOne(new ContactRevised(id, merged));
         await session.SaveChangesAsync(ct);
@@ -299,6 +301,50 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         stream.AppendOne(new ContactAvatarSet(id, next));
         await session.SaveChangesAsync(ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+    }
+
+    /// <summary>Shallow-merge a JSON object into the contact's annotation metadata (top-level keys overwrite).
+    /// The channel for completeness N/A acknowledgments: <c>{"completeness":{"na":["organisation"]}}</c>.</summary>
+    public async Task<OpResult<ContactDto>> AttachMetadataAsync(Guid principalId, Guid id, JsonNode patch, CancellationToken ct = default)
+    {
+        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
+        var c = stream.Aggregate;
+        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
+        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
+        Stamp(principalId);
+
+        var current = (JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata) as JsonObject) ?? new JsonObject();
+        if (patch is JsonObject obj)
+            foreach (var kv in obj) current[kv.Key] = kv.Value?.DeepClone();
+        stream.AppendOne(new ContactMetadataAttached(id, current.ToJsonString()));
+        await session.SaveChangesAsync(ct);
+        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+    }
+
+    /// <summary>Check-in worklist: contacts ranked thinnest-first (score asc, then sort name). Scores are
+    /// kind-aware (person vs organisation card) and N/A-acknowledged fields are already excluded.</summary>
+    public async Task<OpResult<List<ContactDto>>> ThinContactsAsync(
+        Guid principalId, Guid? addressBookId = null, double? maxScore = null, int? take = null, CancellationToken ct = default)
+    {
+        if (maxScore is < 0 or > 1) return OpResult<List<ContactDto>>.Invalid("maxScore must be between 0 and 1.");
+        if (take is < 1) return OpResult<List<ContactDto>>.Invalid("take must be >= 1.");
+
+        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
+        if (addressBookId is { } abid)
+        {
+            if (!bookIds.Contains(abid)) return OpResult<List<ContactDto>>.Forbidden("No access to this address book.");
+            bookIds = [abid];
+        }
+
+        var candidates = await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct);
+        var contacts = candidates.Where(c => bookIds.Contains(c.AddressBookId)).ToList();
+        var scores = await completeness.ScoreContactsAsync(contacts, ct);
+        var thin = contacts
+            .Select(c => (Contact: c, Score: scores[c.Id]))
+            .Where(x => x.Score is not null && x.Score.Score < (maxScore ?? 1.0))
+            .OrderBy(x => x.Score!.Score).ThenBy(x => x.Contact.SortName)
+            .Take(take ?? 25);
+        return OpResult<List<ContactDto>>.Ok([.. thin.Select(x => x.Contact.ToResponse(x.Score))]);
     }
 
     // ---- Profiles + addresses (wholesale replace) ----
@@ -555,7 +601,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         // DisplayNameFormat isn't a vCard field — always preserve the existing choice so a re-sync never resets it.
         var fields = new ContactFields(p.GivenName, null, p.FamilyName, null,
             p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
-            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.Full);
+            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.Full,
+            p.Kind ?? existing?.Kind ?? ContactKind.Individual);   // KIND is preserve-if-absent, like the X-props
         // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
         // Unresolvable target uuids are stored as-is — the target may sync in later or be unreadable to this caller; resolved reads filter.
         // Parent cycles are tolerated here (deliberately laxer import); inference is bounded, so they cannot hang it.

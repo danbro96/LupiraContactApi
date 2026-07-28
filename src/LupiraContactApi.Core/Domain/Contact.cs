@@ -34,6 +34,7 @@ public sealed class Contact
     public Guid AddressBookId { get; set; }
     public string ExternalId { get; set; } = "";
 
+    public ContactKind Kind { get; set; }
     public string? GivenName { get; set; }
     public string? MiddleName { get; set; }
     public string? FamilyName { get; set; }
@@ -176,6 +177,12 @@ public sealed class Contact
         RecomputeHash();
     }
 
+    public void Apply(IEvent<ContactMetadataAttached> e)
+    {
+        Metadata = e.Data.MetadataJson;
+        Touch(e);   // annotation only — outside the canonical content, ETag unchanged
+    }
+
     public void Apply(IEvent<ContactAvatarSet> e)
     {
         AvatarRef = string.IsNullOrWhiteSpace(e.Data.Ref) ? null : e.Data.Ref.Trim();
@@ -234,10 +241,11 @@ public sealed class Contact
         ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), Relations, EmergencyContactIds, Profiles, Deceased, DeathDate));
 
     private ContactFields Fields() =>
-        new(GivenName, MiddleName, FamilyName, Nickname, Channels, Birthday, Tags, Notes, Pronouns, DisplayNameFormat);
+        new(GivenName, MiddleName, FamilyName, Nickname, Channels, Birthday, Tags, Notes, Pronouns, DisplayNameFormat, Kind);
 
     private void SetFields(ContactFields f)
     {
+        Kind = f.Kind;
         GivenName = f.GivenName;
         MiddleName = f.MiddleName;
         FamilyName = f.FamilyName;

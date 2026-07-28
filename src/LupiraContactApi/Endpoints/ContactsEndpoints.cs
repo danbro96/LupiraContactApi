@@ -18,6 +18,15 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status401Unauthorized);
 
+        group.MapGet("/thin", (Guid? addressBookId, double? maxScore, int? take, ContactsHandler h, CancellationToken ct) =>
+                h.ThinAsync(addressBookId, maxScore, take, ct))
+            .WithName("GetThinContacts")
+            .WithSummary("Check-in worklist: contacts ranked thinnest-first by completeness score (< maxScore, default 1 = any contact with gaps). Kind-aware (person vs organisation card). Acknowledge an inapplicable gap field by merging metadata {\"completeness\":{\"na\":[\"organisation\"]}} so it stops counting.")
+            .Produces<List<ContactDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
         group.MapPost("/", (CreateContactRequest body, ContactsHandler h, CancellationToken ct) => h.CreateAsync(body, ct))
             .WithName("CreateContact")
             .WithSummary("Create a contact.")
@@ -54,6 +63,13 @@ public static class ContactsEndpoints
             .Produces<ContactDto>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPost("/{id:guid}/metadata", (Guid id, System.Text.Json.Nodes.JsonNode patch, ContactsHandler h, CancellationToken ct) => h.AttachMetadataAsync(id, patch, ct))
+            .WithName("MergeContactMetadata")
+            .WithSummary("Merge arbitrary JSON metadata into a contact (top-level keys overwrite). Also the channel for completeness N/A acknowledgments: {\"completeness\":{\"na\":[\"organisation\"]}}.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapDelete("/{id:guid}", (Guid id, ContactsHandler h, CancellationToken ct) => h.DeleteAsync(id, ct))

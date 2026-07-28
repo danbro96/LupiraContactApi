@@ -26,6 +26,8 @@ public static class ContactContent
         foreach (var p in profiles) Line(sb, "profile", p.Service, p.Handle, p.Url, p.Preferred ? "1" : "0");
         foreach (var r in relations) Line(sb, "relation", r.ToContactId.ToString("D"), r.Kind.ToString(), r.Label, r.Ended ? "1" : "0", Date(r.Until), Date(r.Since), r.Note);
         foreach (var id in emergencyContactIds) Line(sb, "emergency", id.ToString("D"));
+        // Kind is emitted only when non-default so every pre-existing (person) contact keeps its hash/ETag.
+        if (f.Kind != ContactKind.Individual) Line(sb, "kind", f.Kind.ToString());
         return sb.ToString();
     }
 

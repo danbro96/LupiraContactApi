@@ -7,6 +7,8 @@ namespace LupiraContactApi.Dtos.Contacts;
 public sealed class CreateContactRequest
 {
     public required Guid AddressBookId { get; set; }
+    /// <summary>Individual (default) or Organization — a business/venue card that skips person-only enrichment.</summary>
+    public ContactKind? Kind { get; set; }
     public string? GivenName { get; set; }
     public string? MiddleName { get; set; }
     public string? FamilyName { get; set; }

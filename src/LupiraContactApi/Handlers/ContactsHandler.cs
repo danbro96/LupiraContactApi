@@ -15,6 +15,18 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkProblem(await contacts.QueryAsync(u.Id, query, addressBookId, ct));
     }
 
+    public async Task<Results<Ok<List<ContactDto>>, ProblemHttpResult, UnauthorizedHttpResult>> ThinAsync(Guid? addressBookId, double? maxScore, int? take, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkProblem(await contacts.ThinContactsAsync(u.Id, addressBookId, maxScore, take, ct));
+    }
+
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AttachMetadataAsync(Guid id, System.Text.Json.Nodes.JsonNode patch, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkNotFoundProblem(await contacts.AttachMetadataAsync(u.Id, id, patch, ct));
+    }
+
     public async Task<Results<Ok<ContactDto>, ProblemHttpResult, UnauthorizedHttpResult>> CreateAsync(CreateContactRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);

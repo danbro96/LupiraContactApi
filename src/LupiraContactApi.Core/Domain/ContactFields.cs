@@ -15,4 +15,5 @@ public sealed record ContactFields(
     string[]? Tags,
     string? Notes = null,
     string? Pronouns = null,
-    DisplayNameFormat DisplayNameFormat = DisplayNameFormat.Full);
+    DisplayNameFormat DisplayNameFormat = DisplayNameFormat.Full,
+    ContactKind Kind = ContactKind.Individual);

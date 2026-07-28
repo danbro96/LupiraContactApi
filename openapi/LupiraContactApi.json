@@ -588,6 +588,92 @@
         ]
       }
     },
+    "/contacts/thin": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Check-in worklist: contacts ranked thinnest-first by completeness score (< maxScore, default 1 = any contact with gaps). Kind-aware (person vs organisation card). Acknowledge an inapplicable gap field by merging metadata {\"completeness\":{\"na\":[\"organisation\"]}} so it stops counting.",
+        "operationId": "GetThinContacts",
+        "parameters": [
+          {
+            "name": "addressBookId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "maxScore",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+              "type": [
+                "number",
+                "string"
+              ],
+              "format": "double"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/contacts/batch": {
       "post": {
         "tags": [
@@ -835,6 +921,59 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/metadata": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Merge arbitrary JSON metadata into a contact (top-level keys overwrite). Also the channel for completeness N/A acknowledgments: {\"completeness\":{\"na\":[\"organisation\"]}}.",
+        "operationId": "MergeContactMetadata",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found"
@@ -2275,6 +2414,9 @@
           "externalId": {
             "type": "string"
           },
+          "kind": {
+            "$ref": "#/components/schemas/ContactKind"
+          },
           "displayName": {
             "type": "string"
           },
@@ -2483,6 +2625,12 @@
       "ContactGroupKind": {
         "enum": [
           "Group",
+          "Organization"
+        ]
+      },
+      "ContactKind": {
+        "enum": [
+          "Individual",
           "Organization"
         ]
       },
@@ -2739,6 +2887,16 @@
           "addressBookId": {
             "type": "string",
             "format": "uuid"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContactKind"
+              }
+            ]
           },
           "givenName": {
             "type": [
@@ -3087,6 +3245,16 @@
       "ReviseContactRequest": {
         "type": "object",
         "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContactKind"
+              }
+            ]
+          },
           "givenName": {
             "type": [
               "null",

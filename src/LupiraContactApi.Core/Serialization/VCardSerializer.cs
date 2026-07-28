@@ -13,7 +13,7 @@ public static class VCardSerializer
     public static string From(Contact c) =>
         Build(c.ExternalId, ComposeFullName(c.GivenName, c.MiddleName, c.FamilyName, c.Nickname),
             c.GivenName, c.FamilyName, null, c.Channels, c.Birthday, c.Relations,
-            c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate, c.Notes, c.Pronouns, c.AvatarRef);
+            c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate, c.Notes, c.Pronouns, c.AvatarRef, c.Kind);
 
     /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty.</summary>
     public static string ComposeFullName(string? given, string? middle, string? family, string? nickname)
@@ -29,7 +29,8 @@ public static class VCardSerializer
         IReadOnlyList<Guid>? emergencyContacts = null,
         IReadOnlyList<ContactSocialProfile>? profiles = null,
         bool deceased = false, DateOnly? deathDate = null,
-        string? notes = null, string? pronouns = null, string? avatarRef = null)
+        string? notes = null, string? pronouns = null, string? avatarRef = null,
+        ContactKind kind = ContactKind.Individual)
     {
         var sb = new StringBuilder();
         sb.Append("BEGIN:VCARD\r\n");
@@ -37,6 +38,7 @@ public static class VCardSerializer
         sb.Append("UID:").Append(Escape(uid)).Append("\r\n");
         sb.Append("FN:").Append(Escape(fullName)).Append("\r\n");
         sb.Append("N:").Append(Escape(family ?? "")).Append(';').Append(Escape(given ?? "")).Append(";;;\r\n");
+        if (kind == ContactKind.Organization) sb.Append("KIND:org\r\n");   // vCard 4.0 property; individual is the implied default
         if (!string.IsNullOrWhiteSpace(organization)) sb.Append("ORG:").Append(Escape(organization)).Append("\r\n");
         foreach (var ch in channels ?? [])
         {
@@ -85,6 +87,7 @@ public static class VCardSerializer
         PartialDate? bday = null;
         DateOnly? deathDate = null;
         bool? deceased = null;
+        ContactKind? kind = null;
         var channels = new List<ContactReachChannel>();
         var relations = new List<ContactRelation>();
         List<Guid>? emergency = null;
@@ -117,6 +120,10 @@ public static class VCardSerializer
                     deathDate = ParseDate(val);   // unparsable date still means deceased
                     break;
                 case "X-LUPIRA-DECEASED": deceased = true; break;
+                case "KIND":
+                case "X-ADDRESSBOOKSERVER-KIND":   // the vCard 3.0-era convention for the same fact
+                    kind = val.Trim().ToLowerInvariant() is "org" or "organization" ? ContactKind.Organization : ContactKind.Individual;
+                    break;
                 case "X-SOCIALPROFILE":
                     if (ParseSocialProfile(l[..colon], Unescape(val)) is { } sp) (profiles ??= []).Add(sp);
                     break;
@@ -134,7 +141,7 @@ public static class VCardSerializer
         return new ParsedContact(fn ?? "", given, family, org,
             channels.Count > 0 ? [.. channels] : null, bday,
             relations.Count > 0 ? [.. relations] : null,
-            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns);
+            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns, kind);
     }
 
     // EMAIL/TEL → reach channel: TYPE tokens (comma-joined or repeated params) yield the first non-pref type + a pref flag.

@@ -6,6 +6,12 @@ namespace LupiraContactApi.Domain;
 [JsonConverter(typeof(JsonStringEnumConverter<ContactGroupKind>))]
 public enum ContactGroupKind { Group, Organization }
 
+/// <summary>What the contact card represents — vCard <c>KIND</c>. A business/venue (a provider referenced from
+/// bookings, say) is an <c>Organization</c>: no birthday, employer, or kinship applies. <c>Individual</c> is ordinal 0
+/// so pre-existing events replay as persons.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ContactKind>))]
+public enum ContactKind { Individual, Organization }
+
 /// <summary>Type of a contact's postal address.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ContactAddressType>))]
 public enum ContactAddressType { Home, Work, Other }
