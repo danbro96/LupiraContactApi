@@ -20,14 +20,14 @@ public sealed class PrincipalDirectory(IDocumentSession session)
     /// is a "not found" (e.g. revoking a grant), not a reason to create a placeholder.</summary>
     public async Task<Principal?> FindByEmailAsync(string email, CancellationToken ct = default)
     {
-        email = email.Trim().ToLowerInvariant();
+        email = Normalize(email);
         if (email.Length == 0) return null;
         return await session.Query<Principal>().Where(x => x.Email == email).OrderBy(x => x.Id).FirstOrDefaultAsync(ct);
     }
 
     public async Task<Principal> ResolveOrProvisionAsync(string? sub, string email, string? name, CancellationToken ct = default)
     {
-        email = email.Trim().ToLowerInvariant();
+        email = Normalize(email);
 
         var p = await FindAsync(sub, email, ct);
 
@@ -76,4 +76,8 @@ public sealed class PrincipalDirectory(IDocumentSession session)
             if (e is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation }) return true;
         return false;
     }
+
+    /// <summary>The single normalization point for a login email. Lookup only matches if every read and
+    /// write normalizes identically — a missed lowercase silently provisions a second principal.</summary>
+    private static string Normalize(string email) => email.Trim().ToLowerInvariant();
 }
