@@ -11,7 +11,8 @@
        runs on local builds only and is skipped in CI (no dev Postgres there). -->
   <PropertyGroup>
     <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)..\..\openapi</OpenApiDocumentsDirectory>
-    <OpenApiGenerateDocuments Condition="'$(CI)' == 'true'">false</OpenApiGenerateDocuments>
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
