@@ -12,4 +12,10 @@ public sealed class Principal
     public string Email { get; set; } = "";
     public string? DisplayName { get; set; }
     public Guid? ContactId { get; set; }
+
+    /// <summary>First provisioned. Pre-existing rows carry a reconstructed estimate.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset LastSeenAt { get; set; }
+
 }
