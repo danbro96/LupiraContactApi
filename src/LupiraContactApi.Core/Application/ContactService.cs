@@ -47,7 +47,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             return OpResult<ContactDto>.Ok(await ToDtoAsync(existing, ct));   // idempotent hit — no new events
         Stamp(principalId);
 
-        var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full, r.Kind ?? ContactKind.Individual);
+        var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.FirstLast, r.Kind ?? ContactKind.Individual);
 
         var created = new ContactCreated(id, r.AddressBookId, uid, fields);
         if (stream is not null) stream.AppendOne(created);   // keyed create over a soft-deleted stream resurrects it
@@ -100,7 +100,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
                 return OpResult<List<ContactDto>>.Invalid($"Contact '{r.GivenName} {r.FamilyName}': at most one preferred channel per medium.");
             var uid = $"{Guid.NewGuid():N}@cal.lupira.com";
             var id = DeterministicGuid.From(uid);
-            var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.Full, r.Kind ?? ContactKind.Individual);
+            var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.FirstLast, r.Kind ?? ContactKind.Individual);
             session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
             ids.Add(id);
         }
@@ -641,7 +641,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         // DisplayNameFormat isn't a vCard field — always preserve the existing choice so a re-sync never resets it.
         var fields = new ContactFields(p.GivenName, null, p.FamilyName, null,
             p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
-            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.Full,
+            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.FirstLast,
             p.Kind ?? existing?.Kind ?? ContactKind.Individual);   // KIND is preserve-if-absent, like the X-props
         // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
         // Unresolvable target uuids are stored as-is — the target may sync in later or be unreadable to this caller; resolved reads filter.

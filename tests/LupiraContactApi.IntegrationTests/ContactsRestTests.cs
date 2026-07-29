@@ -26,6 +26,21 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
     }
 
     [Fact]
+    public async Task Created_contacts_default_to_first_last_display_format()
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+        var resp = await api.PostAsJsonAsync("/contacts", new CreateContactRequest
+        {
+            AddressBookId = abId, GivenName = "Jane", MiddleName = "Q", FamilyName = "Doe",
+        });
+        resp.EnsureSuccessStatusCode();
+        var contact = (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+        Assert.Equal(DisplayNameFormat.FirstLast, contact.DisplayNameFormat);
+        Assert.Equal("Jane Doe", contact.DisplayName);   // FirstLast skips the middle name
+    }
+
+    [Fact]
     public async Task Query_matches_by_name()
     {
         var api = Factory.ApiClient(Email);

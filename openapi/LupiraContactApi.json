@@ -973,7 +973,6 @@
             "name": "occurredAt",
             "in": "query",
             "schema": {
-              "type": "string",
               "format": "date-time"
             }
           },
@@ -1173,7 +1172,6 @@
             "name": "occurredAt",
             "in": "query",
             "schema": {
-              "type": "string",
               "format": "date-time"
             }
           },
@@ -2732,7 +2730,6 @@
             ]
           },
           "createdAt": {
-            "type": "string",
             "format": "date-time"
           },
           "createdBy": {
@@ -2742,7 +2739,6 @@
             ]
           },
           "updatedAt": {
-            "type": "string",
             "format": "date-time"
           },
           "updatedBy": {
@@ -2795,7 +2791,6 @@
             }
           },
           "createdAt": {
-            "type": "string",
             "format": "date-time"
           },
           "createdBy": {
@@ -2805,7 +2800,6 @@
             ]
           },
           "updatedAt": {
-            "type": "string",
             "format": "date-time"
           },
           "updatedBy": {
@@ -3530,10 +3524,6 @@
             ]
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
@@ -3546,7 +3536,6 @@
         "type": "object",
         "properties": {
           "ts": {
-            "type": "string",
             "format": "date-time"
           },
           "cmd": {
@@ -3599,10 +3588,6 @@
             }
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
@@ -3617,10 +3602,6 @@
             ]
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
@@ -3638,10 +3619,6 @@
             }
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
@@ -3659,10 +3636,6 @@
             }
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
@@ -3680,10 +3653,6 @@
             }
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
@@ -3699,10 +3668,6 @@
             "format": "date"
           },
           "occurredAt": {
-            "type": [
-              "null",
-              "string"
-            ],
             "format": "date-time"
           }
         }
