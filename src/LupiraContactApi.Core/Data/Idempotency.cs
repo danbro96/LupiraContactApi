@@ -5,15 +5,14 @@ using Marten;
 namespace LupiraContactApi.Data;
 
 /// <summary>
-/// Offline-first idempotency gate (same port as LupiraCalApi / LupiraTasksApi). Mutations may carry an
-/// <c>Idempotency-Key</c> header (a client-minted GUIDv7 command id); a mobile outbox resends the same key on
-/// retry after a lost response, so a redelivered command must be a no-op returning the prior result.
-///
-/// <para>The dedup row and the event append live in the SAME <see cref="IDocumentSession"/>, committed by a
-/// single <c>SaveChangesAsync</c>. The row is written with <see cref="IDocumentSession.Insert{T}"/> — a plain
-/// INSERT, not an upsert — so a concurrent duplicate violates the <see cref="ProcessedCommand"/> primary key and
-/// rolls back the whole transaction including the loser's staged events; the loser treats it as idempotent
-/// success. Creates dedup on <c>SourceKey</c> (it pins the stream id) rather than this ledger.</para>
+/// Offline-first idempotency gate (same port as LupiraCalApi / LupiraTasksApi). A mutation may carry an
+/// <c>Idempotency-Key</c> header (a client-minted GUIDv7 command id); a mobile outbox resends the same key after a
+/// lost response, so a redelivered command must be a no-op returning the prior result.
+/// <para>The dedup row and the event append share ONE <see cref="IDocumentSession"/> and ONE
+/// <c>SaveChangesAsync</c>. The row goes in via <see cref="IDocumentSession.Insert{T}"/> — a plain INSERT, not an
+/// upsert — so a concurrent duplicate violates the <see cref="ProcessedCommand"/> primary key and rolls back the
+/// whole transaction including the loser's staged events, which the loser treats as idempotent success. Creates
+/// dedup on <c>SourceKey</c> (it pins the stream id) rather than this ledger.</para>
 /// </summary>
 public sealed class Idempotency(IDocumentSession session)
 {

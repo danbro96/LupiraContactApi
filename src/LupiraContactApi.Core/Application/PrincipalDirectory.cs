@@ -6,14 +6,13 @@ using Npgsql;
 namespace LupiraContactApi.Application;
 
 /// <summary>
-/// Resolves an authenticated principal (OIDC <c>sub</c> + email, or a DAV email) to a local <see cref="Principal"/>
-/// document, JIT-provisioning on first sight. Resolves by <c>sub</c> first, then email, so the OIDC and DAV logins
-/// converge on one row. The host's <c>CurrentUser</c> supplies the claims; this never sees the request.
-///
-/// Provisioning is a check-then-insert, so two concurrent first-sight logins can both reach the insert. A unique
-/// index on <c>AuthentikSub</c> lets only one win; the loser catches the violation and adopts the winner's row.
-/// Without both halves the same login forks into two principals and everything keyed to the principal id resolves
-/// to whichever row Postgres happens to return.
+/// Resolves an authenticated principal (OIDC <c>sub</c> + email, or a DAV email) to a local
+/// <see cref="Principal"/>, JIT-provisioning on first sight. Resolves by <c>sub</c> first then email, so the OIDC
+/// and DAV logins converge on one row. The host's <c>CurrentUser</c> supplies the claims; this never sees the
+/// request.///
+/// Provisioning is a check-then-insert, so two concurrent first-sight logins both reach it: a unique index on
+/// <c>AuthentikSub</c> lets one win and the loser adopts the winner's row. Without both halves one login forks
+/// into two principals and everything keyed to the principal id resolves to whichever row Postgres returns.
 /// </summary>
 public sealed class PrincipalDirectory(IDocumentSession session)
 {

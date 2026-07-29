@@ -21,8 +21,6 @@ public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLif
     public async Task InitializeAsync() => await Factory.ResetAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 
-    // ---- REST fixture helpers ----
-
     protected static async Task<Guid> GetMyIdAsync(HttpClient api)
     {
         var me = await api.GetFromJsonAsync<MeDto>("/me");
@@ -44,8 +42,6 @@ public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLif
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
     }
-
-    // ---- payload builders ----
 
     protected static string MinimalVcf(string uid, string fullName, string? email = null)
     {
