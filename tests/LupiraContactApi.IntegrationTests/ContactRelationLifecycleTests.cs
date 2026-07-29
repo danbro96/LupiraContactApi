@@ -1,7 +1,7 @@
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.Contacts;
-using System.Net;
 using System.Net.Http.Json;
+using System.Net;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;

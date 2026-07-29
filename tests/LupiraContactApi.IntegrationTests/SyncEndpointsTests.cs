@@ -1,9 +1,9 @@
 using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Dtos.Sync;
-using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
+using System.Net;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;

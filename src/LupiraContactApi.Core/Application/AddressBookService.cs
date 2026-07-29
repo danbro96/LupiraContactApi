@@ -1,4 +1,5 @@
 using LupiraContactApi.Auth;
+using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.AddressBooks;
 using Marten;

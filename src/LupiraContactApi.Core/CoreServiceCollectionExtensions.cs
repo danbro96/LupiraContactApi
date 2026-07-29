@@ -1,5 +1,6 @@
 using LupiraContactApi.Application;
 using LupiraContactApi.Auth;
+using LupiraContactApi.Data;
 using LupiraContactApi.Domain;
 using Marten;
 using Microsoft.Extensions.Configuration;

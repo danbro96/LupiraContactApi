@@ -1,3 +1,4 @@
+using Marten;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.AddressBooks;
 using LupiraContactApi.Dtos.Contacts;
@@ -14,6 +15,8 @@ namespace LupiraContactApi.IntegrationTests;
 public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLifetime
 {
     protected readonly ContactApiTestFactory Factory = factory;
+
+    protected IDocumentStore Store => Factory.Store;
 
     public async Task InitializeAsync() => await Factory.ResetAsync();
     public Task DisposeAsync() => Task.CompletedTask;

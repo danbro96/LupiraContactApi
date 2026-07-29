@@ -1,6 +1,6 @@
-using Xunit;
-using System.Text.Json;
 using LupiraContactApi.Serialization;
+using System.Text.Json;
+using Xunit;
 
 namespace LupiraContactApi.UnitTests;
 

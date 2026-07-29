@@ -1,13 +1,13 @@
 using LupiraContactApi.Auth;
 using LupiraContactApi.Dav;
+using LupiraContactApi.Domain;
 using LupiraContactApi.Endpoints;
 using LupiraContactApi.Handlers;
 using LupiraContactApi.Health;
 using LupiraContactApi.Mcp;
-using LupiraContactApi.Domain;
 using Marten;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;

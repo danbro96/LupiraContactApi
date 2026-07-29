@@ -1,8 +1,10 @@
 using JasperFx.Events.Projections;
+using LupiraContactApi.Domain.Identity;
+using LupiraContactApi.Domain;
 using Marten;
 using Weasel.Core;
 
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Data;
 
 /// <summary>Configures the single Marten store for the Contact API: event-sourced aggregates (inline snapshots)
 /// + plain documents, in the <c>contact</c> schema. Enums serialize as strings. Every event has a stable, explicit

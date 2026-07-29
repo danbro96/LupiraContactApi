@@ -1,4 +1,5 @@
 using LupiraContactApi.Application;
+using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
 using System.Security.Claims;
 

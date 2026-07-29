@@ -1,3 +1,4 @@
+using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
 using Marten;
 using Npgsql;

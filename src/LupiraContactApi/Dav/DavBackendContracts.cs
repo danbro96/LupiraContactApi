@@ -1,3 +1,4 @@
+using LupiraContactApi.Domain.Identity;
 using System.Text.Json.Serialization;
 
 namespace LupiraContactApi.Dav;

@@ -1,5 +1,6 @@
 using LupiraContactApi.Auth;
 using LupiraContactApi.Data;
+using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Mappers;

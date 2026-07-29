@@ -3,8 +3,8 @@ using LupiraContactApi.Auth;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.AddressBooks;
 using LupiraContactApi.Dtos.Contacts;
-using ModelContextProtocol;
 using ModelContextProtocol.Server;
+using ModelContextProtocol;
 using System.ComponentModel;
 
 namespace LupiraContactApi.Mcp;
