@@ -1,12 +1,12 @@
+using System.Text.Json.Nodes;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Data;
-using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
+using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Dtos.Contacts;
 using LupiraContactApi.Mappers;
 using LupiraContactApi.Serialization;
 using Marten;
-using System.Text.Json.Nodes;
 
 namespace LupiraContactApi.Application;
 
@@ -22,6 +22,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         idempotency.Record(commandId, aggregateId, resultVersion);
         try { await session.SaveChangesAsync(ct); }
         catch (Exception ex) when (Idempotency.IsDuplicate(ex)) { return false; }
+
         return true;
     }
 
@@ -68,12 +69,13 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         }
 
         var candidates = await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct);
-        IEnumerable<Contact> contacts = candidates.Where(c => bookIds.Contains(c.AddressBookId));
+        var contacts = candidates.Where(c => bookIds.Contains(c.AddressBookId));
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
             contacts = contacts.Where(c => c.SearchText.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
+
         var ordered = contacts.OrderBy(c => c.SortName).ToList();
         var scores = await completeness.ScoreContactsAsync(ordered, ct);
         return OpResult<List<ContactDto>>.Ok([.. ordered.Select(c => c.ToResponse(scores[c.Id]))]);
@@ -105,6 +107,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             session.Events.StartStream<Contact>(id, new ContactCreated(id, r.AddressBookId, uid, fields));
             ids.Add(id);
         }
+
         await session.SaveChangesAsync(ct);
 
         var loaded = (await session.Query<Contact>().Where(c => ids.Contains(c.Id)).ToListAsync(ct)).ToDictionary(c => c.Id);
@@ -127,6 +130,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             if (!bookIds.Contains(abid)) return OpResult<List<ContactNameMatch>>.Forbidden("No access to this address book.");
             bookIds = [abid];
         }
+
         var pool = (await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct))
             .Where(c => bookIds.Contains(c.AddressBookId)).ToList();
 
@@ -141,6 +145,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
                 results.Add(new ContactNameMatch { Name = raw ?? "", Outcome = NameMatchOutcome.NotFound, Candidates = [] });
                 continue;
             }
+
             var candidates = pool.Where(c => c.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
             var exact = candidates.Where(c => Norm(c.DisplayName) == norm).ToList();
 
@@ -159,11 +164,12 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
                 Candidates = [.. refs.OrderBy(c => c.SortName).Take(maxCandidates).Select(c => new ContactRef { ContactId = c.Id, DisplayName = c.DisplayName })],
             });
         }
+
         return OpResult<List<ContactNameMatch>>.Ok(results);
     }
 
     // Ported from LupiraAssistantApi ContactResolveStrategy.Norm: lowercase + collapse whitespace.
-    private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
 
     public async Task<OpResult<ContactDto>> GetAsync(Guid principalId, Guid id, CancellationToken ct = default)
     {
@@ -198,7 +204,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             r.Kind ?? c.Kind);
 
         stream.AppendOne(new ContactRevised(id, merged, r.OccurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         var updated = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(updated!, ct));
     }
@@ -226,6 +232,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             if (!have.Add((ch.Medium, ch.Value.ToLowerInvariant()))) continue;   // value already present — keep existing entry
             result.Add(ch with { Preferred = ch.Preferred && preferredMedia.Add(ch.Medium) });
         }
+
         return result;
     }
 
@@ -245,7 +252,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactRevised(id, FieldsOf(c) with { Channels = next }, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -267,7 +274,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var merged = apply(c, next);
         stream.AppendOne(new ContactRevised(id, merged, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -286,7 +293,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult.Forbidden("No write access to this contact.");
         Stamp(principalId);
         stream.AppendOne(new ContactDeleted(id));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult.Ok();
     }
 
@@ -303,7 +310,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactMarkedDeceased(id, deathDate, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -318,7 +325,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactDeceasedCleared(id, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -337,7 +344,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactAvatarSet(id, next, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -356,7 +363,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (patch is JsonObject obj)
             foreach (var kv in obj) current[kv.Key] = kv.Value?.DeepClone();
         stream.AppendOne(new ContactMetadataAttached(id, current.ToJsonString(), occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -404,7 +411,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactProfilesReplaced(id, next, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -422,7 +429,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactAddressesReplaced(id, next, occurredAt, commandId));   // addresses are outside the canonical content — ETag unchanged
-        await SaveGuardedAsync(commandId, id, (int)(stream.CurrentVersion ?? 0) + 1, ct);
+        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -443,6 +450,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             if (target is null || target.DeletedAt is not null) return OpResult<ContactDto>.Invalid("Emergency contact not found.");
             if (!await access.CanReadAddressBookAsync(principalId, target.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No access to an emergency contact.");
         }
+
         if (c.EmergencyContactIds.SequenceEqual(next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 

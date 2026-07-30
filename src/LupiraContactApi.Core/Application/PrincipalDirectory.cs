@@ -1,5 +1,4 @@
 using LupiraContactApi.Domain.Identity;
-using LupiraContactApi.Domain;
 using Marten;
 using Npgsql;
 
@@ -57,10 +56,15 @@ public sealed class PrincipalDirectory(IDocumentSession session)
 
         var changed = false;
         if (sub is not null && p.AuthentikSub != sub && p.AuthentikSub.StartsWith("email|", StringComparison.Ordinal)) { p.AuthentikSub = sub; changed = true; }
+
         if (email.Length > 0 && p.Email != email) { p.Email = email; changed = true; }
+
         if (name is not null && p.DisplayName != name) { p.DisplayName = name; changed = true; }
+
         if (now - p.LastSeenAt > LastSeenRefresh) { p.LastSeenAt = now; changed = true; }
+
         if (changed) { session.Store(p); await session.SaveChangesAsync(ct); }
+
         return p;
     }
 
@@ -78,7 +82,7 @@ public sealed class PrincipalDirectory(IDocumentSession session)
 
     private static bool IsUniqueViolation(Exception ex)
     {
-        for (Exception? e = ex; e is not null; e = e.InnerException)
+        for (var e = ex; e is not null; e = e.InnerException)
             if (e is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation }) return true;
         return false;
     }

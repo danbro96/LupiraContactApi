@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
 using System.Globalization;
 using System.Text;
+using LupiraContactApi.Domain;
 
 namespace LupiraContactApi.Serialization;
 
@@ -49,6 +49,7 @@ public static class VCardSerializer
             if (types.Count > 0) sb.Append(";TYPE=").Append(string.Join(',', types));
             sb.Append(':').Append(Escape(ch.Value)).Append("\r\n");
         }
+
         if (birthday is { } b) sb.Append("BDAY:").Append(b.Year is { } by ? $"{by:D4}{b.Month:D2}{b.Day:D2}" : $"--{b.Month:D2}{b.Day:D2}").Append("\r\n");
         if (deathDate is { } dd) sb.Append("X-DEATHDATE:").Append(dd.ToString("yyyyMMdd", CultureInfo.InvariantCulture)).Append("\r\n");
         else if (deceased) sb.Append("X-LUPIRA-DECEASED:1\r\n");
@@ -63,6 +64,7 @@ public static class VCardSerializer
             if (p.Preferred) sb.Append(";X-LUPIRA-PREF=1");
             sb.Append(':').Append(Escape(p.Url ?? p.Handle)).Append("\r\n");
         }
+
         foreach (var r in relations ?? [])
         {
             sb.Append("RELATED;TYPE=").Append(r.Kind.ToString().ToLowerInvariant());
@@ -73,6 +75,7 @@ public static class VCardSerializer
             else if (r.Ended) sb.Append(";X-LUPIRA-ENDED=1");
             sb.Append(":urn:uuid:").Append(r.ToContactId.ToString("D")).Append("\r\n");
         }
+
         foreach (var id in emergencyContacts ?? [])
             sb.Append("RELATED;TYPE=emergency:urn:uuid:").Append(id.ToString("D")).Append("\r\n");
         sb.Append("END:VCARD\r\n");
@@ -137,6 +140,7 @@ public static class VCardSerializer
                     break;
             }
         }
+
         if (string.IsNullOrWhiteSpace(fn)) fn = string.Join(' ', new[] { given, family }.Where(s => !string.IsNullOrWhiteSpace(s)));
         return new ParsedContact(fn ?? "", given, family, org,
             channels.Count > 0 ? [.. channels] : null, bday,
@@ -207,6 +211,7 @@ public static class VCardSerializer
             var eq = param.IndexOf('=');
             if (eq > 0) map[param[..eq]] = param[(eq + 1)..];
         }
+
         return map;
     }
 

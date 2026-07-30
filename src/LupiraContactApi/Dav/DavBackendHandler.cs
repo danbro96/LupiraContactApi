@@ -1,6 +1,5 @@
 using LupiraContactApi.Application;
 using LupiraContactApi.Auth;
-using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Serialization;
 using Marten;
@@ -93,6 +92,7 @@ public sealed class DavBackendHandler(
             ctx.Response.Headers.ETag = $"\"{w.Etag}\"";
             return TypedResults.StatusCode(w.Created ? StatusCodes.Status201Created : StatusCodes.Status204NoContent);
         }
+
         return TypedResults.StatusCode(DavStatus(result.Status));
     }
 

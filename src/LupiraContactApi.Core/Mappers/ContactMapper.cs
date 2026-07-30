@@ -1,6 +1,6 @@
+using System.Text.Json.Nodes;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.Contacts;
-using System.Text.Json.Nodes;
 
 namespace LupiraContactApi.Mappers;
 

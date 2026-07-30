@@ -69,9 +69,15 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
 
     private static ContactGroupDto ToDto(ContactGroup g) => new()
     {
-        Id = g.Id, AddressBookId = g.AddressBookId, Kind = g.Kind, Name = g.Name,
+        Id = g.Id,
+        AddressBookId = g.AddressBookId,
+        Kind = g.Kind,
+        Name = g.Name,
         Members = [.. g.Members.Select(m => new GroupMemberDto { ContactId = m.ContactId, Role = m.Role, Since = m.Since, Until = m.Until })],
-        CreatedAt = g.CreatedAt, CreatedBy = g.CreatedBy, UpdatedAt = g.UpdatedAt, UpdatedBy = g.UpdatedBy,
+        CreatedAt = g.CreatedAt,
+        CreatedBy = g.CreatedBy,
+        UpdatedAt = g.UpdatedAt,
+        UpdatedBy = g.UpdatedBy,
     };
     private static ContactGroupKind ParseKind(string? s) => Enum.TryParse<ContactGroupKind>(s, true, out var v) ? v : ContactGroupKind.Group;
 }

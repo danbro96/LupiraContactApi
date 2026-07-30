@@ -1,7 +1,6 @@
+using System.Security.Claims;
 using LupiraContactApi.Application;
 using LupiraContactApi.Domain.Identity;
-using LupiraContactApi.Domain;
-using System.Security.Claims;
 
 namespace LupiraContactApi.Auth;
 

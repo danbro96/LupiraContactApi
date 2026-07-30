@@ -30,6 +30,7 @@ public sealed class SyncHandler(CurrentUser user, SyncFeed feed, AddressBookServ
             var g = await groups.ListAsync(u.Id, book.Id, ct);
             if (g.IsOk) allGroups.AddRange(g.Value!);
         }
+
         return OpResultMap.OkProblem(OpResult<SyncContainersResponse>.Ok(new SyncContainersResponse
         {
             AddressBooks = bookList.Value!,

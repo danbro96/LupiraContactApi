@@ -252,6 +252,7 @@ public sealed class Contact
         var d = e.Data;
         var edge = Relations.FirstOrDefault(r => r.ToContactId == d.ToContactId && r.Kind == d.Kind);
         if (edge is not null) { edge.Ended = true; edge.Until = d.Until; }
+
         Touch(e);
         RecomputeHash();
     }

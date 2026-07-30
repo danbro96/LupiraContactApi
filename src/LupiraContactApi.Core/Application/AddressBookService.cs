@@ -1,6 +1,6 @@
 using LupiraContactApi.Auth;
-using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
+using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Dtos.AddressBooks;
 using Marten;
 
@@ -42,6 +42,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
             if (slug.Length == 0) return OpResult<AddressBookDto>.Invalid("Slug cannot be blank.");
             book.Slug = slug;
         }
+
         if (r.DisplayName is not null) book.DisplayName = string.IsNullOrWhiteSpace(r.DisplayName) ? null : r.DisplayName.Trim();
         session.Store(book);
         await session.SaveChangesAsync(ct);

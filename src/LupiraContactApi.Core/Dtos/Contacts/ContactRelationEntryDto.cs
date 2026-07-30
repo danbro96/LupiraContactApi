@@ -1,5 +1,5 @@
-using LupiraContactApi.Domain;
 using System.Text.Json.Serialization;
+using LupiraContactApi.Domain;
 
 namespace LupiraContactApi.Dtos.Contacts;
 

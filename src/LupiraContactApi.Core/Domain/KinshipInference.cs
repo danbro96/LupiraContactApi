@@ -56,6 +56,7 @@ public static class KinshipInference
                 if (p == childId) return true;
                 if (visited.Add(p)) queue.Enqueue(p);
             }
+
         return false;
     }
 

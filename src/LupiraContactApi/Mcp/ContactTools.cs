@@ -1,11 +1,11 @@
+using System.ComponentModel;
 using LupiraContactApi.Application;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.AddressBooks;
 using LupiraContactApi.Dtos.Contacts;
-using ModelContextProtocol.Server;
 using ModelContextProtocol;
-using System.ComponentModel;
+using ModelContextProtocol.Server;
 
 namespace LupiraContactApi.Mcp;
 

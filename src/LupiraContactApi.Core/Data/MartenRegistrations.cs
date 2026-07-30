@@ -1,6 +1,6 @@
 using JasperFx.Events.Projections;
-using LupiraContactApi.Domain.Identity;
 using LupiraContactApi.Domain;
+using LupiraContactApi.Domain.Identity;
 using Marten;
 using Weasel.Core;
 

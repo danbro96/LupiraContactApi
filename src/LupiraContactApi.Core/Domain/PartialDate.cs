@@ -33,6 +33,7 @@ public sealed record PartialDate(int? Year, int Month, int Day)
                 && IsValid(null, mm, dd)
                     ? new PartialDate(null, mm, dd) : null;
         }
+
         if (DateOnly.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d1)) return FromDate(d1);
         if (DateOnly.TryParseExact(s, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d2)) return FromDate(d2);
         return null;
