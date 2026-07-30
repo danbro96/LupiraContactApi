@@ -608,11 +608,7 @@
             "name": "maxScore",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-              "type": [
-                "number",
-                "string"
-              ],
+              "type": "number",
               "format": "double"
             }
           },
@@ -620,11 +616,7 @@
             "name": "take",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -973,6 +965,10 @@
             "name": "occurredAt",
             "in": "query",
             "schema": {
+              "type": [
+                "null",
+                "string"
+              ],
               "format": "date-time"
             }
           },
@@ -1172,6 +1168,10 @@
             "name": "occurredAt",
             "in": "query",
             "schema": {
+              "type": [
+                "null",
+                "string"
+              ],
               "format": "date-time"
             }
           },
@@ -2282,11 +2282,7 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
+              "type": "integer",
               "format": "int32"
             }
           }
@@ -2459,11 +2455,7 @@
             ]
           },
           "degree": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "provenance": {
@@ -2483,11 +2475,7 @@
             "type": "string"
           },
           "weight": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           },
           "severity": {
@@ -2504,19 +2492,11 @@
         "type": "object",
         "properties": {
           "score": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           },
           "rubricVersion": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "gaps": {
@@ -2730,6 +2710,7 @@
             ]
           },
           "createdAt": {
+            "type": "string",
             "format": "date-time"
           },
           "createdBy": {
@@ -2739,6 +2720,7 @@
             ]
           },
           "updatedAt": {
+            "type": "string",
             "format": "date-time"
           },
           "updatedBy": {
@@ -2748,11 +2730,7 @@
             ]
           },
           "version": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "etag": {
@@ -2791,6 +2769,7 @@
             }
           },
           "createdAt": {
+            "type": "string",
             "format": "date-time"
           },
           "createdBy": {
@@ -2800,6 +2779,7 @@
             ]
           },
           "updatedAt": {
+            "type": "string",
             "format": "date-time"
           },
           "updatedBy": {
@@ -3339,28 +3319,18 @@
         "type": "object",
         "properties": {
           "year": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
           "month": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "day": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -3381,11 +3351,9 @@
             ]
           },
           "status": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "integer",
-              "string"
+              "integer"
             ],
             "format": "int32"
           },
@@ -3524,6 +3492,10 @@
             ]
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -3536,6 +3508,7 @@
         "type": "object",
         "properties": {
           "ts": {
+            "type": "string",
             "format": "date-time"
           },
           "cmd": {
@@ -3588,6 +3561,10 @@
             }
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -3602,6 +3579,10 @@
             ]
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -3619,6 +3600,10 @@
             }
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -3636,6 +3621,10 @@
             }
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -3653,6 +3642,10 @@
             }
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -3668,6 +3661,10 @@
             "format": "date"
           },
           "occurredAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }

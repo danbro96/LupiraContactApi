@@ -112,6 +112,7 @@ builder.Services.AddHealthChecks()
 // Emit/accept enums as their names across the REST surface (not integers).
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
+    o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
     o.SerializerOptions.Converters.Add(new LupiraContactApi.Serialization.UtcDateTimeOffsetConverter());
 });
@@ -137,6 +138,20 @@ builder.Services.AddOpenApi("v1", options =>
             BearerFormat = "JWT",
             Description = "OIDC bearer token. Send as `Authorization: Bearer <token>`.",
         };
+        return Task.CompletedTask;
+    });
+    // UtcDateTimeOffsetConverter hides the CLR type from schema inference, which would otherwise emit
+    // `format: date-time` with no `type` at all.
+    options.AddSchemaTransformer((schema, context, _) =>
+    {
+        var t = context.JsonTypeInfo.Type;
+        if (t == typeof(DateTimeOffset) || t == typeof(DateTimeOffset?))
+        {
+            schema.Type = t == typeof(DateTimeOffset?)
+                ? JsonSchemaType.String | JsonSchemaType.Null
+                : JsonSchemaType.String;
+            schema.Format = "date-time";
+        }
         return Task.CompletedTask;
     });
     options.AddOperationTransformer((operation, context, _) =>
