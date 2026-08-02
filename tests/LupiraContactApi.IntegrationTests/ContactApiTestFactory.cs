@@ -30,7 +30,7 @@ public sealed class ContactApiTestFactory : WebApplicationFactory<Program>
             {
                 ["ConnectionStrings:Postgres"] = _postgres.GetConnectionString(),
                 // Never contacted (tests auth via X-Dev-User) — feeds the RFC 9728 metadata + JWT challenge.
-                ["Auth:Authority"] = "https://auth.test/application/o/lupira-contact/",
+                ["Auth:Oidc:Authority"] = "https://auth.test/application/o/lupira-contact/",
             }));
     }
 
