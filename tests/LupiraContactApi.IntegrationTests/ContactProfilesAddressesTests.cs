@@ -96,6 +96,65 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
     }
 
     [Fact]
+    public async Task Addresses_roundtrip_residency_periods_and_keep_the_etag()
+    {
+        var api = Factory.ApiClient(Email);
+        var ab = await CreateAddressBookAsync(api);
+        var c = await CreateContactAsync(api, ab);
+        var place = Guid.NewGuid();
+
+        var resp = await api.PutAsJsonAsync($"/contacts/{c.Id}/addresses", new SetContactAddressesRequest
+        {
+            Addresses = [new ContactPostalAddress
+            {
+                PlaceId = place, Type = ContactAddressType.Home,
+                MovedIn = new FuzzyDate(2010), MovedOut = new FuzzyDate(2015, 6),
+            }],
+        });
+        resp.EnsureSuccessStatusCode();
+        var dto = (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+        var addr = Assert.Single(dto.Addresses);
+        Assert.Equal(new FuzzyDate(2010), addr.MovedIn);
+        Assert.Equal(new FuzzyDate(2015, 6), addr.MovedOut);
+        Assert.Equal(c.Etag, dto.Etag);   // residency history stays outside the canonical content
+
+        // A date-only edit is a real change, not a swallowed no-op.
+        var edited = await api.PutAsJsonAsync($"/contacts/{c.Id}/addresses", new SetContactAddressesRequest
+        {
+            Addresses = [new ContactPostalAddress
+            {
+                PlaceId = place, Type = ContactAddressType.Home,
+                MovedIn = new FuzzyDate(2010), MovedOut = new FuzzyDate(2016),
+            }],
+        });
+        edited.EnsureSuccessStatusCode();
+        Assert.Equal(new FuzzyDate(2016), Assert.Single((await edited.Content.ReadFromJsonAsync<ContactDto>())!.Addresses).MovedOut);
+    }
+
+    [Fact]
+    public async Task Rejects_invalid_residency_dates()
+    {
+        var api = Factory.ApiClient(Email);
+        var ab = await CreateAddressBookAsync(api);
+        var c = await CreateContactAsync(api, ab);
+        var place = Guid.NewGuid();
+
+        async Task<HttpStatusCode> Put(FuzzyDate? movedIn, FuzzyDate? movedOut)
+        {
+            var r = await api.PutAsJsonAsync($"/contacts/{c.Id}/addresses", new SetContactAddressesRequest
+            {
+                Addresses = [new ContactPostalAddress { PlaceId = place, Type = ContactAddressType.Home, MovedIn = movedIn, MovedOut = movedOut }],
+            });
+            return r.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.BadRequest, await Put(new FuzzyDate(2015, 13), null));         // month 13
+        Assert.Equal(HttpStatusCode.BadRequest, await Put(new FuzzyDate(2015, null, 12), null));   // day without month
+        Assert.Equal(HttpStatusCode.BadRequest, await Put(new FuzzyDate(2016), new FuzzyDate(2015))); // certainly inverted
+        Assert.Equal(HttpStatusCode.OK, await Put(new FuzzyDate(2015), new FuzzyDate(2015)));      // same year: compatible
+    }
+
+    [Fact]
     public async Task Dav_round_trip_preserves_profiles_when_absent_and_replaces_when_present()
     {
         var api = Factory.ApiClient(Email);

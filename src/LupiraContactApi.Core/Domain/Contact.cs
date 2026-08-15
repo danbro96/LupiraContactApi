@@ -5,11 +5,14 @@ namespace LupiraContactApi.Domain;
 
 /// <summary>A contact's postal address: a LupiraGeoApi place id (the sole source of truth — no free-text) with a home/work
 /// type. The write path requires a real id; the property is nullable only so legacy pre-migration events (which carried a
-/// null id + free-text) still deserialize.</summary>
+/// null id + free-text) still deserialize. <see cref="MovedOut"/> set ⇒ a former address (residency history); the
+/// <see cref="FuzzyDate"/> boundaries are as precise as actually known, null = unknown.</summary>
 public sealed class ContactPostalAddress
 {
     public Guid? PlaceId { get; set; }
     public ContactAddressType Type { get; set; }
+    public FuzzyDate? MovedIn { get; set; }
+    public FuzzyDate? MovedOut { get; set; }
 }
 
 /// <summary>A social/IM handle. <c>Service</c> is an open string (platforms are unbounded); <c>Preferred</c> marks
@@ -175,7 +178,7 @@ public sealed class Contact
         Touch(e);
         var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
         if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, AddressesTs, AddressesCmd)) return;
-        Addresses = e.Data.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type }).ToList();
+        Addresses = e.Data.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type, MovedIn = a.MovedIn, MovedOut = a.MovedOut }).ToList();
         (AddressesTs, AddressesCmd) = (ts, cmd);
         // addresses are outside the canonical content — no RecomputeHash, ETag unchanged
     }

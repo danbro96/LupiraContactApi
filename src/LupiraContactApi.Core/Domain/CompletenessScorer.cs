@@ -24,7 +24,7 @@ public sealed record CompletenessScore(double Score, int RubricVersion, IReadOnl
 /// </summary>
 public static class CompletenessScorer
 {
-    public const int Version = 3;
+    public const int Version = 4;
 
     public static CompletenessScore? ScoreContact(Contact c, bool hasOrganisation, bool hasInboundRelations = false)
     {
@@ -100,8 +100,9 @@ public static class CompletenessScorer
     private static double PrimaryReach(Contact c) =>
         c.Channels.Count > 0 ? 1 : c.Profiles.Count > 0 ? 0.5 : 0;   // a direct channel reaches; a social handle only might
 
-    private static double PostalAddress(Contact c) =>
-        c.Addresses.Any(a => a.PlaceId is not null) ? 1 : c.Addresses.Count > 0 ? 0.5 : 0;   // legacy free-text rows → weak
+    private static double PostalAddress(Contact c) =>   // former residencies (MovedOut set) don't address a contact today
+        c.Addresses.Any(a => a.PlaceId is not null && a.MovedOut is null) ? 1
+            : c.Addresses.Any(a => a.MovedOut is null) ? 0.5 : 0;   // legacy free-text rows → weak
 
     // Redundancy across mediums, not entries: two emails are one medium; all social profiles count as one.
     private static int DistinctMediums(Contact c) =>

@@ -2872,6 +2872,26 @@
           },
           "type": {
             "$ref": "#/components/schemas/ContactAddressType"
+          },
+          "movedIn": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FuzzyDate"
+              }
+            ]
+          },
+          "movedOut": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FuzzyDate"
+              }
+            ]
           }
         }
       },
@@ -3213,6 +3233,32 @@
               "string"
             ],
             "format": "date"
+          }
+        }
+      },
+      "FuzzyDate": {
+        "required": [
+          "year"
+        ],
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "month": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "day": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },

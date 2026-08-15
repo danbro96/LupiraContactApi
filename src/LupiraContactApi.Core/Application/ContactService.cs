@@ -423,8 +423,12 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
 
-        var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type }).ToList();
+        var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type, MovedIn = a.MovedIn, MovedOut = a.MovedOut }).ToList();
         if (next.Any(a => a.PlaceId is null || a.PlaceId == Guid.Empty)) return OpResult<ContactDto>.Invalid("Each address must reference a geo place id.");
+        if (next.Any(a => a.MovedIn is { } mi && !mi.IsValid() || a.MovedOut is { } mo && !mo.IsValid()))
+            return OpResult<ContactDto>.Invalid("Residency dates must be a valid year, year-month, or year-month-day.");
+        if (next.Any(a => a is { MovedIn: { } mi, MovedOut: { } mo } && FuzzyDate.DefinitelyAfter(mi, mo)))
+            return OpResult<ContactDto>.Invalid("Moved-in must not be after moved-out.");
         if (AddressesEqual(c.Addresses, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
@@ -621,7 +625,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         (a ?? []).Select(p => (p.Service, p.Handle, p.Url, p.Preferred)).SequenceEqual(b.Select(p => (p.Service, p.Handle, p.Url, p.Preferred)));
 
     private static bool AddressesEqual(IReadOnlyList<ContactPostalAddress>? a, IReadOnlyList<ContactPostalAddress> b) =>
-        (a ?? []).Select(x => (x.PlaceId, x.Type)).SequenceEqual(b.Select(x => (x.PlaceId, x.Type)));
+        (a ?? []).Select(x => (x.PlaceId, x.Type, x.MovedIn, x.MovedOut)).SequenceEqual(b.Select(x => (x.PlaceId, x.Type, x.MovedIn, x.MovedOut)));
 
     private static bool ChannelsEqual(IReadOnlyList<ContactReachChannel> a, IReadOnlyList<ContactReachChannel> b) =>
         a.SequenceEqual(b);   // records — structural equality, order-sensitive

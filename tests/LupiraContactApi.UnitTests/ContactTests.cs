@@ -175,6 +175,16 @@ public class ContactTests
         c.Apply(Ev(new ContactAddressesReplaced(id, [new ContactPostalAddress { PlaceId = work, Type = ContactAddressType.Work }])));
         var only = Assert.Single(c.Addresses);            // replaced, not appended
         Assert.Equal(work, only.PlaceId);
+
+        // Residency boundaries survive the field-by-field re-projection, and stay outside the hash.
+        c.Apply(Ev(new ContactAddressesReplaced(id, [new ContactPostalAddress
+        {
+            PlaceId = work, Type = ContactAddressType.Home,
+            MovedIn = new FuzzyDate(2010), MovedOut = new FuzzyDate(2015, 6),
+        }])));
+        var former = Assert.Single(c.Addresses);
+        Assert.Equal(new FuzzyDate(2010), former.MovedIn);
+        Assert.Equal(new FuzzyDate(2015, 6), former.MovedOut);
         Assert.Equal(h0, c.ContentHash);                  // addresses are outside the canonical content
     }
 

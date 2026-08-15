@@ -20,7 +20,7 @@ public class CompletenessScorerTests
     static ContactRelation Edge() => new() { ToContactId = Guid.NewGuid(), Kind = ContactRelationKind.Child };
 
     [Fact]
-    public void Version_is_3() => Assert.Equal(3, CompletenessScorer.Version);
+    public void Version_is_4() => Assert.Equal(4, CompletenessScorer.Version);
 
     [Fact]
     public void Living_contact_is_penalized_for_missing_reach()
@@ -92,6 +92,14 @@ public class CompletenessScorerTests
         c.Birthday = new PartialDate(null, 5, 5);
         var s = CompletenessScorer.ScoreContact(c, hasOrganisation: false)!;
         Assert.Equal(GapSeverity.Weak, s.Gaps.Single(g => g.Field == "birthday").Severity);
+    }
+
+    [Fact]
+    public void Former_only_address_scores_postal_zero()
+    {
+        var c = Person();
+        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home, MovedOut = new FuzzyDate(2015) }];
+        Assert.Equal(GapSeverity.Absent, CompletenessScorer.ScoreContact(c, false)!.Gaps.Single(g => g.Field == "postalAddress").Severity);
     }
 
     [Fact]

@@ -49,13 +49,15 @@ public static class CircleInference
             foreach (var member in org.Members)
                 Add(CircleKind.Colleagues, member.ContactId, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
 
-        // Household: a shared geo place on a Home address (formatted-address-only entries never match by design).
+        // Household: a shared geo place on a CURRENT Home address (formatted-address-only entries never match by
+        // design). A former residency (MovedOut set) asserts no current cohabitation and is ignored — same rule as
+        // ended relation edges above.
         var focus = contacts.First(c => c.Id == focusId);
-        var homePlaces = focus.Addresses.Where(a => a.Type == ContactAddressType.Home && a.PlaceId is not null)
+        var homePlaces = focus.Addresses.Where(a => a.Type == ContactAddressType.Home && a.PlaceId is not null && a.MovedOut is null)
             .Select(a => a.PlaceId!.Value).ToHashSet();
         if (homePlaces.Count > 0)
             foreach (var c in contacts)
-                if (c.Addresses.Any(a => a.Type == ContactAddressType.Home && a.PlaceId is { } pid && homePlaces.Contains(pid)))
+                if (c.Addresses.Any(a => a.Type == ContactAddressType.Home && a.MovedOut is null && a.PlaceId is { } pid && homePlaces.Contains(pid)))
                     Add(CircleKind.Household, c.Id, null, 1, RelationProvenance.Inferred);
 
         return result;

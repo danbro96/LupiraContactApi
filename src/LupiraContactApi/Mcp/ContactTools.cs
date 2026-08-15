@@ -174,11 +174,11 @@ public sealed class ContactTools
         return Require(await contacts.SetProfilesAsync(u.Id, contactId, profiles));
     }
 
-    [McpServerTool, Description("Replace a contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text). Empty clears.")]
+    [McpServerTool, Description("Replace a contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text). Empty clears. Residency history: optional movedIn/movedOut fuzzy dates ({year, month?, day?} — as precise as actually known); movedOut set marks a FORMER address, omit it for a current one.")]
     public static async Task<ContactDto> set_contact_addresses(
         ContactService contacts, CurrentUser user,
         [Description("The contact.")] Guid contactId,
-        [Description("The full new list — an empty list clears.")] List<ContactPostalAddress> addresses)
+        [Description("The full new list — an empty list clears. movedOut set = former address.")] List<ContactPostalAddress> addresses)
     {
         var u = await user.GetAsync();
         return Require(await contacts.SetAddressesAsync(u.Id, contactId, addresses));

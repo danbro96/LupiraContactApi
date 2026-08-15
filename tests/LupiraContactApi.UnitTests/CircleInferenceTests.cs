@@ -26,7 +26,8 @@ public class CircleInferenceTests
 
     static Contact Person(Guid id, params ContactRelation[] rels) => new() { Id = id, Relations = [.. rels] };
     static ContactRelation Edge(Guid to, ContactRelationKind kind, bool ended = false) => new() { ToContactId = to, Kind = kind, Ended = ended };
-    static ContactPostalAddress At(Guid place, ContactAddressType type) => new() { PlaceId = place, Type = type };
+    static ContactPostalAddress At(Guid place, ContactAddressType type, FuzzyDate? movedOut = null) =>
+        new() { PlaceId = place, Type = type, MovedOut = movedOut };
 
     static List<Contact> World()
     {
@@ -109,6 +110,18 @@ public class CircleInferenceTests
         Assert.Equal(H, member.ContactId);
         Assert.Null(member.Kind);   // co-residency makes no kinship claim
         // W shares F's work place (and even calls it Home on its side) — F's Home set never contained it.
+    }
+
+    [Fact]
+    public void Former_home_address_does_not_infer_household()
+    {
+        // EX used to live at F's home place but moved out — a former residency asserts no current cohabitation.
+        var world = World();
+        world.Single(c => c.Id == EX).Addresses =
+            [At(HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2015))];
+        var household = CircleInference.Infer(F, world, []).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
+        var member = Assert.Single(household);
+        Assert.Equal(H, member.ContactId);
     }
 
     [Fact]
