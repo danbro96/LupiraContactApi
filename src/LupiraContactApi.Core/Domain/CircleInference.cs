@@ -11,8 +11,10 @@ public readonly record struct CircleMembership(CircleKind Circle, Guid ContactId
 public static class CircleInference
 {
     public static IReadOnlyList<CircleMembership> Infer(
-        Guid focusId, IReadOnlyCollection<Contact> contacts, IReadOnlyCollection<ContactGroup> organizations)
+        Guid focusId, IReadOnlyCollection<Contact> contacts, IReadOnlyCollection<ContactGroup> organizations,
+        DateOnly? today = null)
     {
+        var day = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var known = contacts.Select(c => c.Id).ToHashSet();
         if (!known.Contains(focusId)) return [];
 
@@ -49,15 +51,14 @@ public static class CircleInference
             foreach (var member in org.Members)
                 Add(CircleKind.Colleagues, member.ContactId, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
 
-        // Household: a shared geo place on a CURRENT Home address (formatted-address-only entries never match by
-        // design). A former residency (MovedOut set) asserts no current cohabitation and is ignored — same rule as
-        // ended relation edges above.
+        // Household: a shared geo place on an ACTIVE Home address — past/future residencies assert no current
+        // cohabitation, same rule as ended relation edges above.
         var focus = contacts.First(c => c.Id == focusId);
-        var homePlaces = focus.Addresses.Where(a => a.Type == ContactAddressType.Home && a.PlaceId is not null && a.MovedOut is null)
-            .Select(a => a.PlaceId!.Value).ToHashSet();
+        var homePlaces = focus.Addresses.Where(a => a.Type == ContactAddressType.Home && a.IsActiveOn(day))
+            .Select(a => a.PlaceId).ToHashSet();
         if (homePlaces.Count > 0)
             foreach (var c in contacts)
-                if (c.Addresses.Any(a => a.Type == ContactAddressType.Home && a.MovedOut is null && a.PlaceId is { } pid && homePlaces.Contains(pid)))
+                if (c.Addresses.Any(a => a.Type == ContactAddressType.Home && a.IsActiveOn(day) && homePlaces.Contains(a.PlaceId)))
                     Add(CircleKind.Household, c.Id, null, 1, RelationProvenance.Inferred);
 
         return result;

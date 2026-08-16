@@ -16,12 +16,13 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
     public async Task Resolves_live_contacts_and_omits_unknown_and_deleted()
     {
         var api = Factory.ApiClient(Email);
+        var svc = Factory.ServiceClient();
         var book = await CreateAddressBookAsync(api);
         var jane = await CreateContactAsync(api, book, "Jane", "Doe");
         var gone = await CreateContactAsync(api, book, "Gone", "Soon");
         (await api.DeleteAsync($"/contacts/{gone.Id}")).EnsureSuccessStatusCode();
 
-        var resp = await api.PostAsJsonAsync("/internal/contacts/resolve",
+        var resp = await svc.PostAsJsonAsync("/internal/contacts/resolve",
             new ResolveContactsRequest { ContactIds = [jane.Id, gone.Id, Guid.NewGuid()] });
         resp.EnsureSuccessStatusCode();
 
@@ -34,8 +35,7 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
     [Fact]
     public async Task Caps_the_id_batch()
     {
-        var api = Factory.ApiClient(Email);
-        var resp = await api.PostAsJsonAsync("/internal/contacts/resolve",
+        var resp = await Factory.ServiceClient().PostAsJsonAsync("/internal/contacts/resolve",
             new ResolveContactsRequest { ContactIds = [.. Enumerable.Range(0, 101).Select(_ => Guid.NewGuid())] });
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, resp.StatusCode);
     }
@@ -61,7 +61,7 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
         (await api.PutAsJsonAsync($"/contacts/{deceased.Id}/deceased", new SetDeceasedRequest { DeathDate = null })).EnsureSuccessStatusCode();
         _ = await CreateContactAsync(api, book, "No", "Birthday");   // no birthday → omitted
 
-        var result = await (await api.GetAsync("/internal/contacts/birthdays")).EnsureSuccessStatusCode()
+        var result = await (await Factory.ServiceClient().GetAsync("/internal/contacts/birthdays")).EnsureSuccessStatusCode()
             .Content.ReadFromJsonAsync<ContactBirthdaysResponse>();
 
         var byId = result!.Contacts.ToDictionary(c => c.ContactId);
@@ -78,5 +78,16 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
         var resp = await anon.PostAsJsonAsync("/internal/contacts/resolve",
             new ResolveContactsRequest { ContactIds = [Guid.NewGuid()] });
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Rejects_tokens_without_the_internal_scope()
+    {
+        var user = Factory.ApiClient(Email);
+        var resp = await user.PostAsJsonAsync("/internal/contacts/resolve",
+            new ResolveContactsRequest { ContactIds = [Guid.NewGuid()] });
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, resp.StatusCode);
+
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await user.GetAsync("/internal/contacts/birthdays")).StatusCode);
     }
 }

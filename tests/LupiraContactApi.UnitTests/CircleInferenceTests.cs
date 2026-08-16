@@ -119,7 +119,25 @@ public class CircleInferenceTests
         var world = World();
         world.Single(c => c.Id == EX).Addresses =
             [At(HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2015))];
-        var household = CircleInference.Infer(F, world, []).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
+        var household = CircleInference.Infer(F, world, [], today: new DateOnly(2026, 8, 16)).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
+        var member = Assert.Single(household);
+        Assert.Equal(H, member.ContactId);
+    }
+
+    [Fact]
+    public void Future_move_out_still_cohabits_future_move_in_does_not()
+    {
+        var today = new DateOnly(2026, 8, 16);
+        var world = World();
+        // H's shared home now carries a planned move-out — still a household member today.
+        world.Single(c => c.Id == H).Addresses =
+            [At(HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2027, 3))];
+        // EX plans to move in next year — not a household member yet.
+        var ex = world.Single(c => c.Id == EX);
+        ex.Addresses = [At(HomePlace, ContactAddressType.Home)];
+        ex.Addresses[0].MovedIn = new FuzzyDate(2027);
+
+        var household = CircleInference.Infer(F, world, [], today).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
         var member = Assert.Single(household);
         Assert.Equal(H, member.ContactId);
     }

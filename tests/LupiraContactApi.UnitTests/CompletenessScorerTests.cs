@@ -103,14 +103,22 @@ public class CompletenessScorerTests
     }
 
     [Fact]
-    public void Legacy_freetext_address_is_weak_resolved_place_is_full()
+    public void Current_address_scores_postal_full()
     {
         var c = Person();
-        c.Addresses = [new ContactPostalAddress { PlaceId = null, Type = ContactAddressType.Home }];
-        Assert.Equal(GapSeverity.Weak, CompletenessScorer.ScoreContact(c, false)!.Gaps.Single(g => g.Field == "postalAddress").Severity);
-
         c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home }];
         Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "postalAddress");
+    }
+
+    [Fact]
+    public void Future_move_out_is_still_an_address_future_move_in_is_not()
+    {
+        var c = Person();
+        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home, MovedOut = new FuzzyDate(9999) }];
+        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "postalAddress");
+
+        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home, MovedIn = new FuzzyDate(9999) }];
+        Assert.Contains(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "postalAddress");
     }
 
     [Fact]

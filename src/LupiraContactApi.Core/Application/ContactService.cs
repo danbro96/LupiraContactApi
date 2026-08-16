@@ -424,7 +424,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
 
         var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type, MovedIn = a.MovedIn, MovedOut = a.MovedOut }).ToList();
-        if (next.Any(a => a.PlaceId is null || a.PlaceId == Guid.Empty)) return OpResult<ContactDto>.Invalid("Each address must reference a geo place id.");
+        if (next.Any(a => a.PlaceId == Guid.Empty)) return OpResult<ContactDto>.Invalid("Each address must reference a geo place id.");
         if (next.Any(a => a.MovedIn is { } mi && !mi.IsValid() || a.MovedOut is { } mo && !mo.IsValid()))
             return OpResult<ContactDto>.Invalid("Residency dates must be a valid year, year-month, or year-month-day.");
         if (next.Any(a => a is { MovedIn: { } mi, MovedOut: { } mo } && FuzzyDate.DefinitelyAfter(mi, mo)))
@@ -650,22 +650,20 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         var p = VCardSerializer.ParseVCard(rawVcard);
-        // Notes/pronouns are preserve-if-absent (most clients never emit them): set from the card when present, else keep existing.
-        // DisplayNameFormat isn't a vCard field — always preserve the existing choice so a re-sync never resets it.
+        // Every section below is preserve-if-absent: clients drop what they don't model, so wholesale replace would
+        // clear it on every sync. This surface can therefore set but never clear; the REST endpoints clear.
+        // DisplayNameFormat isn't a vCard field at all — always preserve.
         var fields = new ContactFields(p.GivenName, null, p.FamilyName, null,
             p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
             p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.FirstLast,
-            p.Kind ?? existing?.Kind ?? ContactKind.Individual);   // KIND is preserve-if-absent, like the X-props
-        // RELATED lines are authoritative wholesale-replace (a PUT without them clears relations + emergency designations).
-        // Unresolvable target uuids are stored as-is — the target may sync in later or be unreadable to this caller; resolved reads filter.
-        // Parent cycles are tolerated here (deliberately laxer import); inference is bounded, so they cannot hang it.
-        var relations = (p.Relations ?? [])
-            .Where(r => r.ToContactId != id)
-            .DistinctBy(r => (r.ToContactId, r.Kind))
-            .ToList();
-        var emergency = (p.EmergencyContactIds ?? []).Where(x => x != id).Distinct().ToList();
-        // Deceased and profiles are preserve-if-absent: most clients never emit the X-props, and a wholesale
-        // interpretation would silently clear them on every sync. Consequence: this surface can set but never clear them.
+            p.Kind ?? existing?.Kind ?? ContactKind.Individual);
+        // Unresolvable RELATED targets are stored as-is — resolved reads filter. Parent cycles tolerated (laxer import); inference is bounded.
+        var relations = p.Relations is not null
+            ? p.Relations.Where(r => r.ToContactId != id).DistinctBy(r => (r.ToContactId, r.Kind)).ToList()
+            : existing?.Relations ?? [];
+        var emergency = p.EmergencyContactIds is not null
+            ? p.EmergencyContactIds.Where(x => x != id).Distinct().ToList()
+            : existing?.EmergencyContactIds ?? [];
         var deceased = p.Deceased ?? existing?.Deceased ?? false;
         var deathDate = p.Deceased is not null ? p.DeathDate : existing?.DeathDate;
         var profiles = p.Profiles is not null

@@ -33,4 +33,20 @@ public sealed record FuzzyDate(int Year, int? Month = null, int? Day = null)
         if (a.Day is not { } ad || b.Day is not { } bd) return false;
         return ad > bd;
     }
+
+    /// <summary>Earliest day the date can denote (missing parts floor).</summary>
+    public DateOnly EarliestDate() => new(Year, Month ?? 1, Day ?? 1);
+
+    /// <summary>Latest day the date can denote (missing parts cap).</summary>
+    public DateOnly LatestDate()
+    {
+        var m = Month ?? 12;
+        return new(Year, m, Day ?? DateTime.DaysInMonth(Year, m));
+    }
+
+    /// <summary>The whole fuzzy period lies strictly before <paramref name="today"/>.</summary>
+    public bool IsCertainlyPast(DateOnly today) => LatestDate() < today;
+
+    /// <summary>The whole fuzzy period lies strictly after <paramref name="today"/>.</summary>
+    public bool IsCertainlyFuture(DateOnly today) => EarliestDate() > today;
 }

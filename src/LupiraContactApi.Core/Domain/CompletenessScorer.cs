@@ -100,9 +100,8 @@ public static class CompletenessScorer
     private static double PrimaryReach(Contact c) =>
         c.Channels.Count > 0 ? 1 : c.Profiles.Count > 0 ? 0.5 : 0;   // a direct channel reaches; a social handle only might
 
-    private static double PostalAddress(Contact c) =>   // former residencies (MovedOut set) don't address a contact today
-        c.Addresses.Any(a => a.PlaceId is not null && a.MovedOut is null) ? 1
-            : c.Addresses.Any(a => a.MovedOut is null) ? 0.5 : 0;   // legacy free-text rows → weak
+    private static double PostalAddress(Contact c) =>   // only an address active today addresses a contact
+        c.Addresses.Any(a => a.IsActiveOn(DateOnly.FromDateTime(DateTime.UtcNow))) ? 1 : 0;
 
     // Redundancy across mediums, not entries: two emails are one medium; all social profiles count as one.
     private static int DistinctMediums(Contact c) =>

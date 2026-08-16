@@ -25,6 +25,31 @@ public class FuzzyDateTests
         Assert.Equal(valid, new FuzzyDate(year, month, day).IsValid());
 
     [Fact]
+    public void Earliest_and_latest_bound_the_stated_precision()
+    {
+        Assert.Equal(new DateOnly(2015, 1, 1), new FuzzyDate(2015).EarliestDate());
+        Assert.Equal(new DateOnly(2015, 12, 31), new FuzzyDate(2015).LatestDate());
+        Assert.Equal(new DateOnly(2015, 6, 1), new FuzzyDate(2015, 6).EarliestDate());
+        Assert.Equal(new DateOnly(2015, 6, 30), new FuzzyDate(2015, 6).LatestDate());
+        Assert.Equal(new DateOnly(2016, 2, 29), new FuzzyDate(2016, 2).LatestDate());
+        Assert.Equal(new DateOnly(2015, 6, 12), new FuzzyDate(2015, 6, 12).LatestDate());
+    }
+
+    [Fact]
+    public void Certainly_past_and_future_resolve_ambiguity_toward_neither()
+    {
+        var today = new DateOnly(2026, 8, 16);
+        Assert.True(new FuzzyDate(2015).IsCertainlyPast(today));
+        Assert.False(new FuzzyDate(2026).IsCertainlyPast(today));     // could still be ahead this year
+        Assert.False(new FuzzyDate(2026).IsCertainlyFuture(today));   // could already have happened
+        Assert.True(new FuzzyDate(2027).IsCertainlyFuture(today));
+        Assert.True(new FuzzyDate(2026, 12).IsCertainlyFuture(today));
+        Assert.True(new FuzzyDate(2026, 7).IsCertainlyPast(today));
+        Assert.False(new FuzzyDate(2026, 8).IsCertainlyPast(today));
+        Assert.False(new FuzzyDate(2026, 8).IsCertainlyFuture(today));
+    }
+
+    [Fact]
     public void DefinitelyAfter_compares_at_the_coarsest_shared_precision()
     {
         Assert.True(FuzzyDate.DefinitelyAfter(new(2016), new(2015)));

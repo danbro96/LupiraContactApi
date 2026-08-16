@@ -132,9 +132,46 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         var vcf = await api.GetStringAsync($"/dav-backend/u/{Uri.EscapeDataString(Email)}/collections/{ab}/resources/{c.ExternalId}");
         Assert.Contains($"RELATED;TYPE=emergency:urn:uuid:{er.Id:D}", vcf);
 
-        // RELATED is wholesale on PUT — a card without the lines clears the designation.
+        // RELATED is preserve-if-absent on PUT — a client that drops the lines must not clear the designation.
         (await PutVcfAsync(api, Email, ab, c.ExternalId, MinimalVcf(c.ExternalId, "Jane Doe"))).EnsureSuccessStatusCode();
-        var cleared = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{c.Id}"))!;
-        Assert.Empty(cleared.EmergencyContactIds);
+        var kept = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{c.Id}"))!;
+        Assert.Equal([er.Id], kept.EmergencyContactIds);
+    }
+
+    [Fact]
+    public async Task Put_without_related_lines_preserves_relations_in_both_directions()
+    {
+        var api = Factory.ApiClient(Email);
+        var ab = await CreateAddressBookAsync(api);
+        var husband = await CreateContactAsync(api, ab, "Albin", "Spouse");
+        var wife = await CreateContactAsync(api, ab, "Charlotta", "Spouse");
+        await AddRelationAsync(api, husband.Id, wife.Id, ContactRelationKind.Partner);
+
+        (await PutVcfAsync(api, Email, ab, husband.ExternalId, MinimalVcf(husband.ExternalId, "Albin Spouse"))).EnsureSuccessStatusCode();
+
+        var after = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{husband.Id}"))!;
+        var edge = Assert.Single(after.Relations);
+        Assert.Equal(wife.Id, edge.ToContactId);
+        Assert.Equal(ContactRelationKind.Partner, edge.Kind);
+
+        var inverse = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{wife.Id}/relations");
+        Assert.Contains(inverse!, e => e.ContactId == husband.Id && e.Kind == ContactRelationKind.Partner);
+    }
+
+    [Fact]
+    public async Task Put_with_related_lines_still_replaces_wholesale()
+    {
+        var api = Factory.ApiClient(Email);
+        var ab = await CreateAddressBookAsync(api);
+        var c = await CreateContactAsync(api, ab);
+        var friend = await CreateContactAsync(api, ab, "Fay", "Friend");
+        var other = await CreateContactAsync(api, ab, "Otto", "Other");
+        await AddRelationAsync(api, c.Id, friend.Id, ContactRelationKind.Friend);
+
+        var vcf = $"BEGIN:VCARD\r\nVERSION:4.0\r\nUID:{c.ExternalId}\r\nFN:Jane Doe\r\nRELATED;TYPE=friend:urn:uuid:{other.Id:D}\r\nEND:VCARD\r\n";
+        (await PutVcfAsync(api, Email, ab, c.ExternalId, vcf)).EnsureSuccessStatusCode();
+
+        var after = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{c.Id}"))!;
+        Assert.Equal(other.Id, Assert.Single(after.Relations).ToContactId);
     }
 }

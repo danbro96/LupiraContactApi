@@ -4,15 +4,19 @@ using static LupiraContactApi.Domain.ContentHash;   // Of(); the type name clash
 namespace LupiraContactApi.Domain;
 
 /// <summary>A contact's postal address: a LupiraGeoApi place id (the sole source of truth — no free-text) with a home/work
-/// type. The write path requires a real id; the property is nullable only so legacy pre-migration events (which carried a
-/// null id + free-text) still deserialize. <see cref="MovedOut"/> set ⇒ a former address (residency history); the
-/// <see cref="FuzzyDate"/> boundaries are as precise as actually known, null = unknown.</summary>
+/// type. <see cref="FuzzyDate"/> boundaries are as precise as actually known, null = unknown; currency is
+/// <see cref="IsActiveOn"/>, never "MovedOut set".</summary>
 public sealed class ContactPostalAddress
 {
-    public Guid? PlaceId { get; set; }
+    public required Guid PlaceId { get; set; }
     public ContactAddressType Type { get; set; }
     public FuzzyDate? MovedIn { get; set; }
     public FuzzyDate? MovedOut { get; set; }
+
+    /// <summary>Today falls inside the period; ambiguity resolves toward active.</summary>
+    public bool IsActiveOn(DateOnly today) =>
+        (MovedIn is null || !MovedIn.IsCertainlyFuture(today)) &&
+        (MovedOut is null || !MovedOut.IsCertainlyPast(today));
 }
 
 /// <summary>A social/IM handle. <c>Service</c> is an open string (platforms are unbounded); <c>Preferred</c> marks

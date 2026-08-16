@@ -88,7 +88,12 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("DavBackendPolicy", p => p.AddAuthenticationSchemes(apiSchemes).RequireAuthenticatedUser()
         .RequireAssertion(ctx =>
             ctx.User.Identity?.AuthenticationType == DevAuthHandler.SchemeName
-            || (davGatewayClientId is not null && ctx.User.HasClaim("azp", davGatewayClientId))));
+            || (davGatewayClientId is not null && ctx.User.HasClaim("azp", davGatewayClientId))))
+    // internal:read is granted only to service clients — user tokens authenticate but never pass this.
+    .AddPolicy("InternalPolicy", p => p.AddAuthenticationSchemes(apiSchemes).RequireAuthenticatedUser()
+        .RequireAssertion(ctx => ctx.User.FindAll("scope")
+            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .Contains("internal:read")));
 
 // --- Observability: OpenTelemetry -> OpenObserve. Env-gated; the OTLP exporter reads OTEL_EXPORTER_OTLP_*
 //     automatically (http/protobuf + Basic auth header set in compose). ---

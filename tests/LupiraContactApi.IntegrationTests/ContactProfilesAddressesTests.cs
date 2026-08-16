@@ -2,6 +2,7 @@ using LupiraContactApi.Domain;
 using LupiraContactApi.Dtos.Contacts;
 using System.Net.Http.Json;
 using System.Net;
+using System.Text;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -88,11 +89,16 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
         Assert.Equal(place, Assert.Single(dto.Addresses).PlaceId);
         Assert.Equal(c.Etag, dto.Etag);   // addresses are outside the canonical content
 
-        var invalid = await api.PutAsJsonAsync($"/contacts/{c.Id}/addresses", new SetContactAddressesRequest
-        {
-            Addresses = [new ContactPostalAddress { Type = ContactAddressType.Home }],   // no place id -> rejected
-        });
+        // No place id -> rejected at binding (PlaceId is required on the wire).
+        var invalid = await api.PutAsync($"/contacts/{c.Id}/addresses",
+            new StringContent("""{"addresses":[{"type":"Home"}]}""", Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+
+        var empty = await api.PutAsJsonAsync($"/contacts/{c.Id}/addresses", new SetContactAddressesRequest
+        {
+            Addresses = [new ContactPostalAddress { PlaceId = Guid.Empty, Type = ContactAddressType.Home }],
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
     }
 
     [Fact]
