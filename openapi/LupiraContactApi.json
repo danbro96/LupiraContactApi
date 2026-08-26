@@ -25,7 +25,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -54,7 +71,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -86,7 +120,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -118,7 +169,14 @@
             "description": "No Content"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -131,7 +189,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -163,7 +238,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -200,7 +292,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -250,7 +359,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -264,6 +380,26 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -301,7 +437,14 @@
             "description": "No Content"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -315,6 +458,26 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -364,10 +527,37 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -422,7 +612,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -436,6 +633,26 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -481,7 +698,14 @@
             "description": "No Content"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -495,6 +719,26 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -560,7 +804,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -607,7 +868,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -685,7 +963,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -747,7 +1042,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -809,7 +1121,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -849,10 +1178,34 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -908,7 +1261,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -921,7 +1281,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -960,10 +1337,34 @@
             "description": "No Content"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1032,10 +1433,34 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1074,7 +1499,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -1097,7 +1529,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1155,7 +1604,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1168,7 +1624,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1225,7 +1698,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1238,7 +1718,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1296,7 +1793,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -1319,7 +1823,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1377,7 +1898,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1390,7 +1918,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1448,7 +1993,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -1471,7 +2023,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1521,7 +2090,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -1544,7 +2120,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1602,7 +2195,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -1625,7 +2225,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1683,7 +2300,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1696,7 +2320,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1746,7 +2387,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1759,7 +2407,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1807,7 +2472,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -1830,7 +2502,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1887,7 +2576,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1900,7 +2596,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1959,7 +2672,14 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -1972,7 +2692,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2016,6 +2753,26 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2083,6 +2840,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2130,7 +2907,34 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2161,7 +2965,34 @@
             "description": "No Content"
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2233,7 +3064,34 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2282,7 +3140,34 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2338,7 +3223,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2367,7 +3269,24 @@
             }
           },
           "401": {
-            "description": "Unauthorized"
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2385,7 +3304,8 @@
           "Owner",
           "ReadWrite",
           "Read"
-        ]
+        ],
+        "description": "A principal's permission on a collection. `Owner` adds member-management + delete rights over `ReadWrite`."
       },
       "AddContactRelationRequest": {
         "required": [
@@ -2405,22 +3325,26 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Free-text refinement of the kind, e.g. \"dad\"."
           },
           "since": {
             "type": [
               "null",
               "string"
             ],
+            "description": "When the relationship began, if a precise date is known.",
             "format": "date"
           },
           "note": {
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Free-text note about the edge (how/where it started); fuzzy periods that aren't a precise date go here."
           }
-        }
+        },
+        "description": "Upserts a directed relation edge on a contact: \"Guid AddContactRelationRequest.ToContactId is this contact's ContactRelationKind AddContactRelationRequest.Kind\"."
       },
       "AddressBookDto": {
         "required": [
@@ -2446,7 +3370,8 @@
           "access": {
             "$ref": "#/components/schemas/Access"
           }
-        }
+        },
+        "description": "An address book the caller can access, with their access level."
       },
       "CircleKind": {
         "enum": [
@@ -2455,7 +3380,8 @@
           "Friends",
           "Colleagues",
           "Household"
-        ]
+        ],
+        "description": "An inferred social cohort around a focus contact (computed on read, never stored)."
       },
       "CircleMemberDto": {
         "required": [
@@ -2490,7 +3416,8 @@
           "provenance": {
             "$ref": "#/components/schemas/RelationProvenance"
           }
-        }
+        },
+        "description": "`Degree` is a pragmatic closeness bucket (1 = immediate, 2 = two-generation kin, 3 = cousin), not\n        consanguinity. `Kind` is null when the membership makes no kinship claim (household co-residency)."
       },
       "CompletenessGap": {
         "required": [
@@ -2510,7 +3437,8 @@
           "severity": {
             "$ref": "#/components/schemas/GapSeverity"
           }
-        }
+        },
+        "description": "A field the record is missing or thin on, with its rubric weight (heavier = ask first)."
       },
       "CompletenessScore": {
         "required": [
@@ -2534,14 +3462,16 @@
               "$ref": "#/components/schemas/CompletenessGap"
             }
           }
-        }
+        },
+        "description": "How well-documented a record is: `Score` 0..1 (Σ weight·presence / Σ weight), the unmet\n            fields ranked by missing mass (weight·absence, largest first), and the rubric version that produced it.\n            `null` (not this type) means \"not applicable\"."
       },
       "ContactAddressType": {
         "enum": [
           "Home",
           "Work",
           "Other"
-        ]
+        ],
+        "description": "Type of a contact's postal address."
       },
       "ContactCircleDto": {
         "required": [
@@ -2578,7 +3508,8 @@
               "$ref": "#/components/schemas/ContactCircleDto"
             }
           }
-        }
+        },
+        "description": "Computed social circles around a focus contact. Always contains every CircleKind, possibly empty;\n            a contact may appear in several circles."
       },
       "ContactDto": {
         "required": [
@@ -2691,7 +3622,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Pointer to an avatar image (URL/media id), never bytes."
           },
           "addresses": {
             "type": "array",
@@ -2710,13 +3642,15 @@
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Ordered designation (first = highest priority) — who to call about this person, not a kinship."
           },
           "relations": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ContactRelationDto"
-            }
+            },
+            "description": "Raw outgoing edges (unfiltered; targets may be deleted or unreadable). The `/relations` sub-resource is the resolved two-way view."
           },
           "metadata": {
             "oneOf": [
@@ -2734,6 +3668,7 @@
                 "type": "null"
               },
               {
+                "description": "How well-documented this contact is. Drives contact-enrichment ranking (completeness × relevance).",
                 "$ref": "#/components/schemas/CompletenessScore"
               }
             ]
@@ -2760,6 +3695,7 @@
           },
           "version": {
             "type": "integer",
+            "description": "Stream version — the offline clients' optimistic-versioning surface (`Etag` stays content-derived).",
             "format": "int32"
           },
           "etag": {
@@ -2817,19 +3753,22 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "A contact group (personal grouping or organization) and its current members."
       },
       "ContactGroupKind": {
         "enum": [
           "Group",
           "Organization"
-        ]
+        ],
+        "description": "A personal grouping (Friends/Family/Colleagues) vs a company/institution. An employer is membership in an `Organization`-kind group."
       },
       "ContactKind": {
         "enum": [
           "Individual",
           "Organization"
-        ]
+        ],
+        "description": "What the contact card represents — vCard `KIND`. A business/venue (a provider referenced from\n            bookings, say) is an `Organization`: no birthday, employer, or kinship applies. `Individual` is ordinal 0\n            so pre-existing events replay as persons."
       },
       "ContactNameMatch": {
         "required": [
@@ -2858,7 +3797,8 @@
               "$ref": "#/components/schemas/ContactRef"
             }
           }
-        }
+        },
+        "description": "Resolution of one input name. On `Matched`, `ContactId` is set; `Candidates` always lists\n            the considered contacts (capped) so the caller can disambiguate."
       },
       "ContactPostalAddress": {
         "required": [
@@ -2893,7 +3833,8 @@
               }
             ]
           }
-        }
+        },
+        "description": "A contact's postal address: a LupiraGeoApi place id (the sole source of truth — no free-text) with a home/work\n            type. FuzzyDate boundaries are as precise as actually known, null = unknown; currency is\n            bool ContactPostalAddress.IsActiveOn(DateOnly today), never \"MovedOut set\"."
       },
       "ContactReachChannel": {
         "required": [
@@ -2919,7 +3860,8 @@
           "preferred": {
             "type": "boolean"
           }
-        }
+        },
+        "description": "A way to reach a contact — an email address or phone number — with an open string? ContactReachChannel.Type token\n            (well-known: home/work/cell/fax/pager/other) and a per-medium bool ContactReachChannel.Preferred flag. A record so event\n            payloads stay immutable."
       },
       "ContactRef": {
         "required": [
@@ -2935,7 +3877,8 @@
           "displayName": {
             "type": "string"
           }
-        }
+        },
+        "description": "A lightweight contact reference (id + display name) — a resolve candidate."
       },
       "ContactRelationDirection": {
         "enum": [
@@ -2991,7 +3934,8 @@
             ],
             "format": "date"
           }
-        }
+        },
+        "description": "One outgoing relation edge as published: \"the `ToContactId` contact is my `Kind`\".\n            `Ended`/`Until` mark a relationship that ran its course, distinct from removal."
       },
       "ContactRelationEntryDto": {
         "required": [
@@ -3023,13 +3967,15 @@
               "null",
               "string"
             ],
+            "description": "When the relationship began, on outgoing edges where a precise date is known.",
             "format": "date"
           },
           "note": {
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Free-text note about the edge, on outgoing edges."
           },
           "direction": {
             "$ref": "#/components/schemas/ContactRelationDirection"
@@ -3038,7 +3984,8 @@
             "$ref": "#/components/schemas/RelationProvenance"
           },
           "ended": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "The relationship ran its course (ex-spouse); the edge remains for history but asserts no current kinship."
           },
           "until": {
             "type": [
@@ -3047,7 +3994,8 @@
             ],
             "format": "date"
           }
-        }
+        },
+        "description": "One resolved relation as seen from the viewed contact: ContactRelationKind ContactRelationEntryDto.Kind is always the OTHER contact's role\n            relative to the viewed one (incoming edges show the derived inverse kind, and their label — the other side's phrasing — is omitted).\n            RelationProvenance ContactRelationEntryDto.Provenance distinguishes stored edges from kin derived off the parent/child graph (returned only when inferred relations are requested)."
       },
       "ContactRelationKind": {
         "enum": [
@@ -3065,7 +4013,8 @@
           "AuntUncle",
           "NieceNephew",
           "Cousin"
-        ]
+        ],
+        "description": "Kind of a contact-to-contact edge: the related (To) contact's role relative to the owning contact (\"To is my Kind\").\n            The extended-family kinds are storable for when the linking relative isn't a contact (a deceased parent, say); the same\n            kinds are also produced by KinshipInference from the parent/child graph, distinguished on read by RelationProvenance."
       },
       "ContactSocialProfileDto": {
         "required": [
@@ -3091,7 +4040,8 @@
           "preferred": {
             "type": "boolean"
           }
-        }
+        },
+        "description": "A contact's social/IM handle as published. Service and handle are guaranteed non-empty —\n            `SetProfilesAsync` rejects the write otherwise."
       },
       "ContactSocialProfileInput": {
         "required": [
@@ -3115,7 +4065,8 @@
           "preferred": {
             "type": "boolean"
           }
-        }
+        },
+        "description": "A social/IM handle as submitted. `Url` is derived from the handle for well-known services when\n            omitted; `Preferred` defaults to false."
       },
       "CreateAddressBookRequest": {
         "required": [
@@ -3132,7 +4083,8 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "Create an address book; the caller becomes its owner."
       },
       "CreateContactRequest": {
         "required": [
@@ -3148,7 +4100,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Client-chosen stable key that pins the contact's identity (offline clients mint a UUIDv7): a\n            replayed create with the same key returns the existing contact instead of duplicating it."
           },
           "kind": {
             "oneOf": [
@@ -3156,6 +4109,7 @@
                 "type": "null"
               },
               {
+                "description": "Individual (default) or Organization — a business/venue card that skips person-only enrichment.",
                 "$ref": "#/components/schemas/ContactKind"
               }
             ]
@@ -3234,7 +4188,8 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "Create a contact via REST/MCP. No `FullName` — the display name is composed from the structured parts.\n            An employer is set separately as membership in an `organization`-kind contact group."
       },
       "CreateContactsBatchRequest": {
         "required": [
@@ -3248,14 +4203,16 @@
               "$ref": "#/components/schemas/CreateContactRequest"
             }
           }
-        }
+        },
+        "description": "Create many contacts in one transaction (each carries its own `AddressBookId`). Returned contacts\n            align index-for-index with `Contacts`. For bulk imports instead of many single `create_contact` calls."
       },
       "DisplayNameFormat": {
         "enum": [
           "Full",
           "FirstLast",
           "NickName"
-        ]
+        ],
+        "description": "How a contact's DisplayName renders. Rendering-only — excluded from the content hash. `Full` is ordinal 0 so old events replay to today's behavior."
       },
       "EndContactRelationRequest": {
         "required": [
@@ -3273,7 +4230,8 @@
             ],
             "format": "date"
           }
-        }
+        },
+        "description": "Ends a relation (relationship ran its course — the edge stays, flagged). Removal is for edges entered by mistake."
       },
       "FuzzyDate": {
         "required": [
@@ -3299,13 +4257,15 @@
             ],
             "format": "int32"
           }
-        }
+        },
+        "description": "A date known to year, year-month, or full-day precision — the precision itself carries the certainty\n            (\"2015\" means \"sometime in 2015\"). Used for residency boundaries on ContactPostalAddress.\n            int FuzzyDate.Year is always present; int? FuzzyDate.Day requires int? FuzzyDate.Month. Distinct from\n            PartialDate, which models the opposite case (year unknown, month-day known)."
       },
       "GapSeverity": {
         "enum": [
           "Weak",
           "Absent"
-        ]
+        ],
+        "description": "A field is fully present, weak/partial (0.5), or absent."
       },
       "GrantOwnerRequest": {
         "required": [
@@ -3322,7 +4282,8 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "Grant a member access to a container, identified by their login `Email` (provisioned if they have\n            not logged in yet). `Access` is `owner` (default), `read-write`, or `read` — case-insensitive."
       },
       "GroupMemberDto": {
         "required": [
@@ -3354,7 +4315,8 @@
             ],
             "format": "date"
           }
-        }
+        },
+        "description": "A contact's membership in a group. `Role` is the title held in an organization (null for personal\n            groupings); `Since`/`Until` bound the tenure when known."
       },
       "JsonNode": { },
       "MeDto": {
@@ -3382,16 +4344,19 @@
               "null",
               "string"
             ],
+            "description": "The caller's own contact (\"this card is me\"), when linked — the default circles focus.",
             "format": "uuid"
           }
-        }
+        },
+        "description": "The resolved local identity of the caller: the stable Guid MeDto.PrincipalId plus current\n            email/display name — the same identity shape (`principalId`/`email`/`displayName`) the\n            platform uses everywhere it returns a person."
       },
       "NameMatchOutcome": {
         "enum": [
           "Matched",
           "Ambiguous",
           "NotFound"
-        ]
+        ],
+        "description": "Per-name match outcome. `Matched` = exactly one contact whose normalized display name equals the\n            query (or the lone substring hit); `Ambiguous` = several candidates; `NotFound` = no substring hit."
       },
       "OwnerGrantDto": {
         "required": [
@@ -3422,7 +4387,8 @@
           "access": {
             "$ref": "#/components/schemas/Access"
           }
-        }
+        },
+        "description": "The result of granting a member access to a container: who now has what access on which container."
       },
       "PartialDate": {
         "required": [
@@ -3447,7 +4413,8 @@
             "type": "integer",
             "format": "int32"
           }
-        }
+        },
+        "description": "A calendar date that may omit the year — a birthday is often known only as a month-day.\n            int PartialDate.Month and int PartialDate.Day are always present; int? PartialDate.Year is null when unknown.\n            Canonical text is `yyyy-MM-dd` with a year, else `--MM-dd` (a serialization concern; wire formats\n            live at the seam, see VCardSerializer)."
       },
       "PingDto": {
         "required": [
@@ -3471,7 +4438,8 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "The claims a caller's token resolved to, echoed for cross-service auth-seam probes.\n            Returning the audiences (not a bare 200) lets a failing consumer see which half of the seam\n            is misconfigured."
       },
       "ProblemDetails": {
         "type": "object",
@@ -3506,20 +4474,29 @@
               "null",
               "string"
             ]
+          },
+          "traceId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
-        }
+        },
+        "description": "RFC 9457 problem details."
       },
       "ReachMedium": {
         "enum": [
           "Email",
           "Phone"
-        ]
+        ],
+        "description": "The medium a reach channel uses. Social/IM handles are modeled separately as ContactSocialProfile."
       },
       "RelationProvenance": {
         "enum": [
           "Explicit",
           "Inferred"
-        ]
+        ],
+        "description": "Whether a resolved relation was stored explicitly or derived from the kinship graph."
       },
       "ResolveContactsByNameRequest": {
         "required": [
@@ -3540,7 +4517,8 @@
             ],
             "format": "uuid"
           }
-        }
+        },
+        "description": "Batch-match a list of free-text names to existing contacts (import disambiguation). Optionally scope to\n            one address book; otherwise all the caller's accessible books."
       },
       "ReviseContactRequest": {
         "type": "object",
@@ -3634,9 +4612,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution of the core fields.\n            Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Update an existing contact by <b>merge</b>: a provided scalar overwrites, provided reach channels/tags\n            are unioned onto the existing values (deduped), and any field left null keeps its current value. Enrichment never\n            wipes what it didn't mention. Use `PUT /contacts/{id}/channels` to remove channels. The address book isn't changeable here."
       },
       "SectionGuardDto": {
         "required": [
@@ -3653,7 +4633,8 @@
             "type": "string",
             "format": "uuid"
           }
-        }
+        },
+        "description": "One section's last-writer guard: the (occurredAt, commandId) of the write that owns its current\n            value. Offline clients seed their local guards from these so a pending edit on one section never blocks —\n            and is never clobbered by — fresher server state on another."
       },
       "SectionGuardsDto": {
         "required": [
@@ -3684,7 +4665,8 @@
           "deceased": {
             "$ref": "#/components/schemas/SectionGuardDto"
           }
-        }
+        },
+        "description": "Per-section guards for a contact. `Core` covers the whole ContactFields (name/channels/tags/\n            notes… — channel and tag writes ride the same revision event); the rest map 1:1 to their write endpoints."
       },
       "SetContactAddressesRequest": {
         "required": [
@@ -3703,9 +4685,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Wholesale replacement of a contact's postal addresses; each entry needs a geo place id."
       },
       "SetContactAvatarRequest": {
         "type": "object",
@@ -3721,9 +4705,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Sets (or clears, when null/empty) a contact's avatar — a URL/media id, never image bytes."
       },
       "SetContactChannelsRequest": {
         "required": [
@@ -3742,9 +4728,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Wholesale replacement of a contact's reach channels — emails and phones (empty clears). Unlike\n            `ReviseContact`, which only unions, this can remove a channel. Values are trimmed, type tokens lowercased,\n            duplicates (by medium + value) dropped; at most one preferred channel per medium."
       },
       "SetContactProfilesRequest": {
         "required": [
@@ -3763,9 +4751,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Wholesale replacement of a contact's social/IM handles. For well-known services (telegram, messenger,\n            whatsapp…) the profile URL is derived from the handle when omitted."
       },
       "SetContactTagsRequest": {
         "required": [
@@ -3784,9 +4774,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Wholesale replacement of a contact's tags (empty clears). Unlike `ReviseContact`,\n            which only unions, this can remove a tag. Entries are trimmed and de-duplicated case-insensitively."
       },
       "SetDeceasedRequest": {
         "type": "object",
@@ -3803,9 +4795,11 @@
               "null",
               "string"
             ],
+            "description": "Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.",
             "format": "date-time"
           }
-        }
+        },
+        "description": "Marks a contact as deceased; the date may be unknown."
       },
       "SetEmergencyContactsRequest": {
         "required": [
@@ -3820,7 +4814,8 @@
               "format": "uuid"
             }
           }
-        }
+        },
+        "description": "Wholesale replacement of a contact's emergency-contact designation; order = priority, empty clears."
       },
       "SetMyContactRequest": {
         "required": [
@@ -3832,7 +4827,8 @@
             "type": "string",
             "format": "uuid"
           }
-        }
+        },
+        "description": "Links the caller's identity to its own contact (\"this card is me\") — the default circles focus."
       },
       "SyncChangeDto": {
         "required": [
@@ -3847,7 +4843,8 @@
           "guards": {
             "$ref": "#/components/schemas/SectionGuardsDto"
           }
-        }
+        },
+        "description": "A changed contact: the full DTO plus its section guards."
       },
       "SyncChangesResponse": {
         "required": [
@@ -3875,9 +4872,11 @@
             "items": {
               "type": "string",
               "format": "uuid"
-            }
+            },
+            "description": "Ids no longer visible to the caller: soft-deleted, or moved into an address book the caller\n            can't read. Unknown ids are safe to ignore."
           }
-        }
+        },
+        "description": "One page of the changes feed. `Cursor` is opaque — hand it back as `?since=`; loop while\n            `HasMore`. A full sync (no `since`) streams every live visible contact; tombstone ids may reference\n            contacts the client never saw (ignore unknown ids)."
       },
       "SyncContainersResponse": {
         "required": [
@@ -3898,7 +4897,8 @@
               "$ref": "#/components/schemas/ContactGroupDto"
             }
           }
-        }
+        },
+        "description": "Snapshot of the caller's containers. Address books are plain documents (no cursor); groups are\n            event-sourced but small and fully replaced each cycle — both are fetched once per sync cycle and diffed\n            against the mirror."
       },
       "UpdateAddressBookRequest": {
         "type": "object",
@@ -3915,7 +4915,8 @@
               "string"
             ]
           }
-        }
+        },
+        "description": "Update an address book by merge: a provided slug or display name overwrites, null keeps the current value."
       }
     },
     "securitySchemes": {
