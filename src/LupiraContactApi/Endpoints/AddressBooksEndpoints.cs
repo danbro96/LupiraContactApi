@@ -12,14 +12,12 @@ public static class AddressBooksEndpoints
         group.MapGet("/", (AddressBooksHandler h, CancellationToken ct) => h.ListAsync(ct))
             .WithName("ListAddressBooks")
             .WithSummary("List the address books the caller can access.")
-            .Produces<List<AddressBookDto>>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status401Unauthorized);
+            .Produces<List<AddressBookDto>>(StatusCodes.Status200OK);
 
         group.MapPost("/", (CreateAddressBookRequest body, AddressBooksHandler h, CancellationToken ct) => h.CreateAsync(body, ct))
             .WithName("CreateAddressBook")
             .WithSummary("Create an address book; the caller becomes its owner.")
-            .Produces<AddressBookDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status401Unauthorized);
+            .Produces<AddressBookDto>(StatusCodes.Status200OK);
 
         group.MapPut("/{addressBookId:guid}", (Guid addressBookId, UpdateAddressBookRequest body, AddressBooksHandler h, CancellationToken ct) => h.UpdateAsync(addressBookId, body, ct))
             .WithName("UpdateAddressBook")
