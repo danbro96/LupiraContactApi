@@ -19,9 +19,9 @@ namespace LupiraContactApi.Mcp;
 [McpServerToolType]
 public sealed class ContactTools
 {
-    [McpServerTool(Name = "query_contacts")]
+    [McpServerTool(Name = "search_contacts")]
     [Description("Find contacts the caller can access, optionally by name.")]
-    public static async Task<IReadOnlyList<ContactDto>> QueryContacts(
+    public static async Task<IReadOnlyList<ContactDto>> SearchContacts(
         ContactService contacts, CurrentUser user,
         [Description("Free-text query over the contact's name.")] string? query = null)
     {
@@ -78,16 +78,16 @@ public sealed class ContactTools
     }
 
     [McpServerTool(Name = "get_contact")]
-    [Description("Fetch one contact by id (query_contacts searches by name).")]
+    [Description("Fetch one contact by id (search_contacts searches by name).")]
     public static async Task<ContactDto> GetContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
     {
         var u = await user.GetAsync();
         return Require(await contacts.GetAsync(u.Id, contactId));
     }
 
-    [McpServerTool(Name = "revise_contact")]
+    [McpServerTool(Name = "update_contact")]
     [Description("Merge-update a contact: provided scalars overwrite, provided channels/tags union onto the existing, null fields are kept (never wipes what it didn't mention). Use set_contact_channels/set_contact_tags to remove.")]
-    public static async Task<ContactDto> ReviseContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId, ReviseContactRequest request)
+    public static async Task<ContactDto> UpdateContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId, ReviseContactRequest request)
     {
         var u = await user.GetAsync();
         return Require(await contacts.ReviseAsync(u.Id, contactId, request));
