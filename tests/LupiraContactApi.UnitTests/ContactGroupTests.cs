@@ -1,5 +1,6 @@
 using JasperFx.Events;
 using LupiraContactApi.Core.Domain.ContactGroups;
+using LupiraContactApi.Core.Domain.ContactGroups.Events;
 using LupiraContactApi.Core.Domain.Shared;
 using Xunit;
 

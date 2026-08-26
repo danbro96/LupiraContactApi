@@ -11,15 +11,18 @@ public static class InternalEndpoints
         app.MapPost("/internal/contacts/resolve",
                 (ResolveContactsRequest body, InternalContactsHandler h, CancellationToken ct) => h.ResolveAsync(body, ct))
             .RequireAuthorization("InternalPolicy")
-            .ExcludeFromDescription();
+            .ExcludeFromDescription()
+            .WithName("ResolveContact");
         app.MapGet("/internal/contacts/birthdays",
                 (InternalContactsHandler h, CancellationToken ct) => h.BirthdaysAsync(ct))
             .RequireAuthorization("InternalPolicy")
-            .ExcludeFromDescription();
+            .ExcludeFromDescription()
+            .WithName("ListBirthdays");
         app.MapPost("/internal/contacts/place-references:check",
                 (CheckPlaceReferencesRequest body, InternalContactsHandler h, CancellationToken ct) => h.CheckPlaceReferencesAsync(body, ct))
             .RequireAuthorization("InternalPolicy")
-            .ExcludeFromDescription();
+            .ExcludeFromDescription()
+            .WithName("CheckPlaceReferences");
         return app;
     }
 }

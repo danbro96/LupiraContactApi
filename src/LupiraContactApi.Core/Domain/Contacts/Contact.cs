@@ -1,34 +1,9 @@
 using JasperFx.Events;
-using static LupiraContactApi.Core.Domain.Shared.ContentHash;   // Of(); the type name clashes with the ContentHash property
+using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Shared;
+using static LupiraContactApi.Core.Domain.Shared.ContentHash;   // Of(); the type name clashes with the ContentHash property
 
 namespace LupiraContactApi.Core.Domain.Contacts;
-
-/// <summary>A contact's postal address: a LupiraGeoApi place id (the sole source of truth — no free-text) with a home/work
-/// type. <see cref="FuzzyDate"/> boundaries are as precise as actually known, null = unknown; currency is
-/// <see cref="IsActiveOn"/>, never "MovedOut set".</summary>
-public sealed class ContactPostalAddress
-{
-    public required Guid PlaceId { get; set; }
-    public ContactAddressType Type { get; set; }
-    public FuzzyDate? MovedIn { get; set; }
-    public FuzzyDate? MovedOut { get; set; }
-
-    /// <summary>Today falls inside the period; ambiguity resolves toward active.</summary>
-    public bool IsActiveOn(DateOnly today) =>
-        (MovedIn is null || !MovedIn.IsCertainlyFuture(today)) &&
-        (MovedOut is null || !MovedOut.IsCertainlyPast(today));
-}
-
-/// <summary>A social/IM handle. <c>Service</c> is an open string (platforms are unbounded); <c>Preferred</c> marks
-/// the handle that actually reaches the person on that service.</summary>
-public sealed class ContactSocialProfile
-{
-    public string Service { get; set; } = "";
-    public string Handle { get; set; } = "";
-    public string? Url { get; set; }
-    public bool Preferred { get; set; }
-}
 
 /// <summary>
 /// The contact aggregate + inline snapshot, belonging to one address book. The structured fields are canonical;

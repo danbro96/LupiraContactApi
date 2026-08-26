@@ -5,6 +5,7 @@ using LupiraContactApi.Core.Dtos.Contacts;
 using Marten;
 using System.Net.Http.Json;
 using Xunit;
+using LupiraContactApi.Core.Domain.Contacts.Events;
 
 namespace LupiraContactApi.IntegrationTests;
 

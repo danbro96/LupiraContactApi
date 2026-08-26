@@ -2,8 +2,8 @@ using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.AddressBooks;
 using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
-using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using Marten;
 

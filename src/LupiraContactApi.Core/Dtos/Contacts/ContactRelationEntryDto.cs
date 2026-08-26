@@ -1,10 +1,6 @@
-using System.Text.Json.Serialization;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Dtos.Contacts;
-
-[JsonConverter(typeof(JsonStringEnumConverter<ContactRelationDirection>))]
-public enum ContactRelationDirection { Outgoing, Incoming }
 
 /// <summary>One resolved relation as seen from the viewed contact: <see cref="Kind"/> is always the OTHER contact's role
 /// relative to the viewed one (incoming edges show the derived inverse kind, and their label — the other side's phrasing — is omitted).

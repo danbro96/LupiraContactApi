@@ -1,10 +1,4 @@
-using System.Text.Json.Serialization;
-
 namespace LupiraContactApi.Core.Domain.Contacts;
-
-/// <summary>The medium a reach channel uses. Social/IM handles are modeled separately as <see cref="ContactSocialProfile"/>.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ReachMedium>))]
-public enum ReachMedium { Email, Phone }
 
 /// <summary>A way to reach a contact — an email address or phone number — with an open <see cref="Type"/> token
 /// (well-known: home/work/cell/fax/pager/other) and a per-medium <see cref="Preferred"/> flag. A record so event

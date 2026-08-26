@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 

@@ -1,6 +1,6 @@
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.ContactGroups;
-using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.ContactGroups.Events;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using Marten;

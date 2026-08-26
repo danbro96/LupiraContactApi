@@ -4,11 +4,6 @@ using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.Inference;
 
-/// <summary>One computed circle membership around a focus contact. <c>Degree</c> is a pragmatic closeness bucket
-/// (1 = immediate, 2 = two-generation kin, 3 = cousin) — not consanguinity. <c>Kind</c> is null when the membership
-/// makes no kinship claim (household co-residency).</summary>
-public readonly record struct CircleMembership(CircleKind Circle, Guid ContactId, ContactRelationKind? Kind, int Degree, RelationProvenance Provenance);
-
 /// <summary>Derives social circles around a focus contact from relation edges, the kinship graph, shared organization
 /// membership, and shared home places. Pure over supplied data like <see cref="KinshipInference"/>; computed on read,
 /// never stored. Ended edges assert no current relationship and are ignored.</summary>

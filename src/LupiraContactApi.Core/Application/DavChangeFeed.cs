@@ -3,9 +3,6 @@ using Marten;
 
 namespace LupiraContactApi.Core.Application;
 
-/// <summary>A contact whose state changed since a sync token: its resource UID and current ETag, or a tombstone.</summary>
-public sealed record DavChange(string Uid, string? Etag, bool Deleted);
-
 /// <summary>The CardDAV change feed backing the <c>/dav-backend</c> seam: sync tokens are Marten's global event
 /// sequence (opaque to the gateway), changes are the contact streams touched past a token, deletions are tombstones.</summary>
 public sealed class DavChangeFeed(IQuerySession session)

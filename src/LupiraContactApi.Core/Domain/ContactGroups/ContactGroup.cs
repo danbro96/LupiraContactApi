@@ -1,17 +1,8 @@
 using JasperFx.Events;
+using LupiraContactApi.Core.Domain.ContactGroups.Events;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.ContactGroups;
-
-/// <summary>One contact's membership in a group. <see cref="Role"/> is the title held in an <c>Organization</c>
-/// (null for personal groupings); <see cref="Since"/>/<see cref="Until"/> bound the tenure when known.</summary>
-public sealed class GroupMembership
-{
-    public Guid ContactId { get; set; }
-    public string? Role { get; set; }
-    public DateOnly? Since { get; set; }
-    public DateOnly? Until { get; set; }
-}
 
 /// <summary>
 /// A named collection of contacts in an address book + inline snapshot. <see cref="Kind"/> distinguishes a personal
