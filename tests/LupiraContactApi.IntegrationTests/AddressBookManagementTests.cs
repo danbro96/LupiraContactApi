@@ -1,7 +1,7 @@
+using System.Net;
+using System.Net.Http.Json;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
-using System.Net.Http.Json;
-using System.Net;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;

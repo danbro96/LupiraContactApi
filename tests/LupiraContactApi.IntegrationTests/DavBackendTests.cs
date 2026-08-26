@@ -1,7 +1,7 @@
-using LupiraContactApi.Dav;
-using LupiraContactApi.Core.Domain.Identity;
-using System.Net.Http.Json;
 using System.Net;
+using System.Net.Http.Json;
+using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Dav;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;

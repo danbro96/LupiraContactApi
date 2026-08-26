@@ -1,8 +1,8 @@
+using System.Net;
+using System.Net.Http.Json;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
-using System.Net.Http.Json;
-using System.Net;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -33,7 +33,10 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
         var abId = await CreateAddressBookAsync(api);
         var resp = await api.PostAsJsonAsync("/contacts", new CreateContactRequest
         {
-            AddressBookId = abId, GivenName = "Jane", MiddleName = "Q", FamilyName = "Doe",
+            AddressBookId = abId,
+            GivenName = "Jane",
+            MiddleName = "Q",
+            FamilyName = "Doe",
         });
         resp.EnsureSuccessStatusCode();
         var contact = (await resp.Content.ReadFromJsonAsync<ContactDto>())!;

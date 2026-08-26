@@ -1,7 +1,7 @@
+using System.Net.Http.Json;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
-using System.Net.Http.Json;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -48,15 +48,24 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
 
         var dated = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
         {
-            AddressBookId = book, GivenName = "Ada", FamilyName = "Byron", Birthday = new PartialDate(1815, 12, 10),
+            AddressBookId = book,
+            GivenName = "Ada",
+            FamilyName = "Byron",
+            Birthday = new PartialDate(1815, 12, 10),
         })).Content.ReadFromJsonAsync<ContactDto>())!;
         var yearless = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
         {
-            AddressBookId = book, GivenName = "Grace", FamilyName = "Hopper", Birthday = new PartialDate(null, 12, 9),
+            AddressBookId = book,
+            GivenName = "Grace",
+            FamilyName = "Hopper",
+            Birthday = new PartialDate(null, 12, 9),
         })).Content.ReadFromJsonAsync<ContactDto>())!;
         var deceased = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
         {
-            AddressBookId = book, GivenName = "Alan", FamilyName = "Turing", Birthday = new PartialDate(1912, 6, 23),
+            AddressBookId = book,
+            GivenName = "Alan",
+            FamilyName = "Turing",
+            Birthday = new PartialDate(1912, 6, 23),
         })).Content.ReadFromJsonAsync<ContactDto>())!;
         (await api.PutAsJsonAsync($"/contacts/{deceased.Id}/deceased", new SetDeceasedRequest { DeathDate = null })).EnsureSuccessStatusCode();
         _ = await CreateContactAsync(api, book, "No", "Birthday");   // no birthday → omitted
