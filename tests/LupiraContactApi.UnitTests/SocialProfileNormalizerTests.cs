@@ -5,7 +5,7 @@ namespace LupiraContactApi.UnitTests;
 
 public class SocialProfileNormalizerTests
 {
-    static ContactSocialProfile Normalize(string service, string handle, string? url = null, bool preferred = false) =>
+    private static ContactSocialProfile Normalize(string service, string handle, string? url = null, bool preferred = false) =>
         SocialProfileNormalizer.Normalize(new ContactSocialProfile { Service = service, Handle = handle, Url = url, Preferred = preferred });
 
     [Fact]

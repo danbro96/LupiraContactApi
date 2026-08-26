@@ -5,7 +5,10 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactNameMatch
 {
     public required string Name { get; set; }
+
     public Guid? ContactId { get; set; }
+
     public required NameMatchOutcome Outcome { get; set; }
+
     public required List<ContactRef> Candidates { get; set; }
 }

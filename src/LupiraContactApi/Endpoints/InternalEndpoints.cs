@@ -8,17 +8,20 @@ public static class InternalEndpoints
 {
     public static IEndpointRouteBuilder MapInternal(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/internal/contacts/resolve",
+        app.MapPost(
+            "/internal/contacts/resolve",
                 (ResolveContactsRequest body, InternalContactsHandler h, CancellationToken ct) => h.ResolveAsync(body, ct))
             .RequireAuthorization("InternalPolicy")
             .ExcludeFromDescription()
             .WithName("ResolveContact");
-        app.MapGet("/internal/contacts/birthdays",
+        app.MapGet(
+            "/internal/contacts/birthdays",
                 (InternalContactsHandler h, CancellationToken ct) => h.BirthdaysAsync(ct))
             .RequireAuthorization("InternalPolicy")
             .ExcludeFromDescription()
             .WithName("ListBirthdays");
-        app.MapPost("/internal/contacts/place-references:check",
+        app.MapPost(
+            "/internal/contacts/place-references:check",
                 (CheckPlaceReferencesRequest body, InternalContactsHandler h, CancellationToken ct) => h.CheckPlaceReferencesAsync(body, ct))
             .RequireAuthorization("InternalPolicy")
             .ExcludeFromDescription()

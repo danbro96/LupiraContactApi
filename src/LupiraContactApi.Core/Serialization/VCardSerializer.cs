@@ -20,7 +20,7 @@ public static class VCardSerializer
     public static string ComposeFullName(string? given, string? middle, string? family, string? nickname)
     {
         var name = string.Join(' ', new[] { given, middle, family }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        return name.Length > 0 ? name : (nickname ?? "");
+        return name.Length > 0 ? name : (nickname ?? string.Empty);
     }
 
     public static string Build(
@@ -38,7 +38,7 @@ public static class VCardSerializer
         sb.Append("VERSION:3.0\r\n");
         sb.Append("UID:").Append(Escape(uid)).Append("\r\n");
         sb.Append("FN:").Append(Escape(fullName)).Append("\r\n");
-        sb.Append("N:").Append(Escape(family ?? "")).Append(';').Append(Escape(given ?? "")).Append(";;;\r\n");
+        sb.Append("N:").Append(Escape(family ?? string.Empty)).Append(';').Append(Escape(given ?? string.Empty)).Append(";;;\r\n");
         if (kind == ContactKind.Organization) sb.Append("KIND:org\r\n");   // vCard 4.0 property; individual is the implied default
         if (!string.IsNullOrWhiteSpace(organization)) sb.Append("ORG:").Append(Escape(organization)).Append("\r\n");
         foreach (var ch in channels ?? [])
@@ -83,7 +83,7 @@ public static class VCardSerializer
         return sb.ToString();
     }
 
-    static bool IsSafeParamValue(string s) => s.Length > 0 && s.All(ch => ch is not (';' or ':' or ',' or '"') && !char.IsControl(ch));
+    private static bool IsSafeParamValue(string s) => s.Length > 0 && s.All(ch => ch is not (';' or ':' or ',' or '"') && !char.IsControl(ch));
 
     public static ParsedContact ParseVCard(string raw)
     {
@@ -125,7 +125,7 @@ public static class VCardSerializer
                     break;
                 case "X-LUPIRA-DECEASED": deceased = true; break;
                 case "KIND":
-                case "X-ADDRESSBOOKSERVER-KIND":   // the vCard 3.0-era convention for the same fact
+                case "X-ADDRESSBOOKSERVER-KIND": // the vCard 3.0-era convention for the same fact
                     kind = val.Trim().ToLowerInvariant() is "org" or "organization" ? ContactKind.Organization : ContactKind.Individual;
                     break;
                 case "X-SOCIALPROFILE":
@@ -137,20 +137,24 @@ public static class VCardSerializer
                     {
                         if (ParseUuidTarget(val) is { } eid) (emergency ??= []).Add(eid);
                     }
-                    else if (ParseRelated(p, val) is { } rel) relations.Add(rel);
+                    else if (ParseRelated(p, val) is { } rel)
+                    {
+                        relations.Add(rel);
+                    }
+
                     break;
             }
         }
 
         if (string.IsNullOrWhiteSpace(fn)) fn = string.Join(' ', new[] { given, family }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        return new ParsedContact(fn ?? "", given, family, org,
+        return new ParsedContact(fn ?? string.Empty, given, family, org,
             channels.Count > 0 ? [.. channels] : null, bday,
             relations.Count > 0 ? [.. relations] : null,
             emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns, kind);
     }
 
     // EMAIL/TEL → reach channel: TYPE tokens (comma-joined or repeated params) yield the first non-pref type + a pref flag.
-    static ContactReachChannel ParseChannel(ReachMedium medium, string nameAndParams, string val)
+    private static ContactReachChannel ParseChannel(ReachMedium medium, string nameAndParams, string val)
     {
         var types = nameAndParams.Split(';').Skip(1)
             .Where(p => p.StartsWith("TYPE=", StringComparison.OrdinalIgnoreCase))
@@ -161,7 +165,7 @@ public static class VCardSerializer
         return new ContactReachChannel(medium, val, string.IsNullOrEmpty(type) ? null : type.ToLowerInvariant(), preferred);
     }
 
-    static DateOnly? ParseDate(string val)
+    private static DateOnly? ParseDate(string val)
     {
         if (DateOnly.TryParse(val, CultureInfo.InvariantCulture, out var d1)) return d1;
         if (DateOnly.TryParseExact(val, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d2)) return d2;
@@ -169,14 +173,14 @@ public static class VCardSerializer
     }
 
     // Only urn:uuid targets are ours; RELATED lines pointing at URLs/free text from other clients are dropped.
-    static Guid? ParseUuidTarget(string val)
+    private static Guid? ParseUuidTarget(string val)
     {
         const string urnPrefix = "urn:uuid:";
         return val.StartsWith(urnPrefix, StringComparison.OrdinalIgnoreCase) && Guid.TryParse(val[urnPrefix.Length..], out var target)
             ? target : null;
     }
 
-    static ContactRelation? ParseRelated(Dictionary<string, string> p, string val)
+    private static ContactRelation? ParseRelated(Dictionary<string, string> p, string val)
     {
         if (ParseUuidTarget(val) is not { } target) return null;
         var label = p.GetValueOrDefault("X-LUPIRA-LABEL");
@@ -193,7 +197,7 @@ public static class VCardSerializer
         };
     }
 
-    static ContactSocialProfile? ParseSocialProfile(string nameAndParams, string val)
+    private static ContactSocialProfile? ParseSocialProfile(string nameAndParams, string val)
     {
         var p = Params(nameAndParams);
         var service = p.GetValueOrDefault("TYPE")?.Trim().ToLowerInvariant();
@@ -204,7 +208,7 @@ public static class VCardSerializer
         return new ContactSocialProfile { Service = service, Handle = handle, Url = isUrl ? val : null, Preferred = p.ContainsKey("X-LUPIRA-PREF") };
     }
 
-    static Dictionary<string, string> Params(string nameAndParams)
+    private static Dictionary<string, string> Params(string nameAndParams)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var param in nameAndParams.Split(';').Skip(1))
@@ -216,7 +220,7 @@ public static class VCardSerializer
         return map;
     }
 
-    static ContactRelationKind ParseRelationKind(string? type)
+    private static ContactRelationKind ParseRelationKind(string? type)
     {
         if (Enum.TryParse<ContactRelationKind>(type, true, out var kind)) return kind;
         return type?.ToLowerInvariant() switch
@@ -227,6 +231,7 @@ public static class VCardSerializer
         };
     }
 
-    static string Escape(string s) => s.Replace("\\", "\\\\").Replace(";", "\\;").Replace(",", "\\,").Replace("\n", "\\n");
-    static string Unescape(string s) => s.Replace("\\n", "\n").Replace("\\,", ",").Replace("\\;", ";").Replace("\\\\", "\\");
+    private static string Escape(string s) => s.Replace("\\", "\\\\").Replace(";", "\\;").Replace(",", "\\,").Replace("\n", "\\n");
+
+    private static string Unescape(string s) => s.Replace("\\n", "\n").Replace("\\,", ",").Replace("\\;", ";").Replace("\\\\", "\\");
 }

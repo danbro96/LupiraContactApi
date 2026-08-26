@@ -8,10 +8,10 @@ namespace LupiraContactApi.UnitTests;
 /// dimension (including order), and deliberately blind to addresses.</summary>
 public class ContactContentTests
 {
-    static readonly ContactFields Fields = new("Jane", null, "Smith", null,
+    private static readonly ContactFields Fields = new("Jane", null, "Smith", null,
         [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, false)], new PartialDate(1990, 2, 15), null);
 
-    static string Canonical(
+    private static string Canonical(
         ContactFields? f = null,
         IReadOnlyList<ContactRelation>? relations = null,
         IReadOnlyList<Guid>? emergency = null,

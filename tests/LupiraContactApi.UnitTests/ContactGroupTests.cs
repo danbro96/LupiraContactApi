@@ -10,10 +10,10 @@ namespace LupiraContactApi.UnitTests;
 /// idempotent membership add/remove, and metadata attribution.</summary>
 public class ContactGroupTests
 {
-    const string Actor = "principal-1";
-    static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+    private const string Actor = "principal-1";
+    private static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
 
-    static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
+    private static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
     {
         var e = Event.For(data);
         e.Timestamp = at ?? T0;
@@ -21,7 +21,7 @@ public class ContactGroupTests
         return e;
     }
 
-    static ContactGroup Created(Guid gid, ContactGroupKind kind = ContactGroupKind.Organization, string name = "Acme")
+    private static ContactGroup Created(Guid gid, ContactGroupKind kind = ContactGroupKind.Organization, string name = "Acme")
     {
         var g = new ContactGroup();
         g.Apply(Ev(new ContactGroupCreated(gid, Guid.NewGuid(), kind, name, null)));

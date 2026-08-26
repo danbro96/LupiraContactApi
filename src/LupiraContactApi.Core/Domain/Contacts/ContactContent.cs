@@ -33,7 +33,7 @@ public static class ContactContent
         return sb.ToString();
     }
 
-    private static string Date(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+    private static string Date(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
 
     private static void Line(StringBuilder sb, string key, params string?[] values)
     {
@@ -43,5 +43,5 @@ public static class ContactContent
     }
 
     private static string Esc(string? s) =>
-        s is null ? "" : s.Replace("\\", "\\\\").Replace("|", "\\|").Replace("\n", "\\n");
+        s is null ? string.Empty : s.Replace("\\", "\\\\").Replace("|", "\\|").Replace("\n", "\\n");
 }

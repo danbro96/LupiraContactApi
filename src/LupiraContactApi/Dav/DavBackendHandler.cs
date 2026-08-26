@@ -56,6 +56,7 @@ public sealed class DavBackendHandler(
             var set = uids.ToHashSet(StringComparer.Ordinal);
             selected = live.Where(c => set.Contains(c.ExternalId));
         }
+
         // Start/End: time-range does not apply to address books — ignored by design.
 
         return TypedResults.Ok(new DavResourcesDto
@@ -129,7 +130,7 @@ public sealed class DavBackendHandler(
         string? ifMatch = null;
         var im = ifMatchHeader?.Trim();
         if (!string.IsNullOrEmpty(im) && im != "*") ifMatch = im.Trim('"');
-        var inm = ifNoneMatchHeader?.Trim() ?? "";
+        var inm = ifNoneMatchHeader?.Trim() ?? string.Empty;
         return (ifMatch, inm == "*");
     }
 

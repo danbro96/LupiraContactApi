@@ -14,41 +14,61 @@ namespace LupiraContactApi.Core.Domain.Contacts;
 public sealed class Contact
 {
     public Guid Id { get; set; }
+
     public Guid AddressBookId { get; set; }
-    public string ExternalId { get; set; } = "";
+
+    public string ExternalId { get; set; } = string.Empty;
 
     public ContactKind Kind { get; set; }
+
     public string? GivenName { get; set; }
+
     public string? MiddleName { get; set; }
+
     public string? FamilyName { get; set; }
+
     public string? Nickname { get; set; }
+
     public DisplayNameFormat DisplayNameFormat { get; set; }
+
     public List<ContactReachChannel> Channels { get; set; } = new();
+
     public PartialDate? Birthday { get; set; }
+
     public string[]? Tags { get; set; }
+
     public string? Notes { get; set; }
+
     public string? Pronouns { get; set; }
 
     /// <summary>A pointer to an avatar image (URL/media id) — never bytes. Outside the canonical content, like <see cref="Addresses"/>.</summary>
     public string? AvatarRef { get; set; }
 
-    public string ContentHash { get; set; } = "";
+    public string ContentHash { get; set; } = string.Empty;
+
     public string Metadata { get; set; } = "{}";
 
     public List<ContactPostalAddress> Addresses { get; set; } = new();
+
     public List<ContactSocialProfile> Profiles { get; set; } = new();
+
     public List<ContactRelation> Relations { get; set; } = new();
 
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
     public List<Guid> EmergencyContactIds { get; set; } = new();
 
     public bool Deceased { get; set; }
+
     public DateOnly? DeathDate { get; set; }
+
     public DateTimeOffset? DeletedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
     public string? CreatedBy { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
+
     public string? UpdatedBy { get; set; }
 
     /// <summary>Global event sequence of the last event applied — the per-contact watermark the sync changes
@@ -62,16 +82,27 @@ public sealed class Contact
     // Core covers ContactFields wholesale — channels and tags ride inside ContactRevised, so they share it. ----
 
     public DateTimeOffset CoreTs { get; set; }
+
     public Guid CoreCmd { get; set; }
+
     public DateTimeOffset AddressesTs { get; set; }
+
     public Guid AddressesCmd { get; set; }
+
     public DateTimeOffset ProfilesTs { get; set; }
+
     public Guid ProfilesCmd { get; set; }
+
     public DateTimeOffset AvatarTs { get; set; }
+
     public Guid AvatarCmd { get; set; }
+
     public DateTimeOffset MetadataTs { get; set; }
+
     public Guid MetadataCmd { get; set; }
+
     public DateTimeOffset DeceasedTs { get; set; }
+
     public Guid DeceasedCmd { get; set; }
 
     /// <summary>Composed display label, per <see cref="DisplayNameFormat"/>. Falls back to the full composition, then nickname, then external id — never empty.</summary>
@@ -82,8 +113,8 @@ public sealed class Contact
             var label = DisplayNameFormat switch
             {
                 DisplayNameFormat.FirstLast => string.Join(' ', new[] { GivenName, FamilyName }.Where(s => !string.IsNullOrWhiteSpace(s))),
-                DisplayNameFormat.NickName => Nickname ?? "",
-                _ => "",   // Full → the full composition below
+                DisplayNameFormat.NickName => Nickname ?? string.Empty,
+                _ => string.Empty,   // Full → the full composition below
             };
             return string.IsNullOrWhiteSpace(label) ? ComposeFull() : label;
         }
@@ -234,7 +265,11 @@ public sealed class Contact
     {
         var d = e.Data;
         var edge = Relations.FirstOrDefault(r => r.ToContactId == d.ToContactId && r.Kind == d.Kind);
-        if (edge is not null) { edge.Ended = true; edge.Until = d.Until; }
+        if (edge is not null)
+        {
+            edge.Ended = true;
+            edge.Until = d.Until;
+        }
 
         Touch(e);
         RecomputeHash();

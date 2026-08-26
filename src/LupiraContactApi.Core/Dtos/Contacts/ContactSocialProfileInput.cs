@@ -5,7 +5,10 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactSocialProfileInput
 {
     public required string Service { get; set; }
+
     public required string Handle { get; set; }
+
     public string? Url { get; set; }
+
     public bool Preferred { get; set; }
 }

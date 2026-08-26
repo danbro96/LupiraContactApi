@@ -7,16 +7,21 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactGroupDto
 {
     public required Guid Id { get; set; }
+
     public required Guid AddressBookId { get; set; }
 
     [JsonConverter(typeof(JsonStringEnumConverter<ContactGroupKind>))]
     public required ContactGroupKind Kind { get; set; }
 
     public required string Name { get; set; }
+
     public required IReadOnlyList<GroupMemberDto> Members { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
     public string? CreatedBy { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
+
     public string? UpdatedBy { get; set; }
 }

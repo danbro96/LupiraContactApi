@@ -15,12 +15,12 @@ public class FuzzyDateTests
     [Theory]
     [InlineData(2015, null, null, true)]
     [InlineData(2015, 12, null, true)]
-    [InlineData(2016, 2, 29, true)]    // leap day in a leap year
+    [InlineData(2016, 2, 29, true)] // leap day in a leap year
     [InlineData(2015, 13, null, false)]
     [InlineData(2015, 0, null, false)]
     [InlineData(2015, null, 12, false)] // a day without a month states nothing coherent
     [InlineData(2015, 2, 30, false)]
-    [InlineData(2015, 2, 29, false)]   // not a leap year
+    [InlineData(2015, 2, 29, false)] // not a leap year
     public void IsValid_enforces_day_requires_month_and_calendar_bounds(int year, int? month, int? day, bool valid) =>
         Assert.Equal(valid, new FuzzyDate(year, month, day).IsValid());
 

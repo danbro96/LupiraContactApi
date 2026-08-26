@@ -30,16 +30,29 @@ public static class CircleInference
         // Extended kinds land here too when stored explicitly (linking relative not a contact); CircleOf keeps
         // them consistent with the inferred ones, and per-circle dedup lets an explicit membership win.
         foreach (var c in contacts)
+        {
             foreach (var r in c.Relations.Where(r => !r.Ended))
             {
                 Guid other;
                 ContactRelationKind kind;
-                if (c.Id == focusId) { other = r.ToContactId; kind = r.Kind; }
-                else if (r.ToContactId == focusId) { other = c.Id; kind = r.Kind.Inverse(); }
-                else continue;
+                if (c.Id == focusId)
+                {
+                    other = r.ToContactId;
+                    kind = r.Kind;
+                }
+                else if (r.ToContactId == focusId)
+                {
+                    other = c.Id;
+                    kind = r.Kind.Inverse();
+                }
+                else
+                {
+                    continue;
+                }
 
                 if (CircleOf(kind) is ({ } ck, var degree)) Add(ck, other, kind, degree, RelationProvenance.Explicit);
             }
+        }
 
         // Kinship graph: inferred siblings are close family; two-generation kin and cousins are extended.
         foreach (var kin in KinshipInference.Infer(focusId, contacts))
@@ -47,8 +60,10 @@ public static class CircleInference
 
         // Shared employer: co-members of a live Organization-kind group.
         foreach (var org in organizations.Where(g => g.Kind == ContactGroupKind.Organization && g.DeletedAt is null && g.Members.Any(m => m.ContactId == focusId)))
+        {
             foreach (var member in org.Members)
                 Add(CircleKind.Colleagues, member.ContactId, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
+        }
 
         // Household: a shared geo place on an ACTIVE Home address — past/future residencies assert no current
         // cohabitation, same rule as ended relation edges above.
@@ -56,9 +71,13 @@ public static class CircleInference
         var homePlaces = focus.Addresses.Where(a => a.Type == ContactAddressType.Home && a.IsActiveOn(day))
             .Select(a => a.PlaceId).ToHashSet();
         if (homePlaces.Count > 0)
+        {
             foreach (var c in contacts)
+            {
                 if (c.Addresses.Any(a => a.Type == ContactAddressType.Home && a.IsActiveOn(day) && homePlaces.Contains(a.PlaceId)))
                     Add(CircleKind.Household, c.Id, null, 1, RelationProvenance.Inferred);
+            }
+        }
 
         return result;
     }

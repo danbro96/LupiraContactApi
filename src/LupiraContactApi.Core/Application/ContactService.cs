@@ -25,8 +25,14 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     private async Task<bool> SaveGuardedAsync(Guid? commandId, Guid aggregateId, int resultVersion, CancellationToken ct)
     {
         idempotency.Record(commandId, aggregateId, resultVersion);
-        try { await session.SaveChangesAsync(ct); }
-        catch (Exception ex) when (Idempotency.IsDuplicate(ex)) { return false; }
+        try
+        {
+            await session.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (Idempotency.IsDuplicate(ex))
+        {
+            return false;
+        }
 
         return true;
     }
@@ -96,8 +102,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (requests.Count > MaxBatch) return OpResult<List<ContactDto>>.Invalid($"At most {MaxBatch} contacts per batch.");
 
         foreach (var abid in requests.Select(r => r.AddressBookId).Distinct())
+        {
             if (!await access.CanWriteAddressBookAsync(principalId, abid, ct))
                 return OpResult<List<ContactDto>>.Forbidden($"No write access to address book {abid}.");
+        }
 
         Stamp(principalId);
         var ids = new List<Guid>(requests.Count);
@@ -143,11 +151,11 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var results = new List<ContactNameMatch>(names.Count);
         foreach (var raw in names)
         {
-            var query = (raw ?? "").Trim();
+            var query = (raw ?? string.Empty).Trim();
             var norm = Norm(query);
             if (norm.Length == 0)
             {
-                results.Add(new ContactNameMatch { Name = raw ?? "", Outcome = NameMatchOutcome.NotFound, Candidates = [] });
+                results.Add(new ContactNameMatch { Name = raw ?? string.Empty, Outcome = NameMatchOutcome.NotFound, Candidates = [] });
                 continue;
             }
 
@@ -157,13 +165,26 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             NameMatchOutcome outcome;
             Guid? matchId = null;
             List<Contact> refs;
-            if (exact.Count == 1) { outcome = NameMatchOutcome.Matched; matchId = exact[0].Id; refs = exact; }
-            else if (candidates.Count == 0) { outcome = NameMatchOutcome.NotFound; refs = []; }
-            else { outcome = NameMatchOutcome.Ambiguous; refs = exact.Count > 1 ? exact : candidates; }
+            if (exact.Count == 1)
+            {
+                outcome = NameMatchOutcome.Matched;
+                matchId = exact[0].Id;
+                refs = exact;
+            }
+            else if (candidates.Count == 0)
+            {
+                outcome = NameMatchOutcome.NotFound;
+                refs = [];
+            }
+            else
+            {
+                outcome = NameMatchOutcome.Ambiguous;
+                refs = exact.Count > 1 ? exact : candidates;
+            }
 
             results.Add(new ContactNameMatch
             {
-                Name = raw ?? "",
+                Name = raw ?? string.Empty,
                 ContactId = matchId,
                 Outcome = outcome,
                 Candidates = [.. refs.OrderBy(c => c.SortName).Take(maxCandidates).Select(c => new ContactRef { ContactId = c.Id, DisplayName = c.DisplayName })],
@@ -430,7 +451,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type, MovedIn = a.MovedIn, MovedOut = a.MovedOut }).ToList();
         if (next.Any(a => a.PlaceId == Guid.Empty)) return OpResult<ContactDto>.Invalid("Each address must reference a geo place id.");
-        if (next.Any(a => a.MovedIn is { } mi && !mi.IsValid() || a.MovedOut is { } mo && !mo.IsValid()))
+        if (next.Any(a => (a.MovedIn is { } mi && !mi.IsValid()) || (a.MovedOut is { } mo && !mo.IsValid())))
             return OpResult<ContactDto>.Invalid("Residency dates must be a valid year, year-month, or year-month-day.");
         if (next.Any(a => a is { MovedIn: { } mi, MovedOut: { } mo } && FuzzyDate.DefinitelyAfter(mi, mo)))
             return OpResult<ContactDto>.Invalid("Moved-in must not be after moved-out.");
@@ -553,14 +574,18 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var targets = (await session.LoadManyAsync<Contact>(ct, c.Relations.Select(r => r.ToContactId).Distinct().ToArray()))
             .Where(t => t.DeletedAt is null && books.Contains(t.AddressBookId)).ToDictionary(t => t.Id);
         foreach (var r in c.Relations)
+        {
             if (targets.TryGetValue(r.ToContactId, out var t))
                 entries.Add(new ContactRelationEntryDto { ContactId = t.Id, DisplayName = t.DisplayName, Kind = r.Kind, Label = r.Label, Since = r.Since, Note = r.Note, Direction = ContactRelationDirection.Outgoing, Ended = r.Ended, Until = r.Until });
+        }
 
         var sources = await session.Query<Contact>()
             .Where(x => x.DeletedAt == null && x.Relations.Any(r => r.ToContactId == id)).ToListAsync(ct);
         foreach (var s in sources.Where(s => s.Id != id && books.Contains(s.AddressBookId)).OrderBy(s => s.SortName))
+        {
             foreach (var edge in s.Relations.Where(r => r.ToContactId == id))
                 entries.Add(new ContactRelationEntryDto { ContactId = s.Id, DisplayName = s.DisplayName, Kind = edge.Kind.Inverse(), Label = null, Direction = ContactRelationDirection.Incoming, Ended = edge.Ended, Until = edge.Until });
+        }
 
         if (includeInferred)
         {
@@ -569,8 +594,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
                 .Where(x => books.Contains(x.AddressBookId)).ToList();
             var byId = all.ToDictionary(x => x.Id);
             foreach (var kin in KinshipInference.Infer(id, all))
+            {
                 if (byId.TryGetValue(kin.ContactId, out var k))
                     entries.Add(new ContactRelationEntryDto { ContactId = k.Id, DisplayName = k.DisplayName, Kind = kin.Kind, Label = null, Direction = ContactRelationDirection.Incoming, Provenance = RelationProvenance.Inferred });
+            }
         }
 
         return OpResult<List<ContactRelationEntryDto>>.Ok(entries);

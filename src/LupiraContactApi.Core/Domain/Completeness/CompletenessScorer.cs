@@ -26,6 +26,7 @@ public static class CompletenessScorer
                 ("primaryReach", 3, PrimaryReach(c)),
                 ("postalAddress", 2, PostalAddress(c)),
             }
+
             // A deceased contact needs no reach, address, or employer — remembrance data is what's worth asking for.
             : c.Deceased
                 ? new List<(string, double, double)>
@@ -76,7 +77,10 @@ public static class CompletenessScorer
                 na.Select(n => n?.GetValueKind() == JsonValueKind.String ? n.GetValue<string>() : null).OfType<string>(),
                 StringComparer.OrdinalIgnoreCase);
         }
-        catch (JsonException) { return []; }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     // ---- presence helpers (1 present · 0.5 weak · 0 absent) ----
@@ -90,7 +94,7 @@ public static class CompletenessScorer
     private static double PrimaryReach(Contact c) =>
         c.Channels.Count > 0 ? 1 : c.Profiles.Count > 0 ? 0.5 : 0;   // a direct channel reaches; a social handle only might
 
-    private static double PostalAddress(Contact c) =>   // only an address active today addresses a contact
+    private static double PostalAddress(Contact c) => // only an address active today addresses a contact
         c.Addresses.Any(a => a.IsActiveOn(DateOnly.FromDateTime(DateTime.UtcNow))) ? 1 : 0;
 
     // Redundancy across mediums, not entries: two emails are one medium; all social profiles count as one.

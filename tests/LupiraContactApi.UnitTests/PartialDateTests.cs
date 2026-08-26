@@ -33,7 +33,7 @@ public class PartialDateTests
     [Theory]
     [InlineData("")]
     [InlineData("nonsense")]
-    [InlineData("--1345")]   // month 13
+    [InlineData("--1345")] // month 13
     public void Rejects_unparseable(string s) => Assert.Null(PartialDate.Parse(s));
 
     [Fact]

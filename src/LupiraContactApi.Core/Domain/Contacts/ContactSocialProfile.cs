@@ -4,8 +4,11 @@ namespace LupiraContactApi.Core.Domain.Contacts;
 /// the handle that actually reaches the person on that service.</summary>
 public sealed class ContactSocialProfile
 {
-    public string Service { get; set; } = "";
-    public string Handle { get; set; } = "";
+    public string Service { get; set; } = string.Empty;
+
+    public string Handle { get; set; } = string.Empty;
+
     public string? Url { get; set; }
+
     public bool Preferred { get; set; }
 }

@@ -86,7 +86,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
     {
         if (await session.LoadAsync<AddressBook>(addressBookId, ct) is null) return OpResult<OwnerGrantDto>.NotFound();
         if (!await access.IsAddressBookOwnerAsync(callerId, addressBookId, ct)) return OpResult<OwnerGrantDto>.Forbidden("Only an owner may grant access.");
-        var email = (r.Email ?? "").Trim();
+        var email = (r.Email ?? string.Empty).Trim();
         if (email.Length == 0) return OpResult<OwnerGrantDto>.Invalid("Email is required.");
         var (ok, level) = AccessParsing.Parse(r.Access);
         if (!ok) return OpResult<OwnerGrantDto>.Invalid("Access must be owner, read-write, or read.");
@@ -128,7 +128,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
             .Select(g =>
             {
                 byId.TryGetValue(g.PrincipalId, out var p);
-                return new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = g.PrincipalId, Email = p?.Email ?? "", DisplayName = p?.DisplayName, Access = g.Access };
+                return new OwnerGrantDto { ContainerId = addressBookId, PrincipalId = g.PrincipalId, Email = p?.Email ?? string.Empty, DisplayName = p?.DisplayName, Access = g.Access };
             })
             .OrderByDescending(o => o.Access == Access.Owner).ThenBy(o => o.Email, StringComparer.OrdinalIgnoreCase)]);
     }

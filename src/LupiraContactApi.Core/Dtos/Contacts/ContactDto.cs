@@ -8,26 +8,44 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactDto
 {
     public required Guid Id { get; set; }
+
     public required Guid AddressBookId { get; set; }
+
     public required string ExternalId { get; set; }
+
     public ContactKind Kind { get; set; }
+
     public required string DisplayName { get; set; }
+
     public DisplayNameFormat DisplayNameFormat { get; set; }
+
     public string? GivenName { get; set; }
+
     public string? MiddleName { get; set; }
+
     public string? FamilyName { get; set; }
+
     public string? Nickname { get; set; }
+
     public required IReadOnlyList<ContactReachChannel> Channels { get; set; }
+
     public PartialDate? Birthday { get; set; }
+
     public bool Deceased { get; set; }
+
     public DateOnly? DeathDate { get; set; }
+
     public string[]? Tags { get; set; }
+
     public string? Notes { get; set; }
+
     public string? Pronouns { get; set; }
 
     /// <summary>Pointer to an avatar image (URL/media id), never bytes.</summary>
     public string? AvatarRef { get; set; }
+
     public required IReadOnlyList<ContactPostalAddress> Addresses { get; set; }
+
     public required IReadOnlyList<ContactSocialProfileDto> Profiles { get; set; }
 
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
@@ -35,14 +53,18 @@ public sealed class ContactDto
 
     /// <summary>Raw outgoing edges (unfiltered; targets may be deleted or unreadable). The <c>/relations</c> sub-resource is the resolved two-way view.</summary>
     public required IReadOnlyList<ContactRelationDto> Relations { get; set; }
+
     public JsonNode? Metadata { get; set; }
 
     /// <summary>How well-documented this contact is. Drives contact-enrichment ranking (completeness × relevance).</summary>
     public CompletenessScore? Completeness { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
     public string? CreatedBy { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
+
     public string? UpdatedBy { get; set; }
 
     /// <summary>Stream version — the offline clients' optimistic-versioning surface (<c>Etag</c> stays content-derived).</summary>

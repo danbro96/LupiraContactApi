@@ -7,4 +7,20 @@ namespace LupiraContactApi.Core.Domain.Shared;
 /// The extended-family kinds are storable for when the linking relative isn't a contact (a deceased parent, say); the same
 /// kinds are also produced by <see cref="KinshipInference"/> from the parent/child graph, distinguished on read by <see cref="RelationProvenance"/>.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ContactRelationKind>))]
-public enum ContactRelationKind { Parent, Child, Sibling, Spouse, Partner, Friend, Colleague, Neighbor, Other, Grandparent, Grandchild, AuntUncle, NieceNephew, Cousin }
+public enum ContactRelationKind
+{
+    Parent,
+    Child,
+    Sibling,
+    Spouse,
+    Partner,
+    Friend,
+    Colleague,
+    Neighbor,
+    Other,
+    Grandparent,
+    Grandchild,
+    AuntUncle,
+    NieceNephew,
+    Cousin,
+}

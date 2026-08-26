@@ -11,10 +11,11 @@ namespace LupiraContactApi.UnitTests;
 /// LupiraCalApi's — the shared parity vectors live in the mobile monorepo.</summary>
 public class SectionLwwTests
 {
-    static long _sequence;
-    static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+    private static long _sequence;
+    private static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
 
-    static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null) where T : class
+    private static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null)
+        where T : class
     {
         var seq = Interlocked.Increment(ref _sequence);
         var e = Event.For(data);
@@ -23,10 +24,10 @@ public class SectionLwwTests
         return e;
     }
 
-    static ContactFields Fields(string given, string? note = null) =>
+    private static ContactFields Fields(string given, string? note = null) =>
         new(given, null, "Doe", null, [], null, null, note, null, DisplayNameFormat.Full, ContactKind.Individual);
 
-    static Contact Created(Guid id)
+    private static Contact Created(Guid id)
     {
         var c = new Contact();
         c.Apply(Ev(new ContactCreated(id, Guid.NewGuid(), $"{id:N}@x", Fields("Original"))));

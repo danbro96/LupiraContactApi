@@ -5,8 +5,12 @@ namespace LupiraContactApi.Core.Dtos.Internal;
 public sealed class ContactBirthdayDto
 {
     public required Guid ContactId { get; set; }
+
     public required string DisplayName { get; set; }
+
     public int? Year { get; set; }
+
     public required int Month { get; set; }
+
     public required int Day { get; set; }
 }

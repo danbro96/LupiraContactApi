@@ -6,5 +6,6 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class EndContactRelationRequest
 {
     public required ContactRelationKind Kind { get; set; }
+
     public DateOnly? Until { get; set; }
 }

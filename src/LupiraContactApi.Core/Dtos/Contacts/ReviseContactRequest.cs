@@ -9,15 +9,25 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ReviseContactRequest
 {
     public ContactKind? Kind { get; set; }
+
     public string? GivenName { get; set; }
+
     public string? MiddleName { get; set; }
+
     public string? FamilyName { get; set; }
+
     public string? Nickname { get; set; }
+
     public DisplayNameFormat? DisplayNameFormat { get; set; }
+
     public List<ContactReachChannel>? Channels { get; set; }
+
     public PartialDate? Birthday { get; set; }
+
     public string[]? Tags { get; set; }
+
     public string? Notes { get; set; }
+
     public string? Pronouns { get; set; }
 
     /// <summary>Client wall-clock of the edit, for last-writer-wins conflict resolution of the core fields.

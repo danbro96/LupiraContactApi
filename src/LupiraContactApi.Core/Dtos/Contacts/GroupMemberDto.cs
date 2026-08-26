@@ -5,7 +5,10 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class GroupMemberDto
 {
     public required Guid ContactId { get; set; }
+
     public string? Role { get; set; }
+
     public DateOnly? Since { get; set; }
+
     public DateOnly? Until { get; set; }
 }

@@ -82,5 +82,6 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
         UpdatedAt = g.UpdatedAt,
         UpdatedBy = g.UpdatedBy,
     };
+
     private static ContactGroupKind ParseKind(string? s) => Enum.TryParse<ContactGroupKind>(s, true, out var v) ? v : ContactGroupKind.Group;
 }

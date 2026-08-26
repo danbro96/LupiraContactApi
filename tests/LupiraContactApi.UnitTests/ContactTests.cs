@@ -10,18 +10,18 @@ namespace LupiraContactApi.UnitTests;
 /// resurrection, wholesale replacement of addresses/profiles/relations, derived ContentHash, and metadata attribution.</summary>
 public class ContactTests
 {
-    const string Actor = "principal-1";
-    static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+    private const string Actor = "principal-1";
+    private static readonly DateTimeOffset T0 = new(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
 
-    static ContactFields Name(string? given, string? middle, string? family, string? nickname, DisplayNameFormat format = DisplayNameFormat.Full) =>
+    private static ContactFields Name(string? given, string? middle, string? family, string? nickname, DisplayNameFormat format = DisplayNameFormat.Full) =>
         new(given, middle, family, nickname, null, null, null, null, null, format);
 
-    static long _seq;
+    private static long _seq;
 
     // Wrap an event payload as an IEvent<T> carrying a timestamp, actor header, and a monotonically increasing
     // global sequence, as Marten hydrates on replay. The sequence matters: SectionLww's unstamped fallback
     // tiebreaks equal timestamps by sequence order, exactly like a live store.
-    static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
+    private static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
     {
         var e = Event.For(data);
         e.Sequence = Interlocked.Increment(ref _seq);
@@ -30,7 +30,7 @@ public class ContactTests
         return e;
     }
 
-    static Contact Created(Guid id, ContactFields? fields = null)
+    private static Contact Created(Guid id, ContactFields? fields = null)
     {
         var c = new Contact();
         c.Apply(Ev(new ContactCreated(id, Guid.NewGuid(), "u@x", fields ?? Name("A", null, "B", null))));
@@ -183,7 +183,8 @@ public class ContactTests
         {
             PlaceId = work, Type = ContactAddressType.Home,
             MovedIn = new FuzzyDate(2010), MovedOut = new FuzzyDate(2015, 6),
-        }])));
+        }
+        ])));
         var former = Assert.Single(c.Addresses);
         Assert.Equal(new FuzzyDate(2010), former.MovedIn);
         Assert.Equal(new FuzzyDate(2015, 6), former.MovedOut);

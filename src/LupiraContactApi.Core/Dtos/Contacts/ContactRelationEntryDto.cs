@@ -8,8 +8,11 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactRelationEntryDto
 {
     public required Guid ContactId { get; set; }
+
     public required string DisplayName { get; set; }
+
     public required ContactRelationKind Kind { get; set; }
+
     public string? Label { get; set; }
 
     /// <summary>When the relationship began, on outgoing edges where a precise date is known.</summary>
@@ -19,9 +22,11 @@ public sealed class ContactRelationEntryDto
     public string? Note { get; set; }
 
     public required ContactRelationDirection Direction { get; set; }
+
     public RelationProvenance Provenance { get; set; } = RelationProvenance.Explicit;
 
     /// <summary>The relationship ran its course (ex-spouse); the edge remains for history but asserts no current kinship.</summary>
     public bool Ended { get; set; }
+
     public DateOnly? Until { get; set; }
 }

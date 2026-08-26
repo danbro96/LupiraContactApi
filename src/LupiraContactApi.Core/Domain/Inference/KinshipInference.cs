@@ -36,8 +36,11 @@ public static class KinshipInference
         var result = new List<InferredKin>();
         foreach (var (kind, ids) in buckets)
             foreach (var id in ids)
+            {
                 if (g.Known.Contains(id) && seen.Add(id))
                     result.Add(new InferredKin(id, kind));
+            }
+
         return result;
     }
 
@@ -50,11 +53,13 @@ public static class KinshipInference
         var queue = new Queue<Guid>([parentId]);
         var visited = new HashSet<Guid> { parentId };
         while (queue.TryDequeue(out var current))
+        {
             foreach (var p in g.Parents(current))
             {
                 if (p == childId) return true;
                 if (visited.Add(p)) queue.Enqueue(p);
             }
+        }
 
         return false;
     }
@@ -72,7 +77,8 @@ public static class KinshipInference
         {
             Known = [.. contacts.Select(c => c.Id)];
             foreach (var c in contacts)
-                foreach (var r in c.Relations.Where(r => !r.Ended))   // ended edges assert no current kinship
+            {
+                foreach (var r in c.Relations.Where(r => !r.Ended)) // ended edges assert no current kinship
                 {
                     Link(_partners, c.Id, r.ToContactId);
                     switch (r.Kind)
@@ -82,9 +88,11 @@ public static class KinshipInference
                         case ContactRelationKind.Sibling: Link(_siblings, c.Id, r.ToContactId); Link(_siblings, r.ToContactId, c.Id); break;
                     }
                 }
+            }
         }
 
         public IReadOnlyCollection<Guid> Parents(Guid x) => Get(_parents, x);
+
         public IReadOnlyCollection<Guid> Children(Guid x) => Get(_children, x);
 
         // Co-children of x's parents (minus x) plus any explicit sibling edges.

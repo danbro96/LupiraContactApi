@@ -7,7 +7,9 @@ namespace LupiraContactApi.Core.Dtos.AddressBooks;
 public sealed class AddressBookDto
 {
     public required Guid Id { get; set; }
+
     public required string Slug { get; set; }
+
     public string? DisplayName { get; set; }
 
     [JsonConverter(typeof(JsonStringEnumConverter<Access>))]

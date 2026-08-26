@@ -6,7 +6,9 @@ namespace LupiraContactApi.Core.Dtos.Sync;
 public sealed class SyncChangesResponse
 {
     public required string Cursor { get; set; }
+
     public required bool HasMore { get; set; }
+
     public required IReadOnlyList<SyncChangeDto> Changed { get; set; }
 
     /// <summary>Ids no longer visible to the caller: soft-deleted, or moved into an address book the caller

@@ -7,10 +7,16 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactRelationDto
 {
     public required Guid ToContactId { get; set; }
+
     public required ContactRelationKind Kind { get; set; }
+
     public required string? Label { get; set; }
+
     public required DateOnly? Since { get; set; }
+
     public required string? Note { get; set; }
+
     public required bool Ended { get; set; }
+
     public required DateOnly? Until { get; set; }
 }

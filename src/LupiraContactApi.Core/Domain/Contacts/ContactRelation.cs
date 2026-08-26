@@ -9,7 +9,9 @@ namespace LupiraContactApi.Core.Domain.Contacts;
 public sealed class ContactRelation
 {
     public Guid ToContactId { get; set; }
+
     public ContactRelationKind Kind { get; set; }
+
     public string? Label { get; set; }
 
     /// <summary>When the relationship began, if a precise date is known (fuzzy periods belong in <see cref="Note"/>).</summary>
@@ -19,5 +21,6 @@ public sealed class ContactRelation
     public string? Note { get; set; }
 
     public bool Ended { get; set; }
+
     public DateOnly? Until { get; set; }
 }

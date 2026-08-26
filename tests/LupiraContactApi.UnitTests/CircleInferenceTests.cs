@@ -13,26 +13,28 @@ public class CircleInferenceTests
     // Focus F: spouse S (ended: EX), parent P, P's parent G (grandparent), P's other child B (inferred sibling),
     // friend FR (also a colleague via org), colleague CO (explicit), neighbor N (no circle),
     // household H sharing F's home place, W sharing only a Work place.
-    static readonly Guid F = new("11111111-0000-0000-0000-000000000001");
-    static readonly Guid S = new("11111111-0000-0000-0000-000000000002");
-    static readonly Guid EX = new("11111111-0000-0000-0000-000000000003");
-    static readonly Guid P = new("11111111-0000-0000-0000-000000000004");
-    static readonly Guid G = new("11111111-0000-0000-0000-000000000005");
-    static readonly Guid B = new("11111111-0000-0000-0000-000000000006");
-    static readonly Guid FR = new("11111111-0000-0000-0000-000000000007");
-    static readonly Guid CO = new("11111111-0000-0000-0000-000000000008");
-    static readonly Guid N = new("11111111-0000-0000-0000-000000000009");
-    static readonly Guid H = new("11111111-0000-0000-0000-00000000000a");
-    static readonly Guid W = new("11111111-0000-0000-0000-00000000000b");
-    static readonly Guid HomePlace = new("22222222-0000-0000-0000-000000000001");
-    static readonly Guid WorkPlace = new("22222222-0000-0000-0000-000000000002");
+    private static readonly Guid F = new("11111111-0000-0000-0000-000000000001");
+    private static readonly Guid S = new("11111111-0000-0000-0000-000000000002");
+    private static readonly Guid EX = new("11111111-0000-0000-0000-000000000003");
+    private static readonly Guid P = new("11111111-0000-0000-0000-000000000004");
+    private static readonly Guid G = new("11111111-0000-0000-0000-000000000005");
+    private static readonly Guid B = new("11111111-0000-0000-0000-000000000006");
+    private static readonly Guid FR = new("11111111-0000-0000-0000-000000000007");
+    private static readonly Guid CO = new("11111111-0000-0000-0000-000000000008");
+    private static readonly Guid N = new("11111111-0000-0000-0000-000000000009");
+    private static readonly Guid H = new("11111111-0000-0000-0000-00000000000a");
+    private static readonly Guid W = new("11111111-0000-0000-0000-00000000000b");
+    private static readonly Guid HomePlace = new("22222222-0000-0000-0000-000000000001");
+    private static readonly Guid WorkPlace = new("22222222-0000-0000-0000-000000000002");
 
-    static Contact Person(Guid id, params ContactRelation[] rels) => new() { Id = id, Relations = [.. rels] };
-    static ContactRelation Edge(Guid to, ContactRelationKind kind, bool ended = false) => new() { ToContactId = to, Kind = kind, Ended = ended };
-    static ContactPostalAddress At(Guid place, ContactAddressType type, FuzzyDate? movedOut = null) =>
+    private static Contact Person(Guid id, params ContactRelation[] rels) => new() { Id = id, Relations = [.. rels] };
+
+    private static ContactRelation Edge(Guid to, ContactRelationKind kind, bool ended = false) => new() { ToContactId = to, Kind = kind, Ended = ended };
+
+    private static ContactPostalAddress At(Guid place, ContactAddressType type, FuzzyDate? movedOut = null) =>
         new() { PlaceId = place, Type = type, MovedOut = movedOut };
 
-    static List<Contact> World()
+    private static List<Contact> World()
     {
         var f = Person(F, Edge(S, ContactRelationKind.Spouse), Edge(EX, ContactRelationKind.Partner, ended: true),
             Edge(P, ContactRelationKind.Parent), Edge(FR, ContactRelationKind.Friend), Edge(N, ContactRelationKind.Neighbor));
@@ -46,7 +48,7 @@ public class CircleInferenceTests
             Person(G), Person(B), Person(FR), co, Person(N), h, w];
     }
 
-    static ContactGroup Org(params Guid[] members) => new()
+    private static ContactGroup Org(params Guid[] members) => new()
     {
         Id = Guid.NewGuid(),
         Kind = ContactGroupKind.Organization,
@@ -54,7 +56,7 @@ public class CircleInferenceTests
         Members = [.. members.Select(id => new GroupMembership { ContactId = id })],
     };
 
-    static ILookup<CircleKind, CircleMembership> Infer(IReadOnlyCollection<ContactGroup>? orgs = null) =>
+    private static ILookup<CircleKind, CircleMembership> Infer(IReadOnlyCollection<ContactGroup>? orgs = null) =>
         CircleInference.Infer(F, World(), orgs ?? []).ToLookup(m => m.Circle);
 
     [Fact]

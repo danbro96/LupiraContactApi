@@ -5,5 +5,6 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ResolveContactsByNameRequest
 {
     public required List<string> Names { get; set; }
+
     public Guid? AddressBookId { get; set; }
 }

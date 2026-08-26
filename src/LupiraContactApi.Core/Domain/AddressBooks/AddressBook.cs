@@ -7,6 +7,8 @@ namespace LupiraContactApi.Core.Domain.AddressBooks;
 public sealed class AddressBook
 {
     public Guid Id { get; set; }
-    public string Slug { get; set; } = "";
+
+    public string Slug { get; set; } = string.Empty;
+
     public string? DisplayName { get; set; }
 }

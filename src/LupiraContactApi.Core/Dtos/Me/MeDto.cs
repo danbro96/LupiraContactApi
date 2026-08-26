@@ -6,7 +6,9 @@ namespace LupiraContactApi.Core.Dtos.Me;
 public sealed class MeDto
 {
     public required Guid PrincipalId { get; set; }
+
     public required string Email { get; set; }
+
     public string? DisplayName { get; set; }
 
     /// <summary>The caller's own contact ("this card is me"), when linked — the default circles focus.</summary>

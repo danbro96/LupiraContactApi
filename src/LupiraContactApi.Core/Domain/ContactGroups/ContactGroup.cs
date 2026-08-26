@@ -13,16 +13,25 @@ namespace LupiraContactApi.Core.Domain.ContactGroups;
 public sealed class ContactGroup
 {
     public Guid Id { get; set; }
+
     public Guid AddressBookId { get; set; }
+
     public ContactGroupKind Kind { get; set; }
-    public string Name { get; set; } = "";
+
+    public string Name { get; set; } = string.Empty;
+
     public string? ExternalId { get; set; }
+
     public List<GroupMembership> Members { get; set; } = new();
+
     public DateTimeOffset? DeletedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
     public string? CreatedBy { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
+
     public string? UpdatedBy { get; set; }
 
     public void Apply(IEvent<ContactGroupCreated> e)

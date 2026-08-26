@@ -7,7 +7,7 @@ public static class ContactGroupsEndpoints
 {
     public static IEndpointRouteBuilder MapContactGroups(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("").RequireAuthorization("ApiPolicy").WithTags("ContactGroups");
+        var group = app.MapGroup(string.Empty).RequireAuthorization("ApiPolicy").WithTags("ContactGroups");
 
         group.MapGet("/address-books/{addressBookId:guid}/groups", (Guid addressBookId, ContactGroupsHandler h, CancellationToken ct) => h.ListAsync(addressBookId, ct))
             .WithName("ListContactGroups")

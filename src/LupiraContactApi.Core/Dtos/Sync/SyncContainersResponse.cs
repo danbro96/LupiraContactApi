@@ -9,5 +9,6 @@ namespace LupiraContactApi.Core.Dtos.Sync;
 public sealed class SyncContainersResponse
 {
     public required IReadOnlyList<AddressBookDto> AddressBooks { get; set; }
+
     public required IReadOnlyList<ContactGroupDto> Groups { get; set; }
 }

@@ -7,5 +7,6 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactCirclesDto
 {
     public required Guid FocusContactId { get; set; }
+
     public required IReadOnlyList<ContactCircleDto> Circles { get; set; }
 }

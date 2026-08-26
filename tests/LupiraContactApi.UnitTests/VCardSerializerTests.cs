@@ -9,7 +9,7 @@ namespace LupiraContactApi.UnitTests;
 /// the two BDAY formats, typed EMAIL/TEL reach channels, extension props, ORG segmentation, and folded-line skipping.</summary>
 public class VCardSerializerTests
 {
-    static ContactReachChannel Chan(ReachMedium medium, string value, string? type = null, bool preferred = false) =>
+    private static ContactReachChannel Chan(ReachMedium medium, string value, string? type = null, bool preferred = false) =>
         new(medium, value, type, preferred);
 
     [Fact]
@@ -55,8 +55,8 @@ public class VCardSerializerTests
     }
 
     [Theory]
-    [InlineData("a\\b;c")]      // backslash + semicolon — pins the unescape ordering (\\ unescaped last)
-    [InlineData("Doe, John")]   // comma
+    [InlineData("a\\b;c")] // backslash + semicolon — pins the unescape ordering (\\ unescaped last)
+    [InlineData("Doe, John")] // comma
     [InlineData("Line1\nLine2")] // newline (escaped to \n on the wire, restored on parse)
     [InlineData("Plain Text")]
     public void Special_characters_survive_a_round_trip_in_the_full_name(string value)
@@ -81,8 +81,8 @@ public class VCardSerializerTests
     }
 
     [Theory]
-    [InlineData("19900215")]      // vCard 3.0 basic date
-    [InlineData("1990-02-15")]    // ISO extended date
+    [InlineData("19900215")] // vCard 3.0 basic date
+    [InlineData("1990-02-15")] // ISO extended date
     public void Birthday_parses_both_formats(string bday)
     {
         var p = VCardSerializer.ParseVCard($"BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nBDAY:{bday}\r\nEND:VCARD\r\n");
@@ -177,7 +177,7 @@ public class VCardSerializerTests
     }
 
     [Theory]
-    [InlineData("RELATED;TYPE=parent:https://example.com/x")]      // URL target — not ours
+    [InlineData("RELATED;TYPE=parent:https://example.com/x")] // URL target — not ours
     [InlineData("RELATED;TYPE=parent:urn:uuid:not-a-guid")]
     [InlineData("RELATED;TYPE=parent:free text")]
     public void Related_with_non_urn_uuid_value_is_skipped(string line)
@@ -191,7 +191,7 @@ public class VCardSerializerTests
     [InlineData("sweetheart", ContactRelationKind.Partner)]
     [InlineData("kin", ContactRelationKind.Other)]
     [InlineData("muse", ContactRelationKind.Other)]
-    [InlineData("CHILD", ContactRelationKind.Child)]   // case-insensitive enum name
+    [InlineData("CHILD", ContactRelationKind.Child)] // case-insensitive enum name
     public void Related_type_synonyms_and_unknowns_map(string type, ContactRelationKind expected)
     {
         var p = VCardSerializer.ParseVCard($"BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nRELATED;TYPE={type}:urn:uuid:{Guid.NewGuid():D}\r\nEND:VCARD\r\n");

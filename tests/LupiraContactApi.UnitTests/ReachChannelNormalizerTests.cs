@@ -5,7 +5,7 @@ namespace LupiraContactApi.UnitTests;
 
 public class ReachChannelNormalizerTests
 {
-    static ContactReachChannel Ch(ReachMedium m, string v, string? t = null, bool p = false) => new(m, v, t, p);
+    private static ContactReachChannel Ch(ReachMedium m, string v, string? t = null, bool p = false) => new(m, v, t, p);
 
     [Fact]
     public void Trims_value_lowercases_type_and_drops_blanks()

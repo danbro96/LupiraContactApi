@@ -26,7 +26,7 @@ public sealed record PartialDate(int? Year, int Month, int Day)
 
         if (s.StartsWith("--", StringComparison.Ordinal))
         {
-            var md = s[2..].Replace("-", "");
+            var md = s[2..].Replace("-", string.Empty);
             return md.Length == 4
                 && int.TryParse(md[..2], NumberStyles.None, CultureInfo.InvariantCulture, out var mm)
                 && int.TryParse(md[2..], NumberStyles.None, CultureInfo.InvariantCulture, out var dd)

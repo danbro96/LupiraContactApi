@@ -7,10 +7,15 @@ namespace LupiraContactApi.Core.Dtos.Sync;
 public sealed class SectionGuardsDto
 {
     public required SectionGuardDto Core { get; set; }
+
     public required SectionGuardDto Addresses { get; set; }
+
     public required SectionGuardDto Profiles { get; set; }
+
     public required SectionGuardDto Avatar { get; set; }
+
     public required SectionGuardDto Metadata { get; set; }
+
     public required SectionGuardDto Deceased { get; set; }
 
     internal static SectionGuardsDto From(Contact c) => new()

@@ -4,5 +4,6 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class ContactRef
 {
     public required Guid ContactId { get; set; }
+
     public required string DisplayName { get; set; }
 }

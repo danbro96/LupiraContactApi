@@ -9,7 +9,7 @@ namespace LupiraContactApi.UnitTests;
 /// profile-only reach and unresolved addresses, relations scored, N/A acknowledgments, deficit-ranked gaps.</summary>
 public class CompletenessScorerTests
 {
-    static Contact Person(bool deceased = false, DateOnly? deathDate = null) => new()
+    private static Contact Person(bool deceased = false, DateOnly? deathDate = null) => new()
     {
         Id = Guid.NewGuid(),
         GivenName = "Jane",
@@ -19,7 +19,7 @@ public class CompletenessScorerTests
         DeathDate = deathDate,
     };
 
-    static ContactRelation Edge() => new() { ToContactId = Guid.NewGuid(), Kind = ContactRelationKind.Child };
+    private static ContactRelation Edge() => new() { ToContactId = Guid.NewGuid(), Kind = ContactRelationKind.Child };
 
     [Fact]
     public void Version_is_4() => Assert.Equal(4, CompletenessScorer.Version);

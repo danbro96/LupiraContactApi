@@ -4,5 +4,6 @@ namespace LupiraContactApi.Core.Dtos.AddressBooks;
 public sealed class CreateAddressBookRequest
 {
     public required string Slug { get; set; }
+
     public string? DisplayName { get; set; }
 }

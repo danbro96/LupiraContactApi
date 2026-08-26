@@ -6,6 +6,7 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class AddContactRelationRequest
 {
     public required Guid ToContactId { get; set; }
+
     public required ContactRelationKind Kind { get; set; }
 
     /// <summary>Free-text refinement of the kind, e.g. "dad".</summary>

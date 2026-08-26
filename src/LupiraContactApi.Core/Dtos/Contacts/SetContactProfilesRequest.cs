@@ -1,4 +1,3 @@
-
 namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Wholesale replacement of a contact's social/IM handles. For well-known services (telegram, messenger,
@@ -6,7 +5,7 @@ namespace LupiraContactApi.Core.Dtos.Contacts;
 public sealed class SetContactProfilesRequest
 {
     public required List<ContactSocialProfileInput> Profiles { get; set; }
+
     /// <summary>Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.</summary>
     public DateTimeOffset? OccurredAt { get; set; }
-
 }

@@ -12,17 +12,17 @@ public class KinshipInferenceTests
     // A three-generation family with parentage stored on mixed sides:
     //   A --Parent--> P,  P --Child--> B,  P --Parent--> G,  G --Child--> U,  U --Child--> C
     // So: G is grandparent of A/B; P & U are G's children (siblings); A & B are P's children; C is U's child.
-    static readonly Guid G = new("11111111-1111-1111-1111-111111111111");
-    static readonly Guid P = new("22222222-2222-2222-2222-222222222222");
-    static readonly Guid U = new("33333333-3333-3333-3333-333333333333");
-    static readonly Guid A = new("44444444-4444-4444-4444-444444444444");
-    static readonly Guid B = new("55555555-5555-5555-5555-555555555555");
-    static readonly Guid C = new("66666666-6666-6666-6666-666666666666");
+    private static readonly Guid G = new("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid P = new("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid U = new("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid A = new("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid B = new("55555555-5555-5555-5555-555555555555");
+    private static readonly Guid C = new("66666666-6666-6666-6666-666666666666");
 
-    static Contact Person(Guid id, params (Guid to, ContactRelationKind kind)[] rels) =>
+    private static Contact Person(Guid id, params (Guid to, ContactRelationKind kind)[] rels) =>
         new() { Id = id, Relations = [.. rels.Select(r => new ContactRelation { ToContactId = r.to, Kind = r.kind })] };
 
-    static List<Contact> Family() =>
+    private static List<Contact> Family() =>
     [
         Person(G, (U, ContactRelationKind.Child)),
         Person(P, (G, ContactRelationKind.Parent), (B, ContactRelationKind.Child)),
@@ -32,7 +32,7 @@ public class KinshipInferenceTests
         Person(C),
     ];
 
-    static Dictionary<Guid, ContactRelationKind> Infer(Guid focus, IReadOnlyCollection<Contact> contacts) =>
+    private static Dictionary<Guid, ContactRelationKind> Infer(Guid focus, IReadOnlyCollection<Contact> contacts) =>
         KinshipInference.Infer(focus, contacts).ToDictionary(k => k.ContactId, k => k.Kind);
 
     [Fact]

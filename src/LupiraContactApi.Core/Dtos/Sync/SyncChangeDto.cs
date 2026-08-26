@@ -6,5 +6,6 @@ namespace LupiraContactApi.Core.Dtos.Sync;
 public sealed class SyncChangeDto
 {
     public required ContactDto Contact { get; set; }
+
     public required SectionGuardsDto Guards { get; set; }
 }

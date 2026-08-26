@@ -5,7 +5,10 @@ namespace LupiraContactApi.Core.Domain.ContactGroups;
 public sealed class GroupMembership
 {
     public Guid ContactId { get; set; }
+
     public string? Role { get; set; }
+
     public DateOnly? Since { get; set; }
+
     public DateOnly? Until { get; set; }
 }

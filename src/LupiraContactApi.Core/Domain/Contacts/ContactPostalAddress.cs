@@ -8,8 +8,11 @@ namespace LupiraContactApi.Core.Domain.Contacts;
 public sealed class ContactPostalAddress
 {
     public required Guid PlaceId { get; set; }
+
     public ContactAddressType Type { get; set; }
+
     public FuzzyDate? MovedIn { get; set; }
+
     public FuzzyDate? MovedOut { get; set; }
 
     /// <summary>Today falls inside the period; ambiguity resolves toward active.</summary>
