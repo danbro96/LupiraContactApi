@@ -1,3 +1,4 @@
+using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.ContactGroups.Events;

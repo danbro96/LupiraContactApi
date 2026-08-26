@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
 using LupiraContactApi.Core.Domain.ContactGroups;
