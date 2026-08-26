@@ -1,6 +1,7 @@
 using JasperFx.Events;
+using LupiraContactApi.Core.Domain.Shared;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.ContactGroups;
 
 /// <summary>One contact's membership in a group. <see cref="Role"/> is the title held in an <c>Organization</c>
 /// (null for personal groupings); <see cref="Since"/>/<see cref="Until"/> bound the tenure when known.</summary>

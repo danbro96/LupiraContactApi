@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>Stable Guid derived from a natural key (the external uid) — so a delete-then-recreate of the same uid lands on the same event stream and resurrects it rather than creating a duplicate.</summary>
 public static class DeterministicGuid

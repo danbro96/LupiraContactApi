@@ -1,4 +1,8 @@
-namespace LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.ContactGroups;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
+
+namespace LupiraContactApi.Core.Domain.AddressBooks;
 
 /// <summary>An address book collection (plain document). Access is via <see cref="AddressBookOwner"/>; it contains <see cref="Contact"/>s and <see cref="ContactGroup"/>s.</summary>
 public sealed class AddressBook

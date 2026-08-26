@@ -1,4 +1,6 @@
-namespace LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
+
+namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>A date known to year, year-month, or full-day precision — the precision itself carries the certainty
 /// ("2015" means "sometime in 2015"). Used for residency boundaries on <see cref="ContactPostalAddress"/>.

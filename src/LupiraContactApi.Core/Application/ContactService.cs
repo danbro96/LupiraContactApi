@@ -1,7 +1,10 @@
 using System.Text.Json.Nodes;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.ContactGroups;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Inference;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Mappers;

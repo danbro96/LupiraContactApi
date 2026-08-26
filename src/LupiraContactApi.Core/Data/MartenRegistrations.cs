@@ -1,5 +1,8 @@
 using JasperFx.Events.Projections;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.AddressBooks;
+using LupiraContactApi.Core.Domain.ContactGroups;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Domain.Identity;
 using Marten;
 using Weasel.Core;

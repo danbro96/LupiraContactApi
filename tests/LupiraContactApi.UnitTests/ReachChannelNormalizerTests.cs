@@ -1,4 +1,4 @@
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
 using Xunit;
 
 namespace LupiraContactApi.UnitTests;

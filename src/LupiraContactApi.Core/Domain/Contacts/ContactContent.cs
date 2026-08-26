@@ -1,7 +1,8 @@
 using System.Globalization;
 using System.Text;
+using LupiraContactApi.Core.Domain.Shared;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Contacts;
 
 /// <summary>Deterministic canonical text of a contact's content-bearing state; <c>ContentHash = ContentHash.Of(Canonical(...))</c>.
 /// Wire formats are serialization concerns and play no part in identity or hashing; sync surfaces consume the hash as an

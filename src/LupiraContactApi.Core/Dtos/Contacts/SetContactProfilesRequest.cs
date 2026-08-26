@@ -1,4 +1,3 @@
-using LupiraContactApi.Core.Domain;
 
 namespace LupiraContactApi.Core.Dtos.Contacts;
 

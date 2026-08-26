@@ -1,4 +1,4 @@
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
 using Marten;
 
 namespace LupiraContactApi.Core.Application;

@@ -18,7 +18,7 @@ public sealed class ResolveContactsResponse
 }
 
 /// <summary>A contact's birthday for the cal-api Birthdays projection. <see cref="Year"/> is null when only the
-/// month-day is known (see <see cref="Domain.PartialDate"/>).</summary>
+/// month-day is known (see <see cref="Domain.Shared.PartialDate"/>).</summary>
 public sealed class ContactBirthdayDto
 {
     public required Guid ContactId { get; set; }

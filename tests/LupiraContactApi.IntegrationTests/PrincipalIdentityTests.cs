@@ -1,6 +1,5 @@
 using LupiraContactApi.Core.Application;
 using LupiraContactApi.Core.Domain.Identity;
-using LupiraContactApi.Core.Domain;
 using Marten;
 using Xunit;
 

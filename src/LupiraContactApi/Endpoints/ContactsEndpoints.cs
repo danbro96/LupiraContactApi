@@ -1,4 +1,4 @@
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Handlers;
 using Microsoft.AspNetCore.Mvc;

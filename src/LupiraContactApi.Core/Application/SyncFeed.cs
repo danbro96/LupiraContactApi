@@ -1,5 +1,5 @@
 using LupiraContactApi.Core.Auth;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Dtos.Sync;
 using LupiraContactApi.Core.Mappers;
 using Marten;

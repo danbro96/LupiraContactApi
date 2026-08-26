@@ -1,6 +1,6 @@
 using JasperFx.Events;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Contacts;
 
 /// <summary>
 /// Per-section last-writer-wins rules for <see cref="Contact"/> (same contract as LupiraCalApi's SectionLww —

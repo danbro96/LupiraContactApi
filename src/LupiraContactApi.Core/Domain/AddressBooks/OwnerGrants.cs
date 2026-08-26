@@ -1,4 +1,6 @@
-namespace LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Shared;
+
+namespace LupiraContactApi.Core.Domain.AddressBooks;
 
 /// <summary>Parses the wire <c>access</c> value of a sharing grant into <see cref="Access"/>. Empty defaults to
 /// <see cref="Access.Owner"/> (the family-calendar case); hyphenated and bare forms both accepted, case-insensitive.</summary>

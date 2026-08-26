@@ -1,7 +1,8 @@
 using System.Text.Json.Serialization;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Dav;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Endpoints;
 using LupiraContactApi.Handlers;
 using LupiraContactApi.Health;

@@ -1,7 +1,8 @@
 using System.ComponentModel;
 using LupiraContactApi.Core.Application;
 using LupiraContactApi.Auth;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
 using ModelContextProtocol;

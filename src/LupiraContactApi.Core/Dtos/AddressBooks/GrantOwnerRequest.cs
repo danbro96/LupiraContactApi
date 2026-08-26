@@ -1,3 +1,5 @@
+using LupiraContactApi.Core.Domain.Shared;
+
 namespace LupiraContactApi.Core.Dtos.AddressBooks;
 
 /// <summary>Grant a member access to a container, identified by their login <c>Email</c> (provisioned if they have

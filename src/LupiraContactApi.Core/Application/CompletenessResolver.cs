@@ -1,4 +1,7 @@
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Completeness;
+using LupiraContactApi.Core.Domain.ContactGroups;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
 using Marten;
 
 namespace LupiraContactApi.Core.Application;

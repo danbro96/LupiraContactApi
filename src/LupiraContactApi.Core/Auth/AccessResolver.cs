@@ -1,4 +1,5 @@
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.AddressBooks;
+using LupiraContactApi.Core.Domain.Shared;
 using Marten;
 
 namespace LupiraContactApi.Core.Auth;

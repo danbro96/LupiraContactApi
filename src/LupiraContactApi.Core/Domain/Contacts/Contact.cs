@@ -1,7 +1,8 @@
 using JasperFx.Events;
-using static LupiraContactApi.Core.Domain.ContentHash;   // Of(); the type name clashes with the ContentHash property
+using static LupiraContactApi.Core.Domain.Shared.ContentHash;   // Of(); the type name clashes with the ContentHash property
+using LupiraContactApi.Core.Domain.Shared;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Contacts;
 
 /// <summary>A contact's postal address: a LupiraGeoApi place id (the sole source of truth — no free-text) with a home/work
 /// type. <see cref="FuzzyDate"/> boundaries are as precise as actually known, null = unknown; currency is

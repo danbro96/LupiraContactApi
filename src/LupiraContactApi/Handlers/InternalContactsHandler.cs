@@ -1,4 +1,4 @@
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
 using Marten;
 using Microsoft.AspNetCore.Http.HttpResults;

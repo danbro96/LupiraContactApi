@@ -1,6 +1,6 @@
 using JasperFx.Events;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>
 /// Reads the acting principal from Marten event-metadata headers. Mutations stamp the <c>actor</c> header

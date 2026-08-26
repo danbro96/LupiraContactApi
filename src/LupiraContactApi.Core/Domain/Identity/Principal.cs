@@ -1,3 +1,5 @@
+using LupiraContactApi.Core.Domain.Contacts;
+
 namespace LupiraContactApi.Core.Domain.Identity;
 
 /// <summary>

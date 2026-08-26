@@ -1,4 +1,6 @@
-namespace LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Shared;
+
+namespace LupiraContactApi.Core.Domain.Contacts;
 
 /// <summary>A typed, directed relation edge embedded in the owning contact's snapshot: "the To contact is my Kind".
 /// Keyed by (ToContactId, Kind); <c>Label</c> is a free-text refinement ("dad"). <c>Ended</c>/<c>Until</c> mark a

@@ -1,7 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LupiraContactApi.Core.Domain.ContactGroups;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Completeness;
 
 /// <summary>
 /// Pure, kind-aware completeness rubric for contacts. Scores <em>presence</em>, not quality — crude on purpose,

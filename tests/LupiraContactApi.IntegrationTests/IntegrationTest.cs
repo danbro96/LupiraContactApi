@@ -1,5 +1,5 @@
 using Marten;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Me;

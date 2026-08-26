@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
-using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Completeness;
+using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Dtos.Contacts;
 

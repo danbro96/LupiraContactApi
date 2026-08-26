@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace LupiraContactApi.Core.Domain;
+namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>A calendar date that may omit the year — a birthday is often known only as a month-day.
 /// <see cref="Month"/> and <see cref="Day"/> are always present; <see cref="Year"/> is null when unknown.

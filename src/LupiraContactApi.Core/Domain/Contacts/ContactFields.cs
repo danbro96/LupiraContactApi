@@ -1,4 +1,6 @@
-namespace LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Shared;
+
+namespace LupiraContactApi.Core.Domain.Contacts;
 
 /// <summary>
 /// Structured contact fields (name parts + nickname + typed reach channels). No <c>FullName</c> — the display
