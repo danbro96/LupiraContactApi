@@ -26,13 +26,13 @@ public sealed class ContactDto
     /// <summary>Pointer to an avatar image (URL/media id), never bytes.</summary>
     public string? AvatarRef { get; set; }
     public required IReadOnlyList<ContactPostalAddress> Addresses { get; set; }
-    public required IReadOnlyList<ContactSocialProfile> Profiles { get; set; }
+    public required IReadOnlyList<ContactSocialProfileDto> Profiles { get; set; }
 
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
     public required IReadOnlyList<Guid> EmergencyContactIds { get; set; }
 
     /// <summary>Raw outgoing edges (unfiltered; targets may be deleted or unreadable). The <c>/relations</c> sub-resource is the resolved two-way view.</summary>
-    public required IReadOnlyList<ContactRelation> Relations { get; set; }
+    public required IReadOnlyList<ContactRelationDto> Relations { get; set; }
     public JsonNode? Metadata { get; set; }
 
     /// <summary>How well-documented this contact is. Drives contact-enrichment ranking (completeness × relevance).</summary>

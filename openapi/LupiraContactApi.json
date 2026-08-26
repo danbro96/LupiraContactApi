@@ -2702,7 +2702,7 @@
           "profiles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ContactSocialProfile"
+              "$ref": "#/components/schemas/ContactSocialProfileDto"
             }
           },
           "emergencyContactIds": {
@@ -2715,7 +2715,7 @@
           "relations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ContactRelation"
+              "$ref": "#/components/schemas/ContactRelationDto"
             }
           },
           "metadata": {
@@ -2937,7 +2937,22 @@
           }
         }
       },
-      "ContactRelation": {
+      "ContactRelationDirection": {
+        "enum": [
+          "Outgoing",
+          "Incoming"
+        ]
+      },
+      "ContactRelationDto": {
+        "required": [
+          "toContactId",
+          "kind",
+          "label",
+          "since",
+          "note",
+          "ended",
+          "until"
+        ],
         "type": "object",
         "properties": {
           "toContactId": {
@@ -2977,12 +2992,6 @@
             "format": "date"
           }
         }
-      },
-      "ContactRelationDirection": {
-        "enum": [
-          "Outgoing",
-          "Incoming"
-        ]
       },
       "ContactRelationEntryDto": {
         "required": [
@@ -3058,7 +3067,37 @@
           "Cousin"
         ]
       },
-      "ContactSocialProfile": {
+      "ContactSocialProfileDto": {
+        "required": [
+          "service",
+          "handle",
+          "url",
+          "preferred"
+        ],
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "preferred": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContactSocialProfileInput": {
+        "required": [
+          "service",
+          "handle"
+        ],
         "type": "object",
         "properties": {
           "service": {
@@ -3716,7 +3755,7 @@
           "profiles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ContactSocialProfile"
+              "$ref": "#/components/schemas/ContactSocialProfileInput"
             }
           },
           "occurredAt": {

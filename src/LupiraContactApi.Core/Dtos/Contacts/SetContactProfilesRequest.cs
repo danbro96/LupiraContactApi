@@ -6,7 +6,7 @@ namespace LupiraContactApi.Dtos.Contacts;
 /// whatsapp…) the profile URL is derived from the handle when omitted.</summary>
 public sealed class SetContactProfilesRequest
 {
-    public required List<ContactSocialProfile> Profiles { get; set; }
+    public required List<ContactSocialProfileInput> Profiles { get; set; }
     /// <summary>Client wall-clock of the edit, for last-writer-wins conflict resolution. Omitted ⇒ server receive time.</summary>
     public DateTimeOffset? OccurredAt { get; set; }
 

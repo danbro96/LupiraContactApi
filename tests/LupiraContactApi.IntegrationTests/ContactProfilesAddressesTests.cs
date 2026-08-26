@@ -13,7 +13,7 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
 {
     const string Email = "alice@x.test";
 
-    static async Task<HttpResponseMessage> PutProfilesAsync(HttpClient api, Guid id, params ContactSocialProfile[] profiles) =>
+    static async Task<HttpResponseMessage> PutProfilesAsync(HttpClient api, Guid id, params ContactSocialProfileInput[] profiles) =>
         await api.PutAsJsonAsync($"/contacts/{id}/profiles", new SetContactProfilesRequest { Profiles = [.. profiles] });
 
     [Fact]
@@ -24,8 +24,8 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
         var c = await CreateContactAsync(api, ab);
 
         var resp = await PutProfilesAsync(api, c.Id,
-            new ContactSocialProfile { Service = " Telegram ", Handle = "@jane", Preferred = true },
-            new ContactSocialProfile { Service = "messenger", Handle = "jane.doe" });
+            new ContactSocialProfileInput { Service = " Telegram ", Handle = "@jane", Preferred = true },
+            new ContactSocialProfileInput { Service = "messenger", Handle = "jane.doe" });
         resp.EnsureSuccessStatusCode();
         var dto = (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
 
@@ -37,7 +37,7 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
         Assert.Equal("https://m.me/jane.doe", dto.Profiles.Single(p => p.Service == "messenger").Url);
         Assert.NotEqual(c.Etag, dto.Etag);   // profiles are content-bearing
 
-        var replaced = await PutProfilesAsync(api, c.Id, new ContactSocialProfile { Service = "signal", Handle = "jane.01" });
+        var replaced = await PutProfilesAsync(api, c.Id, new ContactSocialProfileInput { Service = "signal", Handle = "jane.01" });
         var only = Assert.Single((await replaced.Content.ReadFromJsonAsync<ContactDto>())!.Profiles);
         Assert.Equal("signal", only.Service);
     }
@@ -49,12 +49,12 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
         var ab = await CreateAddressBookAsync(api);
         var c = await CreateContactAsync(api, ab);
 
-        var blank = await PutProfilesAsync(api, c.Id, new ContactSocialProfile { Service = "telegram", Handle = "  " });
+        var blank = await PutProfilesAsync(api, c.Id, new ContactSocialProfileInput { Service = "telegram", Handle = "  " });
         Assert.Equal(HttpStatusCode.BadRequest, blank.StatusCode);
 
         var doublePref = await PutProfilesAsync(api, c.Id,
-            new ContactSocialProfile { Service = "telegram", Handle = "a", Preferred = true },
-            new ContactSocialProfile { Service = "telegram", Handle = "b", Preferred = true });
+            new ContactSocialProfileInput { Service = "telegram", Handle = "a", Preferred = true },
+            new ContactSocialProfileInput { Service = "telegram", Handle = "b", Preferred = true });
         Assert.Equal(HttpStatusCode.BadRequest, doublePref.StatusCode);
     }
 
@@ -66,8 +66,8 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
         var c = await CreateContactAsync(api, ab);
 
         var resp = await PutProfilesAsync(api, c.Id,
-            new ContactSocialProfile { Service = "telegram", Handle = "jane" },
-            new ContactSocialProfile { Service = "Telegram", Handle = "@Jane" });
+            new ContactSocialProfileInput { Service = "telegram", Handle = "jane" },
+            new ContactSocialProfileInput { Service = "Telegram", Handle = "@Jane" });
         resp.EnsureSuccessStatusCode();
         Assert.Single((await resp.Content.ReadFromJsonAsync<ContactDto>())!.Profiles);
     }
@@ -166,7 +166,7 @@ public sealed class ContactProfilesAddressesTests(ContactApiTestFactory factory)
         var api = Factory.ApiClient(Email);
         var ab = await CreateAddressBookAsync(api);
         var c = await CreateContactAsync(api, ab, "Jane", "Doe");
-        (await PutProfilesAsync(api, c.Id, new ContactSocialProfile { Service = "telegram", Handle = "jane" })).EnsureSuccessStatusCode();
+        (await PutProfilesAsync(api, c.Id, new ContactSocialProfileInput { Service = "telegram", Handle = "jane" })).EnsureSuccessStatusCode();
 
         var vcf = await api.GetStringAsync($"/dav-backend/u/{Uri.EscapeDataString(Email)}/collections/{ab}/resources/{c.ExternalId}");
         Assert.Contains("X-SOCIALPROFILE;TYPE=telegram:https://t.me/jane", vcf);

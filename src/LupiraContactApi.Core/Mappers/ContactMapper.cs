@@ -29,9 +29,9 @@ internal static class ContactMapper
         Pronouns = c.Pronouns,
         AvatarRef = c.AvatarRef,
         Addresses = c.Addresses,
-        Profiles = c.Profiles,
+        Profiles = [.. c.Profiles.Select(ToResponse)],
         EmergencyContactIds = c.EmergencyContactIds,
-        Relations = c.Relations,
+        Relations = [.. c.Relations.Select(ToResponse)],
         Metadata = JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata),
         Completeness = completeness,
         CreatedAt = c.CreatedAt,
@@ -40,5 +40,32 @@ internal static class ContactMapper
         UpdatedBy = c.UpdatedBy,
         Version = c.Version,
         Etag = c.ContentHash,
+    };
+
+    public static ContactSocialProfileDto ToResponse(this ContactSocialProfile p) => new()
+    {
+        Service = p.Service,
+        Handle = p.Handle,
+        Url = p.Url,
+        Preferred = p.Preferred,
+    };
+
+    public static ContactRelationDto ToResponse(this ContactRelation r) => new()
+    {
+        ToContactId = r.ToContactId,
+        Kind = r.Kind,
+        Label = r.Label,
+        Since = r.Since,
+        Note = r.Note,
+        Ended = r.Ended,
+        Until = r.Until,
+    };
+
+    public static ContactSocialProfile ToDomain(this ContactSocialProfileInput p) => new()
+    {
+        Service = p.Service,
+        Handle = p.Handle,
+        Url = p.Url,
+        Preferred = p.Preferred,
     };
 }

@@ -168,7 +168,7 @@ public sealed class ContactTools
     public static async Task<ContactDto> set_contact_profiles(
         ContactService contacts, CurrentUser user,
         [Description("The contact.")] Guid contactId,
-        [Description("The full new list — an empty list clears.")] List<ContactSocialProfile> profiles)
+        [Description("The full new list — an empty list clears.")] List<ContactSocialProfileInput> profiles)
     {
         var u = await user.GetAsync();
         return Require(await contacts.SetProfilesAsync(u.Id, contactId, profiles));

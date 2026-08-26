@@ -395,7 +395,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     // ---- Profiles + addresses (wholesale replace) ----
 
-    public async Task<OpResult<ContactDto>> SetProfilesAsync(Guid principalId, Guid id, IReadOnlyList<ContactSocialProfile> profiles, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> SetProfilesAsync(Guid principalId, Guid id, IReadOnlyList<ContactSocialProfileInput> profiles, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
         if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
@@ -403,7 +403,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
 
-        var normalized = profiles.Select(SocialProfileNormalizer.Normalize).ToList();
+        var normalized = profiles.Select(p => SocialProfileNormalizer.Normalize(p.ToDomain())).ToList();
         if (normalized.Any(p => p.Service.Length == 0 || p.Handle.Length == 0)) return OpResult<ContactDto>.Invalid("Profile service and handle are required.");
         var next = normalized.DistinctBy(p => (p.Service, Handle: p.Handle.ToLowerInvariant())).ToList();
         if (next.GroupBy(p => p.Service).Any(g => g.Count(p => p.Preferred) > 1)) return OpResult<ContactDto>.Invalid("At most one preferred handle per service.");
