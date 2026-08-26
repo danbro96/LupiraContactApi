@@ -28,7 +28,7 @@ public static class MeEndpoints
             .WithName("SetMyContact")
             .WithSummary("Link the caller's identity to its own contact (\"this card is me\") — the default focus for contact circles.")
             .Produces(StatusCodes.Status204NoContent)
-            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
         return app;
     }

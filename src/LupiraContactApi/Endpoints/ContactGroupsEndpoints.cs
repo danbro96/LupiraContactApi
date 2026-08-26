@@ -22,22 +22,22 @@ public static class ContactGroupsEndpoints
         group.MapPut("/groups/{groupId:guid}", (Guid groupId, string name, ContactGroupsHandler h, CancellationToken ct) => h.RenameAsync(groupId, name, ct))
             .WithName("RenameContactGroup")
             .WithSummary("Rename a group.")
-            .Produces<ContactGroupDto>(StatusCodes.Status200OK).Produces(StatusCodes.Status404NotFound);
+            .Produces<ContactGroupDto>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/groups/{groupId:guid}/members", (Guid groupId, Guid contactId, string? role, DateOnly? since, DateOnly? until, ContactGroupsHandler h, CancellationToken ct) => h.AddMemberAsync(groupId, contactId, role, since, until, ct))
             .WithName("AddContactGroupMember")
             .WithSummary("Add a contact to a group; for an organization, role is the title held there (re-adding updates it).")
-            .Produces<ContactGroupDto>(StatusCodes.Status200OK).Produces(StatusCodes.Status404NotFound);
+            .Produces<ContactGroupDto>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapDelete("/groups/{groupId:guid}/members/{contactId:guid}", (Guid groupId, Guid contactId, ContactGroupsHandler h, CancellationToken ct) => h.RemoveMemberAsync(groupId, contactId, ct))
             .WithName("RemoveContactGroupMember")
             .WithSummary("Remove a contact from a group.")
-            .Produces<ContactGroupDto>(StatusCodes.Status200OK).Produces(StatusCodes.Status404NotFound);
+            .Produces<ContactGroupDto>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapDelete("/groups/{groupId:guid}", (Guid groupId, ContactGroupsHandler h, CancellationToken ct) => h.DeleteAsync(groupId, ct))
             .WithName("DeleteContactGroup")
             .WithSummary("Delete a group.")
-            .Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
+            .Produces(StatusCodes.Status204NoContent).ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }
