@@ -1,7 +1,7 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 using Marten;
 
-namespace LupiraContactApi.Application;
+namespace LupiraContactApi.Core.Application;
 
 /// <summary>Resolves the derived completeness score for contacts. It lives outside the snapshot because a contact's
 /// organisation/role lives on a separate <see cref="ContactGroup"/>, and relation edges are stored one-directional —

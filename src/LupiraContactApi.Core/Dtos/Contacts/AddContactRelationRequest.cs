@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Upserts a directed relation edge on a contact: "<see cref="ToContactId"/> is this contact's <see cref="Kind"/>".</summary>
 public sealed class AddContactRelationRequest

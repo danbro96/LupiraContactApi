@@ -1,4 +1,4 @@
-using LupiraContactApi.Dtos.Internal;
+using LupiraContactApi.Core.Dtos.Internal;
 using LupiraContactApi.Handlers;
 
 namespace LupiraContactApi.Endpoints;

@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 // Actor + timestamp come from Marten event metadata (see EventActor), not event fields.
 

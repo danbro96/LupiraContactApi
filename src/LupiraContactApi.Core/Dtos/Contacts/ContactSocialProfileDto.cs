@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>A contact's social/IM handle as published. Service and handle are guaranteed non-empty —
 /// <c>SetProfilesAsync</c> rejects the write otherwise.</summary>

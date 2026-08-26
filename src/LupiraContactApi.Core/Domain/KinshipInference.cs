@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>A kinship derived from the parent/child graph (never stored). Pure over a supplied set of contacts,
 /// like <see cref="CompletenessScorer"/>; the session-bound loading + access filtering lives in ContactService.</summary>

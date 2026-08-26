@@ -1,8 +1,8 @@
 using Marten;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.AddressBooks;
-using LupiraContactApi.Dtos.Contacts;
-using LupiraContactApi.Dtos.Me;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.AddressBooks;
+using LupiraContactApi.Core.Dtos.Contacts;
+using LupiraContactApi.Core.Dtos.Me;
 using System.Net.Http.Json;
 using System.Text;
 using Xunit;

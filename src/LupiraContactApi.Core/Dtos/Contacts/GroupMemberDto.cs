@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>A contact's membership in a group. <c>Role</c> is the title held in an organization (null for personal
 /// groupings); <c>Since</c>/<c>Until</c> bound the tenure when known.</summary>

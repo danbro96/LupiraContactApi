@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>A principal's access grant on an address book (plain membership document; multi-owner). Composite identity (book:principal).</summary>
 public sealed class AddressBookOwner

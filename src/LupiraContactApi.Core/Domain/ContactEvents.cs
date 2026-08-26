@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 // ContentHash is derived from the resulting aggregate state (see Contact.RecomputeHash / ContactContent) and is
 // NOT carried on events. Actor + timestamp come from Marten event metadata (see EventActor), not event fields.

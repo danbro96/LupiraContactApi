@@ -1,7 +1,7 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 using Marten;
 
-namespace LupiraContactApi.Auth;
+namespace LupiraContactApi.Core.Auth;
 
 /// <summary>Container-scoped authorization over the multi-owner membership docs: a principal may read an address book it
 /// has any grant on, and write one it owns or has a read-write grant on.</summary>

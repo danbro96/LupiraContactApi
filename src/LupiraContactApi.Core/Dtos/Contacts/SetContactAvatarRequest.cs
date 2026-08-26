@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Sets (or clears, when null/empty) a contact's avatar — a URL/media id, never image bytes.</summary>
 public sealed class SetContactAvatarRequest

@@ -1,8 +1,8 @@
 using JasperFx;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 using Marten;
 
-namespace LupiraContactApi.Data;
+namespace LupiraContactApi.Core.Data;
 
 /// <summary>
 /// Offline-first idempotency gate (same port as LupiraCalApi / LupiraTasksApi). A mutation may carry an

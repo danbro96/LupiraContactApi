@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 [JsonConverter(typeof(JsonStringEnumConverter<ContactRelationDirection>))]
 public enum ContactRelationDirection { Outgoing, Incoming }

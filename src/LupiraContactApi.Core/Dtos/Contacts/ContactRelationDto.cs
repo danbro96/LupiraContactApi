@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>One outgoing relation edge as published: "the <c>ToContactId</c> contact is my <c>Kind</c>".
 /// <c>Ended</c>/<c>Until</c> mark a relationship that ran its course, distinct from removal.</summary>

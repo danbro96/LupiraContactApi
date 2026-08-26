@@ -1,5 +1,5 @@
-using LupiraContactApi.Domain;
-using LupiraContactApi.Serialization;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Serialization;
 using Xunit;
 
 namespace LupiraContactApi.UnitTests;

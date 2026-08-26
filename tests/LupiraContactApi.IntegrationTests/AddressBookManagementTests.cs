@@ -1,5 +1,5 @@
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.AddressBooks;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.AddressBooks;
 using System.Net.Http.Json;
 using System.Net;
 using Xunit;

@@ -1,5 +1,5 @@
-using LupiraContactApi.Dtos.AddressBooks;
-using LupiraContactApi.Dtos.Me;
+using LupiraContactApi.Core.Dtos.AddressBooks;
+using LupiraContactApi.Core.Dtos.Me;
 using LupiraContactApi.Handlers;
 
 namespace LupiraContactApi.Endpoints;

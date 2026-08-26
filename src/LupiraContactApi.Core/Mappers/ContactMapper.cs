@@ -1,8 +1,8 @@
 using System.Text.Json.Nodes;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.Contacts;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.Contacts;
 
-namespace LupiraContactApi.Mappers;
+namespace LupiraContactApi.Core.Mappers;
 
 /// <summary>Maps the <see cref="Contact"/> snapshot to its response DTO (display name is composed from the parts).
 /// <paramref name="completeness"/> is computed by the service (organisation/role lives on a separate ContactGroup).</summary>

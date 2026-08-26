@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain.Identity;
+namespace LupiraContactApi.Core.Domain.Identity;
 
 /// <summary>
 /// An identity (plain document, JIT-provisioned from Authentik). <see cref="AuthentikSub"/> is the durable anchor;

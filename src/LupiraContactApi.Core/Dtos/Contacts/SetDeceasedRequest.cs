@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Marks a contact as deceased; the date may be unknown.</summary>
 public sealed class SetDeceasedRequest

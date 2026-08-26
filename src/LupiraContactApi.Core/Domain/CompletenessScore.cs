@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>A field is fully present, weak/partial (0.5), or absent.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<GapSeverity>))]

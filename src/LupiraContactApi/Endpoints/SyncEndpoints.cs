@@ -1,4 +1,4 @@
-using LupiraContactApi.Dtos.Sync;
+using LupiraContactApi.Core.Dtos.Sync;
 using LupiraContactApi.Handlers;
 
 namespace LupiraContactApi.Endpoints;

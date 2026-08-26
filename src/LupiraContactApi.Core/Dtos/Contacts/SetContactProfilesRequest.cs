@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Wholesale replacement of a contact's social/IM handles. For well-known services (telegram, messenger,
 /// whatsapp…) the profile URL is derived from the handle when omitted.</summary>

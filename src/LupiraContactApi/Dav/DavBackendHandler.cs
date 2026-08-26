@@ -1,7 +1,7 @@
-using LupiraContactApi.Application;
-using LupiraContactApi.Auth;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Serialization;
+using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Auth;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Serialization;
 using Marten;
 
 namespace LupiraContactApi.Dav;

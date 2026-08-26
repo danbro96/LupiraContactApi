@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>A personal grouping (Friends/Family/Colleagues) vs a company/institution. An employer is membership in an <c>Organization</c>-kind group.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ContactGroupKind>))]

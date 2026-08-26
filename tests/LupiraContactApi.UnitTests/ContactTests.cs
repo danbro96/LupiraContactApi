@@ -1,5 +1,5 @@
 using JasperFx.Events;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 using Xunit;
 
 namespace LupiraContactApi.UnitTests;

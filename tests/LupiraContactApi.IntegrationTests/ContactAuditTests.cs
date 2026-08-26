@@ -1,6 +1,6 @@
 using JasperFx.Events;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.Contacts;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.Contacts;
 using Marten;
 using System.Net.Http.Json;
 using Xunit;

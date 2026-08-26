@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Computed social circles around a focus contact. Always contains every <see cref="CircleKind"/>, possibly empty;
 /// a contact may appear in several circles.</summary>

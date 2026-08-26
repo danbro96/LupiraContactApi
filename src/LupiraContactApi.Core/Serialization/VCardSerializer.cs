@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Serialization;
+namespace LupiraContactApi.Core.Serialization;
 
 /// <summary>Minimal, deterministic vCard 3.0 writer + line-based parser — the only place vCard vocabulary is spoken.
 /// Structured fields are canonical: GET regenerates the card from the snapshot, and the contact's <c>ContentHash</c>

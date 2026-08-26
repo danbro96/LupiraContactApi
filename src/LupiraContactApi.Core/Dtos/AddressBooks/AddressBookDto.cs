@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.AddressBooks;
+namespace LupiraContactApi.Core.Dtos.AddressBooks;
 
 /// <summary>An address book the caller can access, with their access level.</summary>
 public sealed class AddressBookDto

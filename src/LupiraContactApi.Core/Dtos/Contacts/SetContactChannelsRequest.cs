@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Wholesale replacement of a contact's reach channels — emails and phones (empty clears). Unlike
 /// <c>ReviseContact</c>, which only unions, this can remove a channel. Values are trimmed, type tokens lowercased,

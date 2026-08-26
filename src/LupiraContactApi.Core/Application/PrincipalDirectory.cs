@@ -1,8 +1,8 @@
-using LupiraContactApi.Domain.Identity;
+using LupiraContactApi.Core.Domain.Identity;
 using Marten;
 using Npgsql;
 
-namespace LupiraContactApi.Application;
+namespace LupiraContactApi.Core.Application;
 
 /// <summary>
 /// Resolves an authenticated principal (OIDC <c>sub</c> + email, or a DAV email) to a local

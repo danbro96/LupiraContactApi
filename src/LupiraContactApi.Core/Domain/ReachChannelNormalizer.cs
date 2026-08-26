@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>Canonicalizes reach channels: trim the value, lowercase the type token (blank → null), drop empty-valued
 /// entries, and dedupe by (Medium, Value) case-insensitively (first wins). The ≤1-preferred-per-medium rule is the

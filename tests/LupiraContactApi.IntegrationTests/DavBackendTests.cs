@@ -1,5 +1,5 @@
 using LupiraContactApi.Dav;
-using LupiraContactApi.Domain.Identity;
+using LupiraContactApi.Core.Domain.Identity;
 using System.Net.Http.Json;
 using System.Net;
 using Xunit;

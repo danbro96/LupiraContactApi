@@ -1,10 +1,10 @@
-using LupiraContactApi.Auth;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Domain.Identity;
-using LupiraContactApi.Dtos.AddressBooks;
+using LupiraContactApi.Core.Auth;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Core.Dtos.AddressBooks;
 using Marten;
 
-namespace LupiraContactApi.Application;
+namespace LupiraContactApi.Core.Application;
 
 /// <summary>Lists and creates the address books a principal can access, and shares them by granting/revoking
 /// co-owners. Creation grants the caller <c>owner</c>; sharing is owner-only and targets a member by email.</summary>

@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Dav;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 using LupiraContactApi.Endpoints;
 using LupiraContactApi.Handlers;
 using LupiraContactApi.Health;
@@ -134,7 +134,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    o.SerializerOptions.Converters.Add(new LupiraContactApi.Serialization.UtcDateTimeOffsetConverter());
+    o.SerializerOptions.Converters.Add(new LupiraContactApi.Core.Serialization.UtcDateTimeOffsetConverter());
 });
 
 builder.Services.AddOpenApi("v1", options =>

@@ -1,10 +1,10 @@
-using LupiraContactApi.Auth;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.Sync;
-using LupiraContactApi.Mappers;
+using LupiraContactApi.Core.Auth;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.Sync;
+using LupiraContactApi.Core.Mappers;
 using Marten;
 
-namespace LupiraContactApi.Application;
+namespace LupiraContactApi.Core.Application;
 
 /// <summary>
 /// The offline-client changes feed (same contract as LupiraCalApi's): account-wide, paged strictly by each

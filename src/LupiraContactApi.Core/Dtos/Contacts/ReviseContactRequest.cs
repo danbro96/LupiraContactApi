@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Update an existing contact by <b>merge</b>: a provided scalar overwrites, provided reach channels/tags
 /// are unioned onto the existing values (deduped), and any field left null keeps its current value. Enrichment never

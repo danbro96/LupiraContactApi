@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 public sealed class ContactDto
 {

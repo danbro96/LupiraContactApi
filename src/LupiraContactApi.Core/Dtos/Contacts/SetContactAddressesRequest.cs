@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Wholesale replacement of a contact's postal addresses; each entry needs a geo place id.</summary>
 public sealed class SetContactAddressesRequest

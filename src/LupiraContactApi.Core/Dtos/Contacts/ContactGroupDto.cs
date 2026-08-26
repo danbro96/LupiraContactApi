@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>A contact group (personal grouping or organization) and its current members.</summary>
 public sealed class ContactGroupDto

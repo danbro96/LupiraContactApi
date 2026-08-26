@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>Create a contact via REST/MCP. No <c>FullName</c> — the display name is composed from the structured parts.
 /// An employer is set separately as membership in an <c>organization</c>-kind contact group.</summary>

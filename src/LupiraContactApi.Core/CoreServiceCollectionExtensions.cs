@@ -1,6 +1,6 @@
-using LupiraContactApi.Application;
-using LupiraContactApi.Auth;
-using LupiraContactApi.Data;
+using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Auth;
+using LupiraContactApi.Core.Data;
 using Marten;
 using Microsoft.Extensions.Configuration;
 
@@ -28,7 +28,7 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<CompletenessResolver>();
         services.AddScoped<AccessResolver>();
         services.AddScoped<PrincipalDirectory>();
-        services.AddScoped<LupiraContactApi.Data.Idempotency>();
+        services.AddScoped<LupiraContactApi.Core.Data.Idempotency>();
         services.AddScoped<AddressBookService>();
         services.AddScoped<ContactService>();
         services.AddScoped<ContactGroupService>();

@@ -1,4 +1,4 @@
-using LupiraContactApi.Application;
+using LupiraContactApi.Core.Application;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Http;

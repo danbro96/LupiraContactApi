@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>The medium a reach channel uses. Social/IM handles are modeled separately as <see cref="ContactSocialProfile"/>.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ReachMedium>))]

@@ -1,6 +1,6 @@
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.AddressBooks;
-using LupiraContactApi.Dtos.Contacts;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.AddressBooks;
+using LupiraContactApi.Core.Dtos.Contacts;
 using System.Net.Http.Json;
 using System.Net;
 using Xunit;

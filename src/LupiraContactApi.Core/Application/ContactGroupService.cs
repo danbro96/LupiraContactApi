@@ -1,9 +1,9 @@
-using LupiraContactApi.Auth;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.Contacts;
+using LupiraContactApi.Core.Auth;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.Contacts;
 using Marten;
 
-namespace LupiraContactApi.Application;
+namespace LupiraContactApi.Core.Application;
 
 /// <summary>Contact groups (personal groupings + organizations) and their membership history. Authorized against the owning address book.</summary>
 public sealed class ContactGroupService(IDocumentSession session, AccessResolver access)

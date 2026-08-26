@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using LupiraContactApi.Domain;
+using LupiraContactApi.Core.Domain;
 
-namespace LupiraContactApi.Dtos.AddressBooks;
+namespace LupiraContactApi.Core.Dtos.AddressBooks;
 
 /// <summary>The result of granting a member access to a container: who now has what access on which container.</summary>
 public sealed class OwnerGrantDto

@@ -1,14 +1,14 @@
 using System.Text.Json.Nodes;
-using LupiraContactApi.Auth;
-using LupiraContactApi.Data;
-using LupiraContactApi.Domain;
-using LupiraContactApi.Domain.Identity;
-using LupiraContactApi.Dtos.Contacts;
-using LupiraContactApi.Mappers;
-using LupiraContactApi.Serialization;
+using LupiraContactApi.Core.Auth;
+using LupiraContactApi.Core.Data;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Core.Dtos.Contacts;
+using LupiraContactApi.Core.Mappers;
+using LupiraContactApi.Core.Serialization;
 using Marten;
 
-namespace LupiraContactApi.Application;
+namespace LupiraContactApi.Core.Application;
 
 /// <summary>Contact core shared by REST, the legacy sync gateway, and MCP. Event-sourced; a contact belongs to one
 /// address book. Mutations may carry an <c>Idempotency-Key</c> command id (see <see cref="Idempotency"/>) and an

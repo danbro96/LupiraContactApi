@@ -1,6 +1,6 @@
-using LupiraContactApi.Application;
+using LupiraContactApi.Core.Application;
 using LupiraContactApi.Auth;
-using LupiraContactApi.Dtos.Contacts;
+using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 

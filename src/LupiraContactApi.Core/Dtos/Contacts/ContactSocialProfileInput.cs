@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Dtos.Contacts;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
 /// <summary>A social/IM handle as submitted. <c>Url</c> is derived from the handle for well-known services when
 /// omitted; <c>Preferred</c> defaults to false.</summary>

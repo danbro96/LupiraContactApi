@@ -1,4 +1,4 @@
-namespace LupiraContactApi.Domain;
+namespace LupiraContactApi.Core.Domain;
 
 /// <summary>Canonicalizes a social/IM handle: service lowercased, handle trimmed (leading '@' stripped, except matrix
 /// where it is part of the id), and a profile URL derived for well-known services when none was given.

@@ -1,5 +1,5 @@
-using LupiraContactApi.Domain;
-using LupiraContactApi.Dtos.Internal;
+using LupiraContactApi.Core.Domain;
+using LupiraContactApi.Core.Dtos.Internal;
 using Marten;
 using Microsoft.AspNetCore.Http.HttpResults;
 
