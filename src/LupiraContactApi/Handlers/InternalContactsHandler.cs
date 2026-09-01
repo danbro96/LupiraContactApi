@@ -24,6 +24,38 @@ public sealed class InternalContactsHandler(IQuerySession session)
         });
     }
 
+    /// <summary>Descriptor material (name, nickname, pronouns, tags, notes, rendered relation lines) for
+    /// comms' contact directory — same ACL-free posture as resolve. Relation targets resolve to display
+    /// names in the same pass; ended relations and unresolvable targets are omitted.</summary>
+    public async Task<Results<Ok<DescribeContactsResponse>, BadRequest<string>>> DescribeAsync(DescribeContactsRequest body, CancellationToken ct)
+    {
+        if (body.ContactIds.Count > MaxIds) return TypedResults.BadRequest($"At most {MaxIds} ids per request.");
+        var ids = body.ContactIds.Distinct().ToList();
+        var found = await session.Query<Contact>().Where(c => ids.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct);
+
+        var targetIds = found.SelectMany(c => c.Relations).Where(r => !r.Ended).Select(r => r.ToContactId).Distinct().ToList();
+        var targets = targetIds.Count == 0
+            ? []
+            : (await session.Query<Contact>().Where(c => targetIds.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct))
+                .ToDictionary(c => c.Id, c => c.DisplayName);
+
+        return TypedResults.Ok(new DescribeContactsResponse
+        {
+            Contacts = [.. found.Select(c => new ContactDescriptionDto
+            {
+                ContactId = c.Id,
+                DisplayName = c.DisplayName,
+                Nickname = c.Nickname,
+                Pronouns = c.Pronouns,
+                Tags = c.Tags ?? [],
+                Notes = c.Notes,
+                Relations = [.. c.Relations
+                    .Where(r => !r.Ended && targets.ContainsKey(r.ToContactId))
+                    .Select(r => $"{r.Label ?? r.Kind.ToString().ToLowerInvariant()}: {targets[r.ToContactId]}")],
+            })],
+        });
+    }
+
     /// <summary>Every live, non-deceased contact that carries a birthday — cal-api synthesizes the Birthdays
     /// calendar from this (year-less birthdays recur on month-day only). Same ACL-free posture as resolve;
     /// family-scale, so filtered in memory.</summary>

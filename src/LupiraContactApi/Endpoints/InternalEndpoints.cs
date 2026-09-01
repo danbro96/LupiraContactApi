@@ -14,6 +14,12 @@ public static class InternalEndpoints
             .RequireAuthorization("InternalPolicy")
             .ExcludeFromDescription()
             .WithName("ResolveContact");
+        app.MapPost(
+            "/internal/contacts/describe",
+                (DescribeContactsRequest body, InternalContactsHandler h, CancellationToken ct) => h.DescribeAsync(body, ct))
+            .RequireAuthorization("InternalPolicy")
+            .ExcludeFromDescription()
+            .WithName("DescribeContacts");
         app.MapGet(
             "/internal/contacts/birthdays",
                 (InternalContactsHandler h, CancellationToken ct) => h.BirthdaysAsync(ct))
