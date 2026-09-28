@@ -18,7 +18,7 @@
          Application (services + OpResult), Dtos, Mappers, Serialization (hand-rolled vCard 3.0),
          Auth/AccessResolver. Marten is the event store + document store on Postgres.
          No ASP.NET dependency — that lives in the host. -->
-    <PackageReference Include="Marten" Version="9.10.0" />
+    <PackageReference Include="Marten" Version="9.40.0" />
   </ItemGroup>
 
 </Project>
