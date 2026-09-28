@@ -1148,6 +1148,124 @@
         ]
       }
     },
+    "/contacts/lookup": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Resolve contact ids to id + display name for contacts the caller can read (max 100). Unknown, deleted, or inaccessible ids are omitted — the existence check sibling services (cal-api attendees) run.",
+        "operationId": "LookupContacts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LookupContactsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactRef"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/birthdays": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Live, non-deceased contacts with a birthday across the caller's readable address books — the source of cal-api's Birthdays calendar. Year is null when only the month-day is known.",
+        "operationId": "ListContactBirthdays",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactBirthdayDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/contacts/{id}": {
       "get": {
         "tags": [
@@ -3473,6 +3591,40 @@
         ],
         "description": "Type of a contact's postal address."
       },
+      "ContactBirthdayDto": {
+        "required": [
+          "contactId",
+          "displayName",
+          "month",
+          "day"
+        ],
+        "type": "object",
+        "properties": {
+          "contactId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "month": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "day": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "A contact's birthday for cal-api's Birthdays calendar. int? ContactBirthdayDto.Year is null when only the\n            month-day is known (see PartialDate)."
+      },
       "ContactCircleDto": {
         "required": [
           "kind",
@@ -4319,6 +4471,21 @@
         "description": "A contact's membership in a group. `Role` is the title held in an organization (null for personal\n            groupings); `Since`/`Until` bound the tenure when known."
       },
       "JsonNode": { },
+      "LookupContactsRequest": {
+        "required": [
+          "contactIds"
+        ],
+        "type": "object",
+        "properties": {
+          "contactIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "MeDto": {
         "required": [
           "principalId",

@@ -1,6 +1,6 @@
-namespace LupiraContactApi.Core.Dtos.Internal;
+namespace LupiraContactApi.Core.Dtos.Contacts;
 
-/// <summary>A contact's birthday for the cal-api Birthdays projection. <see cref="Year"/> is null when only the
+/// <summary>A contact's birthday for cal-api's Birthdays calendar. <see cref="Year"/> is null when only the
 /// month-day is known (see <see cref="Domain.Shared.PartialDate"/>).</summary>
 public sealed class ContactBirthdayDto
 {

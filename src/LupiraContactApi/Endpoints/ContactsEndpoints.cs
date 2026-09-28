@@ -46,6 +46,17 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        group.MapPost("/lookup", (LookupContactsRequest body, ContactsHandler h, CancellationToken ct) => h.LookupAsync(body, ct))
+            .WithName("LookupContacts")
+            .WithSummary("Resolve contact ids to id + display name for contacts the caller can read (max 100). Unknown, deleted, or inaccessible ids are omitted — the existence check sibling services (cal-api attendees) run.")
+            .Produces<List<ContactRef>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        group.MapGet("/birthdays", (ContactsHandler h, CancellationToken ct) => h.BirthdaysAsync(ct))
+            .WithName("ListContactBirthdays")
+            .WithSummary("Live, non-deceased contacts with a birthday across the caller's readable address books — the source of cal-api's Birthdays calendar. Year is null when only the month-day is known.")
+            .Produces<List<ContactBirthdayDto>>(StatusCodes.Status200OK);
+
         group.MapGet("/{id:guid}", (Guid id, ContactsHandler h, CancellationToken ct) => h.GetAsync(id, ct))
             .WithName("GetContact")
             .WithSummary("Get a single contact.")

@@ -194,6 +194,41 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return OpResult<List<ContactNameMatch>>.Ok(results);
     }
 
+    /// <summary>Id → display name for the requested contacts the caller can read. Unknown, deleted and
+    /// inaccessible ids are omitted — the existence check sibling services (cal-api attendees) run.</summary>
+    public async Task<OpResult<List<ContactRef>>> LookupAsync(Guid principalId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return OpResult<List<ContactRef>>.Invalid("At least one contact id is required.");
+        if (ids.Count > MaxBatch) return OpResult<List<ContactRef>>.Invalid($"At most {MaxBatch} ids per request.");
+
+        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
+        var wanted = ids.Distinct().ToList();
+        var found = await session.Query<Contact>().Where(c => wanted.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct);
+        return OpResult<List<ContactRef>>.Ok([.. found
+            .Where(c => bookIds.Contains(c.AddressBookId))
+            .OrderBy(c => c.SortName)
+            .Select(c => new ContactRef { ContactId = c.Id, DisplayName = c.DisplayName })]);
+    }
+
+    /// <summary>Live, non-deceased contacts with a birthday across the caller's readable address books — the source
+    /// of cal-api's synthesized Birthdays calendar. Year-less birthdays recur on month-day only.</summary>
+    public async Task<OpResult<List<ContactBirthdayDto>>> BirthdaysAsync(Guid principalId, CancellationToken ct = default)
+    {
+        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
+        var live = await session.Query<Contact>().Where(c => c.DeletedAt == null && !c.Deceased).ToListAsync(ct);
+        return OpResult<List<ContactBirthdayDto>>.Ok([.. live
+            .Where(c => c.Birthday is not null && bookIds.Contains(c.AddressBookId))
+            .OrderBy(c => c.Birthday!.Month).ThenBy(c => c.Birthday!.Day).ThenBy(c => c.SortName)
+            .Select(c => new ContactBirthdayDto
+            {
+                ContactId = c.Id,
+                DisplayName = c.DisplayName,
+                Year = c.Birthday!.Year,
+                Month = c.Birthday.Month,
+                Day = c.Birthday.Day,
+            })]);
+    }
+
     // Ported from LupiraAssistantApi ContactResolveStrategy.Norm: lowercase + collapse whitespace.
     private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
 
