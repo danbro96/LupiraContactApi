@@ -1,5 +1,4 @@
 using LupiraContactApi.Core.Domain.Contacts;
-using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
 using Marten;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -53,25 +52,6 @@ public sealed class InternalContactsHandler(IQuerySession session)
                 Relations = [.. c.Relations
                     .Where(r => !r.Ended && targets.ContainsKey(r.ToContactId))
                     .Select(r => $"{r.Label ?? r.Kind.ToString().ToLowerInvariant()}: {targets[r.ToContactId]}")],
-            })],
-        });
-    }
-
-    /// <summary>Every live, non-deceased contact that carries a birthday — cal-api synthesizes the Birthdays
-    /// calendar from this (year-less birthdays recur on month-day only). Same ACL-free posture as resolve;
-    /// family-scale, so filtered in memory.</summary>
-    public async Task<Ok<ContactBirthdaysResponse>> BirthdaysAsync(CancellationToken ct)
-    {
-        var live = await session.Query<Contact>().Where(c => c.DeletedAt == null && !c.Deceased).ToListAsync(ct);
-        return TypedResults.Ok(new ContactBirthdaysResponse
-        {
-            Contacts = [.. live.Where(c => c.Birthday is not null).Select(c => new ContactBirthdayDto
-            {
-                ContactId = c.Id,
-                DisplayName = c.DisplayName,
-                Year = c.Birthday!.Year,
-                Month = c.Birthday.Month,
-                Day = c.Birthday.Day,
             })],
         });
     }

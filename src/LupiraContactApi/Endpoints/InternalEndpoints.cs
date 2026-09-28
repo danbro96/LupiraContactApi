@@ -20,12 +20,6 @@ public static class InternalEndpoints
             .RequireAuthorization("InternalPolicy")
             .ExcludeFromDescription()
             .WithName("DescribeContacts");
-        app.MapGet(
-            "/internal/contacts/birthdays",
-                (InternalContactsHandler h, CancellationToken ct) => h.BirthdaysAsync(ct))
-            .RequireAuthorization("InternalPolicy")
-            .ExcludeFromDescription()
-            .WithName("ListBirthdays");
         app.MapPost(
             "/internal/contacts/place-references:check",
                 (CheckPlaceReferencesRequest body, InternalContactsHandler h, CancellationToken ct) => h.CheckPlaceReferencesAsync(body, ct))

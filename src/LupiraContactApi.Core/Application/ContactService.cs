@@ -72,15 +72,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     public async Task<OpResult<List<ContactDto>>> QueryAsync(Guid principalId, string? query, Guid? addressBookId, CancellationToken ct = default)
     {
-        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
-        if (addressBookId is { } abid)
-        {
-            if (!bookIds.Contains(abid)) return OpResult<List<ContactDto>>.Forbidden("No access to this address book.");
-            bookIds = [abid];
-        }
+        if (await ReadableLiveContactsAsync(principalId, addressBookId, ct) is not { } readable)
+            return OpResult<List<ContactDto>>.Forbidden("No access to this address book.");
 
-        var candidates = await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct);
-        var contacts = candidates.Where(c => bookIds.Contains(c.AddressBookId));
+        IEnumerable<Contact> contacts = await readable.ToListAsync(ct);
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
@@ -137,15 +132,10 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (names.Count == 0) return OpResult<List<ContactNameMatch>>.Invalid("At least one name is required.");
         if (names.Count > MaxBatch) return OpResult<List<ContactNameMatch>>.Invalid($"At most {MaxBatch} names per batch.");
 
-        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
-        if (addressBookId is { } abid)
-        {
-            if (!bookIds.Contains(abid)) return OpResult<List<ContactNameMatch>>.Forbidden("No access to this address book.");
-            bookIds = [abid];
-        }
+        if (await ReadableLiveContactsAsync(principalId, addressBookId, ct) is not { } readable)
+            return OpResult<List<ContactNameMatch>>.Forbidden("No access to this address book.");
 
-        var pool = (await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct))
-            .Where(c => bookIds.Contains(c.AddressBookId)).ToList();
+        var pool = await readable.ToListAsync(ct);
 
         const int maxCandidates = 5;
         var results = new List<ContactNameMatch>(names.Count);
@@ -201,11 +191,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (ids.Count == 0) return OpResult<List<ContactRef>>.Invalid("At least one contact id is required.");
         if (ids.Count > MaxBatch) return OpResult<List<ContactRef>>.Invalid($"At most {MaxBatch} ids per request.");
 
-        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
         var wanted = ids.Distinct().ToList();
-        var found = await session.Query<Contact>().Where(c => wanted.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct);
+        var found = await (await ReadableLiveContactsAsync(principalId, ct)).Where(c => wanted.Contains(c.Id)).ToListAsync(ct);
         return OpResult<List<ContactRef>>.Ok([.. found
-            .Where(c => bookIds.Contains(c.AddressBookId))
             .OrderBy(c => c.SortName)
             .Select(c => new ContactRef { ContactId = c.Id, DisplayName = c.DisplayName })]);
     }
@@ -214,10 +202,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     /// of cal-api's synthesized Birthdays calendar. Year-less birthdays recur on month-day only.</summary>
     public async Task<OpResult<List<ContactBirthdayDto>>> BirthdaysAsync(Guid principalId, CancellationToken ct = default)
     {
-        var bookIds = await access.AccessibleAddressBookIdsAsync(principalId, ct);
-        var live = await session.Query<Contact>().Where(c => c.DeletedAt == null && !c.Deceased).ToListAsync(ct);
-        return OpResult<List<ContactBirthdayDto>>.Ok([.. live
-            .Where(c => c.Birthday is not null && bookIds.Contains(c.AddressBookId))
+        var withBirthday = await (await ReadableLiveContactsAsync(principalId, ct))
+            .Where(c => !c.Deceased && c.Birthday != null).ToListAsync(ct);
+        return OpResult<List<ContactBirthdayDto>>.Ok([.. withBirthday
             .OrderBy(c => c.Birthday!.Month).ThenBy(c => c.Birthday!.Day).ThenBy(c => c.SortName)
             .Select(c => new ContactBirthdayDto
             {
@@ -228,6 +215,18 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
                 Day = c.Birthday.Day,
             })]);
     }
+
+    private async Task<IQueryable<Contact>> ReadableLiveContactsAsync(Guid principalId, CancellationToken ct) =>
+        LiveContactsIn(await access.AccessibleAddressBookIdsAsync(principalId, ct));
+
+    // Null when addressBookId is given but not readable by the principal.
+    private async Task<IQueryable<Contact>?> ReadableLiveContactsAsync(Guid principalId, Guid? addressBookId, CancellationToken ct) =>
+        addressBookId is not { } abid ? await ReadableLiveContactsAsync(principalId, ct)
+        : await access.CanReadAddressBookAsync(principalId, abid, ct) ? LiveContactsIn([abid])
+        : null;
+
+    private IQueryable<Contact> LiveContactsIn(List<Guid> bookIds) =>
+        session.Query<Contact>().Where(c => c.DeletedAt == null && bookIds.Contains(c.AddressBookId));
 
     // Ported from LupiraAssistantApi ContactResolveStrategy.Norm: lowercase + collapse whitespace.
     private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));

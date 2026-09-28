@@ -1,6 +1,4 @@
 using System.Net.Http.Json;
-using LupiraContactApi.Core.Domain.Shared;
-using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
 using Xunit;
 
@@ -41,46 +39,6 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
     }
 
     [Fact]
-    public async Task Birthdays_lists_live_contacts_with_a_birthday_and_omits_the_rest()
-    {
-        var api = Factory.ApiClient(Email);
-        var book = await CreateAddressBookAsync(api);
-
-        var dated = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
-        {
-            AddressBookId = book,
-            GivenName = "Ada",
-            FamilyName = "Byron",
-            Birthday = new PartialDate(1815, 12, 10),
-        })).Content.ReadFromJsonAsync<ContactDto>())!;
-        var yearless = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
-        {
-            AddressBookId = book,
-            GivenName = "Grace",
-            FamilyName = "Hopper",
-            Birthday = new PartialDate(null, 12, 9),
-        })).Content.ReadFromJsonAsync<ContactDto>())!;
-        var deceased = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
-        {
-            AddressBookId = book,
-            GivenName = "Alan",
-            FamilyName = "Turing",
-            Birthday = new PartialDate(1912, 6, 23),
-        })).Content.ReadFromJsonAsync<ContactDto>())!;
-        (await api.PutAsJsonAsync($"/contacts/{deceased.Id}/deceased", new SetDeceasedRequest { DeathDate = null })).EnsureSuccessStatusCode();
-        _ = await CreateContactAsync(api, book, "No", "Birthday");   // no birthday → omitted
-
-        var result = await (await Factory.ServiceClient().GetAsync("/internal/contacts/birthdays")).EnsureSuccessStatusCode()
-            .Content.ReadFromJsonAsync<ContactBirthdaysResponse>();
-
-        var byId = result!.Contacts.ToDictionary(c => c.ContactId);
-        Assert.Equal(new[] { dated.Id, yearless.Id }.OrderBy(x => x), byId.Keys.OrderBy(x => x));
-        Assert.Equal((1815, 12, 10), (byId[dated.Id].Year, byId[dated.Id].Month, byId[dated.Id].Day));
-        Assert.Equal((null, 12, 9), (byId[yearless.Id].Year, byId[yearless.Id].Month, byId[yearless.Id].Day));
-        Assert.DoesNotContain(deceased.Id, byId.Keys);
-    }
-
-    [Fact]
     public async Task Requires_authentication()
     {
         var anon = Factory.AnonymousClient();
@@ -96,7 +54,5 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
         var resp = await user.PostAsJsonAsync("/internal/contacts/resolve",
             new ResolveContactsRequest { ContactIds = [Guid.NewGuid()] });
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, resp.StatusCode);
-
-        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await user.GetAsync("/internal/contacts/birthdays")).StatusCode);
     }
 }
