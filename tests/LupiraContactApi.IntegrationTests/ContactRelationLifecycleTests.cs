@@ -6,17 +6,17 @@ using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
 
-/// <summary>Relation lifecycle beyond add/remove: ending an edge (vs erasing a mistake), revival on re-add,
+/// <summary>Relation lifecycle beyond add/remove: ending a relationship (vs erasing a mistake) from either side, revival on re-add,
 /// the parentage-cycle guard, and the ordered emergency-contact designation with its RELATED;TYPE=emergency round-trip.</summary>
 public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory) : IntegrationTest(factory)
 {
     const string Email = "alice@x.test";
 
-    static async Task<ContactDto> AddRelationAsync(HttpClient api, Guid contactId, Guid toContactId, ContactRelationKind kind)
+    static async Task<ContactRelationEntryDto> AddRelationAsync(HttpClient api, Guid contactId, Guid toContactId, ContactRelationKind kind)
     {
         var resp = await api.PostAsJsonAsync($"/contacts/{contactId}/relations", new AddContactRelationRequest { ToContactId = toContactId, Kind = kind });
         resp.EnsureSuccessStatusCode();
-        return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+        return (await resp.Content.ReadFromJsonAsync<ContactRelationEntryDto>())!;
     }
 
     static async Task<HttpResponseMessage> EndRelationAsync(HttpClient api, Guid contactId, Guid toContactId, ContactRelationKind kind, DateOnly? until = null) =>
@@ -36,13 +36,13 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         var inferred = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{focus.Id}/relations?includeInferred=true");
         Assert.Contains(inferred!, e => e.ContactId == sib.Id && e.Kind == ContactRelationKind.Sibling);
 
-        var end = await EndRelationAsync(api, focus.Id, parent.Id, ContactRelationKind.Parent, new DateOnly(2024, 6, 1));
+        // Ended from the parent's side, though the copy is held on the child's.
+        var before = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{focus.Id}"))!.Etag;
+        var end = await EndRelationAsync(api, parent.Id, focus.Id, ContactRelationKind.Child, new DateOnly(2024, 6, 1));
         end.EnsureSuccessStatusCode();
-        var dto = (await end.Content.ReadFromJsonAsync<ContactDto>())!;
-        var edge = Assert.Single(dto.Relations);
-        Assert.True(edge.Ended);
-        Assert.Equal(new DateOnly(2024, 6, 1), edge.Until);
-        Assert.NotEqual(focus.Etag, dto.Etag);
+        var ended = (await end.Content.ReadFromJsonAsync<ContactRelationEntryDto>())!;
+        Assert.Equal((focus.Id, true, new DateOnly(2024, 6, 1)), (ended.ContactId, ended.Ended, ended.Until));
+        Assert.NotEqual(before, (await api.GetFromJsonAsync<ContactDto>($"/contacts/{focus.Id}"))!.Etag);
 
         // Still listed (flagged), but no longer feeding inference.
         var listed = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{focus.Id}/relations?includeInferred=true");
@@ -61,10 +61,11 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Spouse);
         (await EndRelationAsync(api, a.Id, b.Id, ContactRelationKind.Spouse)).EnsureSuccessStatusCode();
 
-        var revived = await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Spouse);   // remarried
-        var edge = Assert.Single(revived.Relations);
+        var revived = await AddRelationAsync(api, b.Id, a.Id, ContactRelationKind.Spouse);   // remarried, told from the other side
+        Assert.False(revived.Ended);
+        Assert.Null(revived.Until);
+        var edge = Assert.Single((await api.GetFromJsonAsync<ContactDto>($"/contacts/{a.Id}"))!.Relations);
         Assert.False(edge.Ended);
-        Assert.Null(edge.Until);
     }
 
     [Fact]

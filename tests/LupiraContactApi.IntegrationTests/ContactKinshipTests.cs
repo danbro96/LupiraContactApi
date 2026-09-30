@@ -13,12 +13,10 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
 {
     const string Email = "alice@x.test";
 
-    static async Task<ContactDto> AddRelationAsync(HttpClient api, Guid contactId, Guid toContactId, ContactRelationKind kind)
-    {
-        var resp = await api.PostAsJsonAsync($"/contacts/{contactId}/relations", new AddContactRelationRequest { ToContactId = toContactId, Kind = kind });
-        resp.EnsureSuccessStatusCode();
-        return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
-    }
+    static async Task AddRelationAsync(HttpClient api, Guid contactId, Guid toContactId, ContactRelationKind kind) =>
+        (await api.PostAsJsonAsync($"/contacts/{contactId}/relations", new AddContactRelationRequest { ToContactId = toContactId, Kind = kind })).EnsureSuccessStatusCode();
+
+    static async Task<ContactDto> RawAsync(HttpClient api, Guid id) => (await api.GetFromJsonAsync<ContactDto>($"/contacts/{id}"))!;
 
     static async Task<List<ContactRelationEntryDto>> RelationsAsync(HttpClient api, Guid id, bool inferred = false) =>
         (await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{id}/relations?includeInferred={inferred}"))!;
@@ -33,12 +31,11 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
         var sib = await CreateContactAsync(api, ab, "Sam", "Sibling");
 
         await AddRelationAsync(api, child.Id, parent.Id, ContactRelationKind.Parent);   // child's parent is known
-        var afterSibling = await AddRelationAsync(api, child.Id, sib.Id, ContactRelationKind.Sibling);
+        await AddRelationAsync(api, child.Id, sib.Id, ContactRelationKind.Sibling);
 
         // The explicit Sibling edge is stored as-is; the sibling is NOT given a fabricated parent.
-        Assert.Contains(afterSibling.Relations, r => r.ToContactId == sib.Id && r.Kind == ContactRelationKind.Sibling);
-        var sibRaw = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{sib.Id}"))!;
-        Assert.DoesNotContain(sibRaw.Relations, r => r.ToContactId == parent.Id);   // no invented parentage
+        Assert.Contains((await RawAsync(api, child.Id)).Relations, r => r.ToContactId == sib.Id && r.Kind == ContactRelationKind.Sibling);
+        Assert.DoesNotContain((await RawAsync(api, sib.Id)).Relations, r => r.ToContactId == parent.Id);   // no invented parentage
 
         // The explicit edge resolves as a Sibling relation (surfaced explicitly, not inferred).
         Assert.Contains(await RelationsAsync(api, child.Id),
@@ -55,12 +52,11 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
         var parent = await CreateContactAsync(api, ab, "Pat", "Parent");
 
         await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Sibling);
-        var afterParent = await AddRelationAsync(api, a.Id, parent.Id, ContactRelationKind.Parent);
+        await AddRelationAsync(api, a.Id, parent.Id, ContactRelationKind.Parent);
 
         // The explicit Sibling edge survives; B does not inherit A's parent.
-        Assert.Contains(afterParent.Relations, r => r.ToContactId == b.Id && r.Kind == ContactRelationKind.Sibling);
-        var bRaw = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{b.Id}"))!;
-        Assert.DoesNotContain(bRaw.Relations, r => r.ToContactId == parent.Id);
+        Assert.Contains((await RawAsync(api, a.Id)).Relations, r => r.ToContactId == b.Id && r.Kind == ContactRelationKind.Sibling);
+        Assert.DoesNotContain((await RawAsync(api, b.Id)).Relations, r => r.ToContactId == parent.Id);
     }
 
     [Fact]
@@ -89,17 +85,15 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
 
         await AddRelationAsync(api, focus.Id, grandma.Id, ContactRelationKind.Grandparent);
 
-        // Outgoing shows Grandparent; the incoming view on the grandmother shows the derived Grandchild inverse.
-        Assert.Contains(await RelationsAsync(api, focus.Id),
-            e => e.ContactId == grandma.Id && e.Kind == ContactRelationKind.Grandparent && e.Direction == ContactRelationDirection.Outgoing);
-        Assert.Contains(await RelationsAsync(api, grandma.Id),
-            e => e.ContactId == focus.Id && e.Kind == ContactRelationKind.Grandchild && e.Direction == ContactRelationDirection.Incoming);
+        // The grandmother sees the same relationship as Grandchild.
+        Assert.Contains(await RelationsAsync(api, focus.Id), e => e.ContactId == grandma.Id && e.Kind == ContactRelationKind.Grandparent);
+        Assert.Contains(await RelationsAsync(api, grandma.Id), e => e.ContactId == focus.Id && e.Kind == ContactRelationKind.Grandchild);
 
         // And it survives a CardDAV GET → PUT round-trip (TYPE=grandparent).
         var vcf = await api.GetStringAsync($"/dav-backend/u/{Uri.EscapeDataString(Email)}/collections/{ab}/resources/{focus.ExternalId}");
         Assert.Contains($"RELATED;TYPE=grandparent:urn:uuid:{grandma.Id:D}", vcf);
         (await PutVcfAsync(api, Email, ab, focus.ExternalId, vcf)).EnsureSuccessStatusCode();
-        Assert.Contains((await api.GetFromJsonAsync<ContactDto>($"/contacts/{focus.Id}"))!.Relations,
+        Assert.Contains((await RawAsync(api, focus.Id)).Relations,
             r => r.ToContactId == grandma.Id && r.Kind == ContactRelationKind.Grandparent);
     }
 

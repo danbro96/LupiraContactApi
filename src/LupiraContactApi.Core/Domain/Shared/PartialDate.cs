@@ -4,8 +4,7 @@ namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>A calendar date that may omit the year — a birthday is often known only as a month-day.
 /// <see cref="Month"/> and <see cref="Day"/> are always present; <see cref="Year"/> is null when unknown.
-/// Canonical text is <c>yyyy-MM-dd</c> with a year, else <c>--MM-dd</c> (a serialization concern; wire formats
-/// live at the seam, see <see cref="Serialization.VCardSerializer"/>).</summary>
+/// Canonical text is <c>yyyy-MM-dd</c> with a year, else <c>--MM-dd</c>; other wire formats are the serializers' concern.</summary>
 public sealed record PartialDate(int? Year, int Month, int Day)
 {
     /// <summary>The full date when the year is known, else null.</summary>

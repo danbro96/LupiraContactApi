@@ -81,19 +81,19 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
         return OpResultMap.OkNotFoundProblem(await contacts.ListRelationsAsync(u.Id, id, includeInferred, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AddRelationAsync(Guid id, AddContactRelationRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactRelationEntryDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AddRelationAsync(Guid id, AddContactRelationRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
         return OpResultMap.OkNotFoundProblem(await contacts.AddRelationAsync(u.Id, id, body, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> RemoveRelationAsync(Guid id, Guid toContactId, ContactRelationKind kind, CancellationToken ct)
+    public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> RemoveRelationAsync(Guid id, Guid toContactId, ContactRelationKind kind, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.RemoveRelationAsync(u.Id, id, toContactId, kind, ct));
+        return OpResultMap.NoContentNotFoundProblem(await contacts.RemoveRelationAsync(u.Id, id, toContactId, kind, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> EndRelationAsync(Guid id, Guid toContactId, EndContactRelationRequest body, CancellationToken ct)
+    public async Task<Results<Ok<ContactRelationEntryDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> EndRelationAsync(Guid id, Guid toContactId, EndContactRelationRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
         return OpResultMap.OkNotFoundProblem(await contacts.EndRelationAsync(u.Id, id, toContactId, body.Kind, body.Until, ct));

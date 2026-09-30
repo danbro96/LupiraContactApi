@@ -1772,7 +1772,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Undo a deceased marking recorded in error. (CardDAV can set but never clear deceased — clearing is API-only.)",
+        "summary": "Undo a deceased marking recorded in error — the only way to clear it.",
         "operationId": "ClearContactDeceased",
         "parameters": [
           {
@@ -2470,7 +2470,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Resolved relations, both directions: each entry's kind is the other contact's role relative to this one (incoming = derived inverse). Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), tagged Provenance=Inferred.",
+        "summary": "The contact's relationships, identical whichever side stores them: each entry's kind is the other contact's role relative to this one and its label this contact's own name for them. Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), tagged Provenance=Inferred.",
         "operationId": "ListContactRelations",
         "parameters": [
           {
@@ -2555,7 +2555,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Upsert a relation: 'toContactId is this contact's kind' (re-adding the same target+kind revises the label).",
+        "summary": "Upsert a relationship from either side: 'toContactId is this contact's kind'. The label is this contact's own name for the other; since and note are shared. Re-adding revises it and revives an ended one.",
         "operationId": "AddContactRelation",
         "parameters": [
           {
@@ -2584,7 +2584,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactDto"
+                  "$ref": "#/components/schemas/ContactRelationEntryDto"
                 }
               }
             }
@@ -2652,7 +2652,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Remove the relation edge to a contact with the given kind — for edges entered by mistake. A relationship that ran its course should be ended instead.",
+        "summary": "Remove a relationship entered by mistake, from either side. A relationship that ran its course should be ended instead.",
         "operationId": "RemoveContactRelation",
         "parameters": [
           {
@@ -2683,15 +2683,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ContactDto"
-                }
-              }
-            }
+          "204": {
+            "description": "No Content"
           },
           "404": {
             "description": "Not Found",
@@ -2746,7 +2739,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Mark a relation as ended (ex-spouse, falling-out): the edge stays, flagged with an optional end date, and no longer asserts current kinship. Re-adding the same relation revives it.",
+        "summary": "Mark a relationship as ended, from either side (ex-spouse, falling-out): it stays, flagged with an optional end date, and no longer asserts current kinship. Re-adding it revives it.",
         "operationId": "EndContactRelation",
         "parameters": [
           {
@@ -2784,7 +2777,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactDto"
+                  "$ref": "#/components/schemas/ContactRelationEntryDto"
                 }
               }
             }
@@ -3444,7 +3437,7 @@
               "null",
               "string"
             ],
-            "description": "Free-text refinement of the kind, e.g. \"dad\"."
+            "description": "This contact's own name for the other, e.g. \"dad\". The other side keeps its own."
           },
           "since": {
             "type": [
@@ -3459,10 +3452,10 @@
               "null",
               "string"
             ],
-            "description": "Free-text note about the edge (how/where it started); fuzzy periods that aren't a precise date go here."
+            "description": "Free-text note about the relationship (how/where it started); fuzzy periods that aren't a precise date go here."
           }
         },
-        "description": "Upserts a directed relation edge on a contact: \"Guid AddContactRelationRequest.ToContactId is this contact's ContactRelationKind AddContactRelationRequest.Kind\"."
+        "description": "Upserts a relationship from either side: \"Guid AddContactRelationRequest.ToContactId is this contact's ContactRelationKind AddContactRelationRequest.Kind\"."
       },
       "AddressBookDto": {
         "required": [
@@ -3920,7 +3913,7 @@
           "Individual",
           "Organization"
         ],
-        "description": "What the contact card represents — vCard `KIND`. A business/venue (a provider referenced from\n            bookings, say) is an `Organization`: no birthday, employer, or kinship applies. `Individual` is ordinal 0\n            so pre-existing events replay as persons."
+        "description": "What the contact card represents. A business/venue (a provider referenced from\n            bookings, say) is an `Organization`: no birthday, employer, or kinship applies. `Individual` is ordinal 0\n            so pre-existing events replay as persons."
       },
       "ContactNameMatch": {
         "required": [
@@ -4032,12 +4025,6 @@
         },
         "description": "A lightweight contact reference (id + display name) — a resolve candidate."
       },
-      "ContactRelationDirection": {
-        "enum": [
-          "Outgoing",
-          "Incoming"
-        ]
-      },
       "ContactRelationDto": {
         "required": [
           "toContactId",
@@ -4087,14 +4074,13 @@
             "format": "date"
           }
         },
-        "description": "One outgoing relation edge as published: \"the `ToContactId` contact is my `Kind`\".\n            `Ended`/`Until` mark a relationship that ran its course, distinct from removal."
+        "description": "A relation copy this contact's own record holds: \"the `ToContactId` contact is my `Kind`\". Storage, not the\n            relationship — the other side may hold a copy too, so render `GET /contacts/{id}/relations`, which merges both.\n            `Ended`/`Until` mark a relationship that ran its course."
       },
       "ContactRelationEntryDto": {
         "required": [
           "contactId",
           "displayName",
-          "kind",
-          "direction"
+          "kind"
         ],
         "type": "object",
         "properties": {
@@ -4119,7 +4105,7 @@
               "null",
               "string"
             ],
-            "description": "When the relationship began, on outgoing edges where a precise date is known.",
+            "description": "When the relationship began, if a precise date is known.",
             "format": "date"
           },
           "note": {
@@ -4127,17 +4113,14 @@
               "null",
               "string"
             ],
-            "description": "Free-text note about the edge, on outgoing edges."
-          },
-          "direction": {
-            "$ref": "#/components/schemas/ContactRelationDirection"
+            "description": "Free-text note about the relationship."
           },
           "provenance": {
             "$ref": "#/components/schemas/RelationProvenance"
           },
           "ended": {
             "type": "boolean",
-            "description": "The relationship ran its course (ex-spouse); the edge remains for history but asserts no current kinship."
+            "description": "The relationship ran its course (ex-spouse); it remains for history but asserts no current kinship."
           },
           "until": {
             "type": [
@@ -4147,7 +4130,7 @@
             "format": "date"
           }
         },
-        "description": "One resolved relation as seen from the viewed contact: ContactRelationKind ContactRelationEntryDto.Kind is always the OTHER contact's role\n            relative to the viewed one (incoming edges show the derived inverse kind, and their label — the other side's phrasing — is omitted).\n            RelationProvenance ContactRelationEntryDto.Provenance distinguishes stored edges from kin derived off the parent/child graph (returned only when inferred relations are requested)."
+        "description": "One relationship as seen from the viewed contact, identical whichever side stores it. ContactRelationKind ContactRelationEntryDto.Kind is the OTHER\n            contact's role relative to the viewed one and string? ContactRelationEntryDto.Label the viewed contact's own name for them; since, note and the\n            ended flag belong to the relationship and read the same from both sides. RelationProvenance ContactRelationEntryDto.Provenance distinguishes stored\n            relationships from kin derived off the parent/child graph (returned only when inferred relations are requested)."
       },
       "ContactRelationKind": {
         "enum": [
@@ -4581,7 +4564,7 @@
             "format": "int32"
           }
         },
-        "description": "A calendar date that may omit the year — a birthday is often known only as a month-day.\n            int PartialDate.Month and int PartialDate.Day are always present; int? PartialDate.Year is null when unknown.\n            Canonical text is `yyyy-MM-dd` with a year, else `--MM-dd` (a serialization concern; wire formats\n            live at the seam, see VCardSerializer)."
+        "description": "A calendar date that may omit the year — a birthday is often known only as a month-day.\n            int PartialDate.Month and int PartialDate.Day are always present; int? PartialDate.Year is null when unknown.\n            Canonical text is `yyyy-MM-dd` with a year, else `--MM-dd`; other wire formats are the serializers' concern."
       },
       "PingDto": {
         "required": [

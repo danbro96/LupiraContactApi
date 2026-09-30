@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using LupiraContactApi.Core.Domain.Completeness;
 using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Dtos.Contacts;
 
 namespace LupiraContactApi.Core.Mappers;
@@ -60,6 +61,18 @@ internal static class ContactMapper
         Note = r.Note,
         Ended = r.Ended,
         Until = r.Until,
+    };
+
+    public static ContactRelationEntryDto ToEntry(this ResolvedRelation v, Contact other) => new()
+    {
+        ContactId = other.Id,
+        DisplayName = other.DisplayName,
+        Kind = v.Kind,
+        Label = v.Label,
+        Since = v.Since,
+        Note = v.Note,
+        Ended = v.Ended,
+        Until = v.Until,
     };
 
     public static ContactSocialProfile ToDomain(this ContactSocialProfileInput p) => new()

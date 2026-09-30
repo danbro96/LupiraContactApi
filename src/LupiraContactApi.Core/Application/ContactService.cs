@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using JasperFx.Events;
 using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
@@ -7,6 +8,7 @@ using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Domain.Inference;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Mappers;
@@ -523,79 +525,88 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
-    // ---- Relations (directed edges on the from-contact's stream; see ContactRelation) ----
+    // ---- Relations (a copy per side, merged by RelationResolver so no surface shows which side holds it; see docs/relationships.md) ----
 
-    /// <summary>Upserts "<c>r.ToContactId</c> is this contact's <c>r.Kind</c>" (re-adding the same key revises the label and revives an ended edge).
-    /// Requires write on this contact's book and read on the target's; the import path is deliberately laxer (no target check).
-    /// Parent/child adds are refused when they would make someone their own ancestor. Sibling edges are stored as-is —
-    /// shared-parentage siblinghood is derived on read (<see cref="KinshipInference"/>), never fabricated on write.</summary>
-    public async Task<OpResult<ContactDto>> AddRelationAsync(Guid principalId, Guid id, AddContactRelationRequest r, CancellationToken ct = default)
+    /// <summary>Upserts "<c>r.ToContactId</c> is this contact's <c>r.Kind</c>" from either side. The label is this contact's own name for
+    /// the other, so it lives on this contact's copy; since/note go to every copy, and re-adding revives an ended relationship. A first
+    /// unlabelled relationship lands on whichever side the caller can write. Requires read on both contacts and write on each copy it
+    /// changes; the import path is deliberately laxer (no target check). Parent/child adds are refused when they would make someone
+    /// their own ancestor. Sibling edges are stored as-is — shared-parentage siblinghood is derived on read (<see cref="KinshipInference"/>).</summary>
+    public async Task<OpResult<ContactRelationEntryDto>> AddRelationAsync(Guid principalId, Guid id, AddContactRelationRequest r, CancellationToken ct = default)
     {
-        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
-        var c = stream.Aggregate;
-        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
-        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
-        if (r.ToContactId == id) return OpResult<ContactDto>.Invalid("A contact cannot relate to itself.");
-
-        var target = await session.LoadAsync<Contact>(r.ToContactId, ct);
-        if (target is null || target.DeletedAt is not null) return OpResult<ContactDto>.Invalid("Related contact not found.");
-        if (!await access.CanReadAddressBookAsync(principalId, target.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No access to the related contact.");
+        if (r.ToContactId == id) return OpResult<ContactRelationEntryDto>.Invalid("A contact cannot relate to itself.");
+        var self = await session.Events.FetchForWriting<Contact>(id, ct);
+        if (self.Aggregate is not { DeletedAt: null } c) return OpResult<ContactRelationEntryDto>.NotFound();
+        if (!await access.CanReadAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactRelationEntryDto>.Forbidden("No access to this contact.");
+        var other = await session.Events.FetchForWriting<Contact>(r.ToContactId, ct);
+        if (other.Aggregate is not { DeletedAt: null } o) return OpResult<ContactRelationEntryDto>.Invalid("Related contact not found.");
+        if (!await access.CanReadAddressBookAsync(principalId, o.AddressBookId, ct)) return OpResult<ContactRelationEntryDto>.Forbidden("No access to the related contact.");
 
         if (r.Kind is ContactRelationKind.Parent or ContactRelationKind.Child)
         {
             var (childId, parentId) = r.Kind == ContactRelationKind.Parent ? (id, r.ToContactId) : (r.ToContactId, id);
             var live = await session.Query<Contact>().Where(x => x.DeletedAt == null).ToListAsync(ct);
             if (KinshipInference.WouldCreateParentCycle(childId, parentId, live))
-                return OpResult<ContactDto>.Invalid("Would create a parentage cycle.");
+                return OpResult<ContactRelationEntryDto>.Invalid("Would create a parentage cycle.");
         }
 
         var label = string.IsNullOrWhiteSpace(r.Label) ? null : r.Label.Trim();
         var note = string.IsNullOrWhiteSpace(r.Note) ? null : r.Note.Trim();
-        if (c.Relations.Any(x => x.ToContactId == r.ToContactId && x.Kind == r.Kind && x.Label == label && x.Since == r.Since && x.Note == note && !x.Ended))
-            return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));   // identical live edge: no event, no ETag churn
+        var own = c.Relations.FirstOrDefault(x => x.ToContactId == o.Id && x.Kind == r.Kind);
+        var theirs = o.Relations.FirstOrDefault(x => x.ToContactId == id && x.Kind == r.Kind.Inverse());
+        var canWriteSelf = await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct);
+        var placeOnTheirs = own is null && theirs is null && label is null && !canWriteSelf;
+        var writeOwn = !placeOnTheirs && (own is not null || label is not null || theirs is null) && Differs(own, label, r.Since, note);
+        var writeTheirs = (theirs is not null || placeOnTheirs) && Differs(theirs, theirs?.Label, r.Since, note);
+        if (!writeOwn && !writeTheirs) return OpResult<ContactRelationEntryDto>.Ok(RelationView(c, o, r.Kind));   // no event, no ETag churn
+        if (writeOwn && !canWriteSelf) return OpResult<ContactRelationEntryDto>.Forbidden("No write access to this contact.");
+        if (writeTheirs && !await access.CanWriteAddressBookAsync(principalId, o.AddressBookId, ct))
+            return OpResult<ContactRelationEntryDto>.Forbidden("No write access to the related contact.");
         Stamp(principalId);
 
-        stream.AppendOne(new ContactRelationAdded(id, r.ToContactId, r.Kind, label, r.Since, note));
+        if (writeOwn) self.AppendOne(new ContactRelationAdded(id, o.Id, r.Kind, label, r.Since, note));
+        if (writeTheirs) other.AppendOne(new ContactRelationAdded(o.Id, id, r.Kind.Inverse(), theirs?.Label, r.Since, note));
         await session.SaveChangesAsync(ct);
-        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+        return OpResult<ContactRelationEntryDto>.Ok(await RelationViewAsync(id, o.Id, r.Kind, ct));
     }
 
-    public async Task<OpResult<ContactDto>> RemoveRelationAsync(Guid principalId, Guid id, Guid toContactId, ContactRelationKind kind, CancellationToken ct = default)
+    /// <summary>Erases a relationship entered by mistake, from either side: every copy goes. One that ran its course is ended instead.</summary>
+    public async Task<OpResult> RemoveRelationAsync(Guid principalId, Guid id, Guid toContactId, ContactRelationKind kind, CancellationToken ct = default)
     {
-        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
-        var c = stream.Aggregate;
-        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
-        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
-        if (!c.Relations.Any(x => x.ToContactId == toContactId && x.Kind == kind)) return OpResult<ContactDto>.NotFound();
+        var fetched = await FetchRelationAsync(principalId, id, toContactId, kind, ct);
+        if (fetched.Value is not { } p) return new(fetched.Status, fetched.Error);
+        var denied = await DenyUnwritableAsync(principalId, p, p.Own is not null, p.Theirs is not null, ct);
+        if (denied is { } d) return new(d.Status, d.Error);
         Stamp(principalId);
 
-        stream.AppendOne(new ContactRelationRemoved(id, toContactId, kind));
+        if (p.Own is not null) p.Self.AppendOne(new ContactRelationRemoved(id, toContactId, kind));
+        if (p.Theirs is not null) p.Other.AppendOne(new ContactRelationRemoved(toContactId, id, kind.Inverse()));
         await session.SaveChangesAsync(ct);
-        var updated = await session.LoadAsync<Contact>(id, ct);
-        return OpResult<ContactDto>.Ok(await ToDtoAsync(updated!, ct));
+        return OpResult.Ok();
     }
 
-    /// <summary>Marks an outgoing edge as ended (relationship ran its course — distinct from removal, which erases a mistake).
-    /// Re-adding the same target+kind revives it.</summary>
-    public async Task<OpResult<ContactDto>> EndRelationAsync(Guid principalId, Guid id, Guid toContactId, ContactRelationKind kind, DateOnly? until, CancellationToken ct = default)
+    /// <summary>Marks a relationship as ended on every copy (it ran its course — distinct from removal, which erases a mistake).
+    /// Re-adding it revives it.</summary>
+    public async Task<OpResult<ContactRelationEntryDto>> EndRelationAsync(Guid principalId, Guid id, Guid toContactId, ContactRelationKind kind, DateOnly? until, CancellationToken ct = default)
     {
-        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
-        var c = stream.Aggregate;
-        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
-        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
-        var edge = c.Relations.FirstOrDefault(x => x.ToContactId == toContactId && x.Kind == kind);
-        if (edge is null) return OpResult<ContactDto>.NotFound();
-        if (edge.Ended && edge.Until == until) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
+        var fetched = await FetchRelationAsync(principalId, id, toContactId, kind, ct);
+        if (fetched.Value is not { } p) return new(fetched.Status, null, fetched.Error);
+        var endOwn = p.Own is { } own && !(own.Ended && own.Until == until);
+        var endTheirs = p.Theirs is { } theirs && !(theirs.Ended && theirs.Until == until);
+        if (!endOwn && !endTheirs) return OpResult<ContactRelationEntryDto>.Ok(RelationView(p.Self.Aggregate!, p.Other.Aggregate!, kind));
+        var denied = await DenyUnwritableAsync(principalId, p, endOwn, endTheirs, ct);
+        if (denied is { } d) return new(d.Status, null, d.Error);
         Stamp(principalId);
 
-        stream.AppendOne(new ContactRelationEnded(id, toContactId, kind, until));
+        if (endOwn) p.Self.AppendOne(new ContactRelationEnded(id, toContactId, kind, until));
+        if (endTheirs) p.Other.AppendOne(new ContactRelationEnded(toContactId, id, kind.Inverse(), until));
         await session.SaveChangesAsync(ct);
-        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+        return OpResult<ContactRelationEntryDto>.Ok(await RelationViewAsync(id, toContactId, kind, ct));
     }
 
-    /// <summary>Resolved two-way view: outgoing edges (snapshot order) then incoming ones (by display name), each entry's
-    /// Kind being the other contact's role relative to the viewed one (incoming = derived inverse). Ended edges are shown
-    /// flagged. Edges whose other side is deleted, dangling, or outside the caller's readable books are filtered out.</summary>
+    /// <summary>A contact's relationships, merged from both sides' copies and ordered by the other contact's name, then kind. Ended
+    /// ones are shown flagged. Relationships whose other side is deleted, dangling, or outside the caller's readable books are
+    /// filtered out.</summary>
     public async Task<OpResult<List<ContactRelationEntryDto>>> ListRelationsAsync(Guid principalId, Guid id, bool includeInferred = false, CancellationToken ct = default)
     {
         var c = await session.LoadAsync<Contact>(id, ct);
@@ -603,23 +614,20 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (!await access.CanReadAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<List<ContactRelationEntryDto>>.Forbidden("No access to this contact.");
 
         var books = await access.AccessibleAddressBookIdsAsync(principalId, ct);
-        var entries = new List<ContactRelationEntryDto>();
-
-        var targets = (await session.LoadManyAsync<Contact>(ct, c.Relations.Select(r => r.ToContactId).Distinct().ToArray()))
-            .Where(t => t.DeletedAt is null && books.Contains(t.AddressBookId)).ToDictionary(t => t.Id);
-        foreach (var r in c.Relations)
-        {
-            if (targets.TryGetValue(r.ToContactId, out var t))
-                entries.Add(new ContactRelationEntryDto { ContactId = t.Id, DisplayName = t.DisplayName, Kind = r.Kind, Label = r.Label, Since = r.Since, Note = r.Note, Direction = ContactRelationDirection.Outgoing, Ended = r.Ended, Until = r.Until });
-        }
-
-        var sources = await session.Query<Contact>()
+        var holders = await session.Query<Contact>()
             .Where(x => x.DeletedAt == null && x.Relations.Any(r => r.ToContactId == id)).ToListAsync(ct);
-        foreach (var s in sources.Where(s => s.Id != id && books.Contains(s.AddressBookId)).OrderBy(s => s.SortName))
-        {
-            foreach (var edge in s.Relations.Where(r => r.ToContactId == id))
-                entries.Add(new ContactRelationEntryDto { ContactId = s.Id, DisplayName = s.DisplayName, Kind = edge.Kind.Inverse(), Label = null, Direction = ContactRelationDirection.Incoming, Ended = edge.Ended, Until = edge.Until });
-        }
+        var targets = await session.LoadManyAsync<Contact>(ct, c.Relations.Select(r => r.ToContactId).Distinct().ToArray());
+        var others = holders.Concat(targets)
+            .Where(x => x.Id != id && x.DeletedAt is null && books.Contains(x.AddressBookId))
+            .DistinctBy(x => x.Id).ToDictionary(x => x.Id);
+
+        var copies = c.Relations.Select(e => new RelationCopy(id, e))
+            .Concat(holders.SelectMany(h => h.Relations.Where(e => e.ToContactId == id).Select(e => new RelationCopy(h.Id, e))));
+        var entries = RelationResolver.Resolve(id, copies)
+            .Where(v => others.ContainsKey(v.OtherId))
+            .OrderBy(v => others[v.OtherId].SortName).ThenBy(v => v.Kind)
+            .Select(v => v.ToEntry(others[v.OtherId]))
+            .ToList();
 
         if (includeInferred)
         {
@@ -630,11 +638,55 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             foreach (var kin in KinshipInference.Infer(id, all))
             {
                 if (byId.TryGetValue(kin.ContactId, out var k))
-                    entries.Add(new ContactRelationEntryDto { ContactId = k.Id, DisplayName = k.DisplayName, Kind = kin.Kind, Label = null, Direction = ContactRelationDirection.Incoming, Provenance = RelationProvenance.Inferred });
+                    entries.Add(new ContactRelationEntryDto { ContactId = k.Id, DisplayName = k.DisplayName, Kind = kin.Kind, Provenance = RelationProvenance.Inferred });
             }
         }
 
         return OpResult<List<ContactRelationEntryDto>>.Ok(entries);
+    }
+
+    // Both endpoints of an existing relationship, fetched for writing. It is changeable only while visible: both contacts live and
+    // readable, the rule the listing applies.
+    private async Task<OpResult<RelationEndpoints>> FetchRelationAsync(Guid principalId, Guid id, Guid otherId, ContactRelationKind kind, CancellationToken ct)
+    {
+        var self = await session.Events.FetchForWriting<Contact>(id, ct);
+        if (self.Aggregate is not { DeletedAt: null } c) return OpResult<RelationEndpoints>.NotFound();
+        if (!await access.CanReadAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<RelationEndpoints>.Forbidden("No access to this contact.");
+        var other = await session.Events.FetchForWriting<Contact>(otherId, ct);
+        if (otherId == id || other.Aggregate is not { DeletedAt: null } o || !await access.CanReadAddressBookAsync(principalId, o.AddressBookId, ct))
+            return OpResult<RelationEndpoints>.NotFound();
+
+        var own = c.Relations.FirstOrDefault(e => e.ToContactId == otherId && e.Kind == kind);
+        var theirs = o.Relations.FirstOrDefault(e => e.ToContactId == id && e.Kind == kind.Inverse());
+        return own is null && theirs is null
+            ? OpResult<RelationEndpoints>.NotFound()
+            : OpResult<RelationEndpoints>.Ok(new RelationEndpoints(self, other, own, theirs));
+    }
+
+    private async Task<OpResult?> DenyUnwritableAsync(Guid principalId, RelationEndpoints p, bool touchesOwn, bool touchesTheirs, CancellationToken ct)
+    {
+        if (touchesOwn && !await access.CanWriteAddressBookAsync(principalId, p.Self.Aggregate!.AddressBookId, ct))
+            return OpResult.Forbidden("No write access to this contact.");
+        if (touchesTheirs && !await access.CanWriteAddressBookAsync(principalId, p.Other.Aggregate!.AddressBookId, ct))
+            return OpResult.Forbidden("No write access to the related contact.");
+        return null;
+    }
+
+    private static bool Differs(ContactRelation? copy, string? label, DateOnly? since, string? note) =>
+        copy is null || copy.Ended || copy.Label != label || copy.Since != since || copy.Note != note;
+
+    private async Task<ContactRelationEntryDto> RelationViewAsync(Guid id, Guid otherId, ContactRelationKind kind, CancellationToken ct) =>
+        RelationView((await session.LoadAsync<Contact>(id, ct))!, (await session.LoadAsync<Contact>(otherId, ct))!, kind);
+
+    // "other is c's kind", merged from the copy each side holds.
+    private static ContactRelationEntryDto RelationView(Contact c, Contact other, ContactRelationKind kind)
+    {
+        var key = RelationshipKey.Of(c.Id, other.Id, kind);
+        var copies = c.Relations.Where(e => e.ToContactId == other.Id).Select(e => new RelationCopy(c.Id, e))
+            .Concat(other.Relations.Where(e => e.ToContactId == c.Id).Select(e => new RelationCopy(other.Id, e)))
+            .Where(x => RelationshipKey.Of(x) == key)
+            .ToList();
+        return RelationResolver.View(c.Id, key, copies).ToEntry(other);
     }
 
     // ---- Circles (computed on read, never stored) ----
@@ -774,4 +826,6 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     private static ContactFields FieldsOf(Contact c) =>
         new(c.GivenName, c.MiddleName, c.FamilyName, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns, c.DisplayNameFormat);
+
+    private sealed record RelationEndpoints(IEventStream<Contact> Self, IEventStream<Contact> Other, ContactRelation? Own, ContactRelation? Theirs);
 }

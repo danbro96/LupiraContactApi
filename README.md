@@ -5,7 +5,8 @@ CardDAV protocol surface lives in the LupiraDavApi gateway, which consumes this 
 LAN-only [`/dav-backend` seam](docs/dav-backend-contract.md).
 
 - **REST at root** (`https://contact-api.lupira.com`) — contacts CRUD + query, contact-to-contact
-  relations with inferred kinship, contact groups (personal + organization), address books with
+  relationships that read the same from both sides ([semantics](docs/relationships.md)) with inferred
+  kinship, contact groups (personal + organization), address books with
   multi-owner grants, `/me` + `/me/bootstrap`.
 - **MCP at `/mcp`** (LAN/WireGuard-only) — agent tools: `search_contacts`, `create_contact`,
   `relate_contacts`, `unrelate_contacts`, `list_contact_relations`, `list_address_books`,

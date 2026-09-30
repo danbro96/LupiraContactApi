@@ -2,9 +2,10 @@ using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Dtos.Contacts;
 
-/// <summary>One resolved relation as seen from the viewed contact: <see cref="Kind"/> is always the OTHER contact's role
-/// relative to the viewed one (incoming edges show the derived inverse kind, and their label — the other side's phrasing — is omitted).
-/// <see cref="Provenance"/> distinguishes stored edges from kin derived off the parent/child graph (returned only when inferred relations are requested).</summary>
+/// <summary>One relationship as seen from the viewed contact, identical whichever side stores it. <see cref="Kind"/> is the OTHER
+/// contact's role relative to the viewed one and <see cref="Label"/> the viewed contact's own name for them; since, note and the
+/// ended flag belong to the relationship and read the same from both sides. <see cref="Provenance"/> distinguishes stored
+/// relationships from kin derived off the parent/child graph (returned only when inferred relations are requested).</summary>
 public sealed class ContactRelationEntryDto
 {
     public required Guid ContactId { get; set; }
@@ -15,17 +16,15 @@ public sealed class ContactRelationEntryDto
 
     public string? Label { get; set; }
 
-    /// <summary>When the relationship began, on outgoing edges where a precise date is known.</summary>
+    /// <summary>When the relationship began, if a precise date is known.</summary>
     public DateOnly? Since { get; set; }
 
-    /// <summary>Free-text note about the edge, on outgoing edges.</summary>
+    /// <summary>Free-text note about the relationship.</summary>
     public string? Note { get; set; }
-
-    public required ContactRelationDirection Direction { get; set; }
 
     public RelationProvenance Provenance { get; set; } = RelationProvenance.Explicit;
 
-    /// <summary>The relationship ran its course (ex-spouse); the edge remains for history but asserts no current kinship.</summary>
+    /// <summary>The relationship ran its course (ex-spouse); it remains for history but asserts no current kinship.</summary>
     public bool Ended { get; set; }
 
     public DateOnly? Until { get; set; }

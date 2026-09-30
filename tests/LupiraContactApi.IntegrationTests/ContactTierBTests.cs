@@ -85,7 +85,7 @@ public sealed class ContactTierBTests(ContactApiTestFactory factory) : Integrati
         resp.EnsureSuccessStatusCode();
 
         var relations = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{me.Id}/relations");
-        var edge = Assert.Single(relations!, r => r.ContactId == anton.Id && r.Direction == ContactRelationDirection.Outgoing);
+        var edge = Assert.Single(relations!, r => r.ContactId == anton.Id);
         Assert.Equal(new DateOnly(2019, 11, 1), edge.Since);
     }
 }

@@ -99,7 +99,7 @@ public static class ContactsEndpoints
 
         group.MapDelete("/{id:guid}/deceased", (Guid id, DateTimeOffset? occurredAt, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.ClearDeceasedAsync(id, occurredAt, idempotencyKey, ct))
             .WithName("ClearContactDeceased")
-            .WithSummary("Undo a deceased marking recorded in error. (CardDAV can set but never clear deceased — clearing is API-only.)")
+            .WithSummary("Undo a deceased marking recorded in error — the only way to clear it.")
             .Produces<ContactDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
@@ -152,30 +152,30 @@ public static class ContactsEndpoints
 
         group.MapGet("/{id:guid}/relations", (Guid id, bool? includeInferred, ContactsHandler h, CancellationToken ct) => h.ListRelationsAsync(id, includeInferred ?? false, ct))
             .WithName("ListContactRelations")
-            .WithSummary("Resolved relations, both directions: each entry's kind is the other contact's role relative to this one (incoming = derived inverse). Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), tagged Provenance=Inferred.")
+            .WithSummary("The contact's relationships, identical whichever side stores them: each entry's kind is the other contact's role relative to this one and its label this contact's own name for them. Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), tagged Provenance=Inferred.")
             .Produces<List<ContactRelationEntryDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{id:guid}/relations", (Guid id, AddContactRelationRequest body, ContactsHandler h, CancellationToken ct) => h.AddRelationAsync(id, body, ct))
             .WithName("AddContactRelation")
-            .WithSummary("Upsert a relation: 'toContactId is this contact's kind' (re-adding the same target+kind revises the label).")
-            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .WithSummary("Upsert a relationship from either side: 'toContactId is this contact's kind'. The label is this contact's own name for the other; since and note are shared. Re-adding revises it and revives an ended one.")
+            .Produces<ContactRelationEntryDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapDelete("/{id:guid}/relations/{toContactId:guid}", (Guid id, Guid toContactId, ContactRelationKind kind, ContactsHandler h, CancellationToken ct) => h.RemoveRelationAsync(id, toContactId, kind, ct))
             .WithName("RemoveContactRelation")
-            .WithSummary("Remove the relation edge to a contact with the given kind — for edges entered by mistake. A relationship that ran its course should be ended instead.")
-            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .WithSummary("Remove a relationship entered by mistake, from either side. A relationship that ran its course should be ended instead.")
+            .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{id:guid}/relations/{toContactId:guid}/end", (Guid id, Guid toContactId, EndContactRelationRequest body, ContactsHandler h, CancellationToken ct) => h.EndRelationAsync(id, toContactId, body, ct))
             .WithName("EndContactRelation")
-            .WithSummary("Mark a relation as ended (ex-spouse, falling-out): the edge stays, flagged with an optional end date, and no longer asserts current kinship. Re-adding the same relation revives it.")
-            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .WithSummary("Mark a relationship as ended, from either side (ex-spouse, falling-out): it stays, flagged with an optional end date, and no longer asserts current kinship. Re-adding it revives it.")
+            .Produces<ContactRelationEntryDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 

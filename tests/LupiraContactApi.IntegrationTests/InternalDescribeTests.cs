@@ -50,6 +50,29 @@ public sealed class InternalDescribeTests(ContactApiTestFactory factory) : Integ
     }
 
     [Fact]
+    public async Task Relation_lines_read_the_same_whichever_side_stores_them()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await CreateAddressBookAsync(api);
+        var child = await CreateContactAsync(api, book, "Cara", "Child");
+        var parent = await CreateContactAsync(api, book, "Pat", "Parent");
+        (await api.PostAsJsonAsync($"/contacts/{child.Id}/relations", new AddContactRelationRequest
+        {
+            ToContactId = parent.Id,
+            Kind = ContactRelationKind.Parent,
+            Label = "mum",
+        })).EnsureSuccessStatusCode();
+
+        var resp = await Factory.ServiceClient().PostAsJsonAsync("/internal/contacts/describe",
+            new DescribeContactsRequest { ContactIds = [child.Id, parent.Id] });
+        resp.EnsureSuccessStatusCode();
+
+        var byId = (await resp.Content.ReadFromJsonAsync<DescribeContactsResponse>())!.Contacts.ToDictionary(c => c.ContactId);
+        Assert.Equal(["mum: Pat Parent"], byId[child.Id].Relations);
+        Assert.Equal(["child: Cara Child"], byId[parent.Id].Relations);   // the label is the child's word, not the parent's
+    }
+
+    [Fact]
     public async Task Requires_the_internal_scope()
     {
         var body = new DescribeContactsRequest { ContactIds = [Guid.NewGuid()] };
