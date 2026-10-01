@@ -78,9 +78,10 @@ public static class ContactsEndpoints
 
         group.MapDelete("/{id:guid}", (Guid id, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.DeleteAsync(id, idempotencyKey, ct))
             .WithName("DeleteContact")
-            .WithSummary("Delete a contact (soft delete + tombstone).")
+            .WithSummary("Delete a contact (soft delete + tombstone). 409 if it is a member's own contact.")
             .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status403Forbidden).ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/{id:guid}/move", (Guid id, MoveContactRequest body, ContactsHandler h, CancellationToken ct) => h.MoveAsync(id, body, ct))
             .WithName("MoveContact")

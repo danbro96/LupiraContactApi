@@ -1429,7 +1429,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Delete a contact (soft delete + tombstone).",
+        "summary": "Delete a contact (soft delete + tombstone). 409 if it is a member's own contact.",
         "operationId": "DeleteContact",
         "parameters": [
           {
@@ -1456,6 +1456,26 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3655,7 +3675,8 @@
         "required": [
           "id",
           "slug",
-          "access"
+          "access",
+          "isPersonal"
         ],
         "type": "object",
         "properties": {
@@ -3674,6 +3695,10 @@
           },
           "access": {
             "$ref": "#/components/schemas/Access"
+          },
+          "isPersonal": {
+            "type": "boolean",
+            "description": "True only for the caller's own personal book — another member's shared personal book has the same slug."
           }
         },
         "description": "An address book the caller can access, with their access level."

@@ -94,7 +94,7 @@ public sealed class ContactTools
     }
 
     [McpServerTool(Name = "delete_contact")]
-    [Description("Soft-delete a contact (tombstoned; a subsequent create/import with the same uid resurrects it). Do not delete the dead — mark_contact_deceased keeps them in the graph.")]
+    [Description("Soft-delete a contact (tombstoned; a subsequent create/import with the same uid resurrects it). Do not delete the dead — mark_contact_deceased keeps them in the graph. Refused for a member's own contact.")]
     public static async Task<string> DeleteContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
     {
         var u = await user.GetAsync();

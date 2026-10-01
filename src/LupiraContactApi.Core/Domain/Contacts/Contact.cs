@@ -325,7 +325,8 @@ public sealed class Contact
     private void RecomputeHash() =>
         ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), Relations, EmergencyContactIds, Profiles, Deceased, DeathDate));
 
-    private ContactFields Fields() =>
+    /// <summary>The current structured fields — the base a section edit rebuilds from, so it carries every field the event does.</summary>
+    internal ContactFields Fields() =>
         new(GivenName, MiddleName, FamilyName, Nickname, Channels, Birthday, Tags, Notes, Pronouns, DisplayNameFormat, Kind);
 
     private void SetFields(ContactFields f)

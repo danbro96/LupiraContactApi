@@ -25,9 +25,7 @@ public sealed class DavBackendHandler(
     public async Task<IResult> CollectionsAsync(string email, CancellationToken ct)
     {
         var principal = await principals.ResolveOrProvisionAsync(null, email, null, ct);
-        await books.BootstrapPersonalAsync(principal.Id, ct);
-
-        var accessible = (await books.ListAsync(principal.Id, ct)).Value!;
+        var accessible = (await books.BootstrapPersonalAsync(principal.Id, ct)).Value!;
         var token = await feed.CurrentTokenAsync(ct);
         return TypedResults.Ok(new DavCollectionsDto
         {

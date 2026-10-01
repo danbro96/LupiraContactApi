@@ -315,13 +315,13 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (ChannelsEqual(c.Channels, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
         Stamp(principalId);
 
-        stream.AppendOne(new ContactRevised(id, FieldsOf(c) with { Channels = next }, occurredAt, commandId));
+        stream.AppendOne(new ContactRevised(id, c.Fields() with { Channels = next }, occurredAt, commandId));
         await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
     public Task<OpResult<ContactDto>> SetTagsAsync(Guid principalId, Guid id, string[] tags, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default) =>
-        ReplaceMultiAsync(principalId, id, tags, c => c.Tags, (c, next) => FieldsOf(c) with { Tags = next }, occurredAt, commandId, ct);
+        ReplaceMultiAsync(principalId, id, tags, c => c.Tags, (c, next) => c.Fields() with { Tags = next }, occurredAt, commandId, ct);
 
     private async Task<OpResult<ContactDto>> ReplaceMultiAsync(Guid principalId, Guid id, string[] incoming,
         Func<Contact, string[]?> current, Func<Contact, string[], ContactFields> apply, DateTimeOffset? occurredAt, Guid? commandId, CancellationToken ct)
@@ -355,11 +355,19 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var c = stream.Aggregate;
         if (c is null || c.DeletedAt is not null) return OpResult.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult.Forbidden("No write access to this contact.");
+        // Refused before the ledger row is staged, so an outbox replay of the same key is refused again, not passed.
+        if (await SelfContactRefusalAsync(c, ct) is { } refusal) return OpResult.Conflict(refusal);
         Stamp(principalId);
         stream.AppendOne(new ContactDeleted(id));
         await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult.Ok();
     }
+
+    // A principal's own contact is its identity elsewhere (attendee, circles focus); deleting it would strand those links.
+    private async Task<string?> SelfContactRefusalAsync(Contact c, CancellationToken ct) =>
+        await session.Query<Principal>().AnyAsync(p => p.ContactId == c.Id, ct)
+            ? $"This is {c.DisplayName}'s own contact — it can't be deleted."
+            : null;
 
     // ---- Moves between address books (the id, and so every relation, membership and link to it, survives) ----
 
@@ -805,7 +813,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     }
 
     /// <summary>Links a principal that has no live, readable self-contact to one: an email match among the contacts it can
-    /// read (<see cref="MatchSelfContactAsync"/>), else a new contact in its personal book. Returns the linked id.</summary>
+    /// read (<see cref="MatchSelfContactAsync"/>), else a new contact in its own personal book (<see cref="AddressBook.PersonalOf"/>,
+    /// which <see cref="AddressBookService.EnsurePersonalBookAsync"/> provides). Returns the linked id.</summary>
     public async Task<Guid?> EnsureSelfContactAsync(Guid principalId, CancellationToken ct = default)
     {
         if (await session.LoadAsync<Principal>(principalId, ct) is not { } principal) return null;
@@ -813,8 +822,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             && await access.CanReadAddressBookAsync(principalId, c.AddressBookId, ct))
             return linked;
 
-        var grants = await access.GrantsAsync(principalId, ct);
-        return await LinkByEmailAsync(principal, grants, ct) ?? await CreateSelfContactAsync(principal, grants, ct);
+        return await LinkByEmailAsync(principal, await access.GrantsAsync(principalId, ct), ct) ?? await CreateSelfContactAsync(principal, ct);
     }
 
     /// <summary>Links the principal to a contact it can read carrying its login email, if one exists — never creates. Several
@@ -842,11 +850,9 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return pick.Id;
     }
 
-    private async Task<Guid?> CreateSelfContactAsync(Principal principal, List<AddressBookOwner> grants, CancellationToken ct)
+    private async Task<Guid?> CreateSelfContactAsync(Principal principal, CancellationToken ct)
     {
-        var owned = grants.Where(g => g.Access == Access.Owner).Select(g => g.AddressBookId).ToList();
-        var personal = await session.Query<AddressBook>()
-            .Where(b => owned.Contains(b.Id) && b.Slug == AddressBook.PersonalSlug).OrderBy(b => b.Id).FirstOrDefaultAsync(ct);
+        var personal = await session.Query<AddressBook>().Where(b => b.PersonalOf == principal.Id).OrderBy(b => b.Id).FirstOrDefaultAsync(ct);
         var (given, family) = SelfContactName.From(principal.DisplayName, principal.Email);
         if (personal is null || given is null) return null;
 
@@ -955,6 +961,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         // c.AddressBookId != addressBookId guards the uid-collision case (the contact lives in another book).
         if (c is null || c.DeletedAt is not null || c.AddressBookId != addressBookId) return OpResult.NotFound();
         if (ifMatch is not null && c.ContentHash != ifMatch) return OpResult.Conflict("ETag mismatch.");
+        // Not Conflict: on this surface that is the precondition failure (412), which a client answers by refetching and retrying.
+        if (await SelfContactRefusalAsync(c, ct) is { } refusal) return OpResult.Forbidden(refusal);
         Stamp(principalId);
         stream.AppendOne(new ContactDeleted(id));
         await session.SaveChangesAsync(ct);
@@ -970,9 +978,6 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         session.SetHeader(EventActor.HeaderKey, principalId.ToString());
         if (System.Diagnostics.Activity.Current?.TraceId is { } t) session.CorrelationId = t.ToString();
     }
-
-    private static ContactFields FieldsOf(Contact c) =>
-        new(c.GivenName, c.MiddleName, c.FamilyName, c.Nickname, c.Channels, c.Birthday, c.Tags, c.Notes, c.Pronouns, c.DisplayNameFormat);
 
     private sealed record RelationEndpoints(IEventStream<Contact> Self, IEventStream<Contact> Other, ContactRelation? Own, ContactRelation? Theirs);
 }

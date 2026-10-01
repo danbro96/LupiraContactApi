@@ -119,6 +119,35 @@ public sealed class ContactChannelsTests(ContactApiTestFactory factory) : Integr
     }
 
     [Fact]
+    public async Task Channel_and_tag_edits_keep_every_other_field_incl_an_organizations_kind()
+    {
+        var api = Factory.ApiClient(Alice);
+        var ab = await CreateAddressBookAsync(api);
+        var org = (await (await api.PostAsJsonAsync("/contacts", new CreateContactRequest
+        {
+            AddressBookId = ab,
+            Kind = ContactKind.Organization,
+            GivenName = "Trattoria",
+            MiddleName = "da",
+            FamilyName = "Nonna",
+            Nickname = "Nonna's",
+            DisplayNameFormat = DisplayNameFormat.NickName,
+            Birthday = new PartialDate(1987, 5, 1),
+            Notes = "Book ahead",
+            Pronouns = "it",
+        })).Content.ReadFromJsonAsync<ContactDto>())!;
+        Assert.Equal(ContactKind.Organization, org.Kind);
+        static object Core(ContactDto c) => (c.Kind, c.GivenName, c.MiddleName, c.FamilyName, c.Nickname, c.DisplayNameFormat, c.Birthday, c.Notes, c.Pronouns);
+
+        var channels = await SetChannels(api, org.Id, Phone("+4681234"));
+        Assert.Equal(Core(org), Core((await channels.Content.ReadFromJsonAsync<ContactDto>())!));
+
+        var tags = await api.PutAsJsonAsync($"/contacts/{org.Id}/tags", new SetContactTagsRequest { Tags = ["restaurant"] });
+        Assert.Equal(Core(org), Core((await tags.Content.ReadFromJsonAsync<ContactDto>())!));
+        Assert.Equal(Core(org), Core((await api.GetFromJsonAsync<ContactDto>($"/contacts/{org.Id}"))!));
+    }
+
+    [Fact]
     public async Task Set_channels_requires_write_access()
     {
         var alice = Factory.ApiClient(Alice);

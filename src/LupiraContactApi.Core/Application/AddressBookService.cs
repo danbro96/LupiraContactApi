@@ -20,8 +20,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         var ids = owners.Select(o => o.AddressBookId).ToList();
         var books = await session.Query<AddressBook>().Where(b => ids.Contains(b.Id)).ToListAsync(ct);
         var accessById = owners.ToDictionary(o => o.AddressBookId, o => o.Access);
-        return OpResult<List<AddressBookDto>>.Ok(
-            [.. books.Select(b => new AddressBookDto { Id = b.Id, Slug = b.Slug, DisplayName = b.DisplayName, Access = accessById[b.Id] })]);
+        return OpResult<List<AddressBookDto>>.Ok([.. books.Select(b => ToDto(b, accessById[b.Id], principalId))]);
     }
 
     public async Task<OpResult<AddressBookDto>> CreateAsync(Guid principalId, CreateAddressBookRequest r, CancellationToken ct = default)
@@ -30,7 +29,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         session.Store(b);
         session.Store(new AddressBookOwner { Id = AddressBookOwner.MakeId(b.Id, principalId), AddressBookId = b.Id, PrincipalId = principalId, Access = Access.Owner });
         await session.SaveChangesAsync(ct);
-        return OpResult<AddressBookDto>.Ok(new AddressBookDto { Id = b.Id, Slug = b.Slug, DisplayName = b.DisplayName, Access = Access.Owner });
+        return OpResult<AddressBookDto>.Ok(ToDto(b, Access.Owner, principalId));
     }
 
     /// <summary>Rename an address book / change its display name (owner-only, merge — null keeps the current value).</summary>
@@ -50,17 +49,17 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         if (r.DisplayName is not null) book.DisplayName = string.IsNullOrWhiteSpace(r.DisplayName) ? null : r.DisplayName.Trim();
         session.Store(book);
         await session.SaveChangesAsync(ct);
-        return OpResult<AddressBookDto>.Ok(new AddressBookDto { Id = book.Id, Slug = book.Slug, DisplayName = book.DisplayName, Access = Access.Owner });
+        return OpResult<AddressBookDto>.Ok(ToDto(book, Access.Owner, callerId));
     }
 
-    /// <summary>Delete an empty address book (owner-only). Refuses the <c>personal</c> book and any book that still holds
+    /// <summary>Delete an empty address book (owner-only). Refuses a personal book and any book that still holds
     /// live contacts or groups; on success also removes every access grant on the book.</summary>
     public async Task<OpResult> DeleteAsync(Guid callerId, Guid addressBookId, CancellationToken ct = default)
     {
         var book = await session.LoadAsync<AddressBook>(addressBookId, ct);
         if (book is null) return OpResult.NotFound();
         if (!await access.IsAddressBookOwnerAsync(callerId, addressBookId, ct)) return OpResult.Forbidden("Only an owner may delete this address book.");
-        if (book.Slug == AddressBook.PersonalSlug) return OpResult.Conflict("The personal address book cannot be deleted.");
+        if (book.PersonalOf is not null || book.Slug == AddressBook.PersonalSlug) return OpResult.Conflict("The personal address book cannot be deleted.");
         if (await session.Query<Contact>().AnyAsync(c => c.AddressBookId == addressBookId && c.DeletedAt == null, ct))
             return OpResult.Conflict("Address book is not empty: move or delete its contacts first.");
         if (await session.Query<ContactGroup>().AnyAsync(g => g.AddressBookId == addressBookId && g.DeletedAt == null, ct))
@@ -73,15 +72,48 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         return OpResult.Ok();
     }
 
-    /// <summary>Ensures the caller has a <c>personal</c> address book and a linked contact of its own
-    /// (<see cref="ContactService.EnsureSelfContactAsync"/>); idempotent — the book is matched on slug, so a second call creates nothing.</summary>
+    /// <summary>Ensures the caller has its own personal address book (<see cref="EnsurePersonalBookAsync"/>) and a linked contact of
+    /// its own (<see cref="ContactService.EnsureSelfContactAsync"/>); idempotent. Returns every accessible book.</summary>
     public async Task<OpResult<List<AddressBookDto>>> BootstrapPersonalAsync(Guid principalId, CancellationToken ct = default)
     {
-        var existing = (await ListAsync(principalId, ct)).Value!;
-        if (!existing.Any(b => b.Slug == AddressBook.PersonalSlug))
-            existing.Add((await CreateAsync(principalId, new CreateAddressBookRequest { Slug = AddressBook.PersonalSlug, DisplayName = "Personal" }, ct)).Value!);
+        await EnsurePersonalBookAsync(principalId, ct);
         await contacts.EnsureSelfContactAsync(principalId, ct);
-        return OpResult<List<AddressBookDto>>.Ok(existing);
+        return await ListAsync(principalId, ct);
+    }
+
+    /// <summary>The caller's own personal book: the one it is <see cref="AddressBook.PersonalOf"/>, else an unclaimed <c>personal</c>
+    /// book it alone owns (one predating the field, claimed here), else a new one. Another member's shared personal book never counts.</summary>
+    public async Task<Guid> EnsurePersonalBookAsync(Guid principalId, CancellationToken ct = default)
+    {
+        // One read: split in two, a racing bootstrap's claim landing in between would look neither claimed nor claimable.
+        var accessible = await access.AccessibleAddressBookIdsAsync(principalId, ct);
+        var books = await session.Query<AddressBook>()
+            .Where(b => b.PersonalOf == principalId || (b.PersonalOf == null && b.Slug == AddressBook.PersonalSlug && accessible.Contains(b.Id)))
+            .OrderBy(b => b.Id).ToListAsync(ct);
+        if (books.FirstOrDefault(b => b.PersonalOf == principalId) is { } own) return own.Id;
+
+        var book = await SoleOwnedAsync(principalId, books, ct);
+        if (book is null)
+        {
+            // Deterministic id, so racing bootstraps upsert one book rather than each creating their own.
+            book = new AddressBook { Id = DeterministicGuid.From($"personal-{principalId:N}"), Slug = AddressBook.PersonalSlug, DisplayName = "Personal" };
+            session.Store(new AddressBookOwner { Id = AddressBookOwner.MakeId(book.Id, principalId), AddressBookId = book.Id, PrincipalId = principalId, Access = Access.Owner });
+        }
+
+        book.PersonalOf = principalId;
+        session.Store(book);
+        await session.SaveChangesAsync(ct);
+        return book.Id;
+    }
+
+    // Exactly one candidate whose only owner is the caller — a personal book shared at owner level can't be told from the sharer's.
+    private async Task<AddressBook?> SoleOwnedAsync(Guid principalId, IReadOnlyList<AddressBook> candidates, CancellationToken ct)
+    {
+        if (candidates.Count == 0) return null;
+        var ids = candidates.Select(b => b.Id).ToList();
+        var owners = await session.Query<AddressBookOwner>().Where(o => ids.Contains(o.AddressBookId) && o.Access == Access.Owner).ToListAsync(ct);
+        var sole = candidates.Where(b => owners.Where(o => o.AddressBookId == b.Id).Select(o => o.PrincipalId).ToList() is [var only] && only == principalId).ToList();
+        return sole is [var book] ? book : null;
     }
 
     public async Task<OpResult<OwnerGrantDto>> GrantOwnerAsync(Guid callerId, Guid addressBookId, GrantOwnerRequest r, CancellationToken ct = default)
@@ -134,4 +166,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
             })
             .OrderByDescending(o => o.Access == Access.Owner).ThenBy(o => o.Email, StringComparer.OrdinalIgnoreCase)]);
     }
+
+    private static AddressBookDto ToDto(AddressBook b, Access access, Guid principalId) =>
+        new() { Id = b.Id, Slug = b.Slug, DisplayName = b.DisplayName, Access = access, IsPersonal = b.PersonalOf == principalId };
 }

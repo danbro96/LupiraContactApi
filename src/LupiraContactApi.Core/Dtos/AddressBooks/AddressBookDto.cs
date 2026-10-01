@@ -14,4 +14,7 @@ public sealed class AddressBookDto
 
     [JsonConverter(typeof(JsonStringEnumConverter<Access>))]
     public required Access Access { get; set; }
+
+    /// <summary>True only for the caller's own personal book — another member's shared personal book has the same slug.</summary>
+    public required bool IsPersonal { get; set; }
 }

@@ -10,7 +10,7 @@ namespace LupiraContactApi.IntegrationTests;
 /// <summary>
 /// The /dav-backend contract as the LupiraDavApi gateway consumes it: collection listing with JIT
 /// provision + personal-book bootstrap, query/multiget, blob round-trip with ETag, PUT/DELETE with
-/// preconditions, and the sync-token changes feed with tombstones.
+/// preconditions (and the principal's own card refused), and the sync-token changes feed with tombstones.
 /// </summary>
 public sealed class DavBackendTests(ContactApiTestFactory factory) : IntegrationTest(factory)
 {
@@ -118,6 +118,18 @@ public sealed class DavBackendTests(ContactApiTestFactory factory) : Integration
         var diff = await ChangesAsync(api, book, before.SyncToken);
         Assert.Contains("d@x", diff.Deleted);
         Assert.DoesNotContain(diff.Changed, c => c.Uid == "d@x");
+    }
+
+    [Fact]
+    public async Task Delete_refuses_the_principals_own_card()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await BookAsync(api);
+        var listing = await api.PostAsJsonAsync($"{Base()}/collections/{book}/query", new DavQueryRequest());
+        var self = Assert.Single((await listing.Content.ReadFromJsonAsync<DavResourcesDto>())!.Resources).Uid;
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await api.DeleteAsync($"{Base()}/collections/{book}/resources/{self}")).StatusCode);
+        (await api.GetAsync($"{Base()}/collections/{book}/resources/{self}")).EnsureSuccessStatusCode();
     }
 
     [Fact]
