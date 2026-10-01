@@ -5000,6 +5000,7 @@
         "required": [
           "cursor",
           "hasMore",
+          "reset",
           "changed",
           "deleted"
         ],
@@ -5010,6 +5011,10 @@
           },
           "hasMore": {
             "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean",
+            "description": "Stream restarted from zero (no `since`, or readable address books changed): a full sync from here."
           },
           "changed": {
             "type": "array",
@@ -5023,10 +5028,10 @@
               "type": "string",
               "format": "uuid"
             },
-            "description": "Ids no longer visible to the caller: soft-deleted, or moved into an address book the caller\n            can't read. Unknown ids are safe to ignore."
+            "description": "Ids in, or moved out of, a readable address book but no longer visible (deleted, or moved to an\n            unreadable book). Unknown ids are safe to ignore."
           }
         },
-        "description": "One page of the changes feed. `Cursor` is opaque — hand it back as `?since=`; loop while\n            `HasMore`. A full sync (no `since`) streams every live visible contact; tombstone ids may reference\n            contacts the client never saw (ignore unknown ids)."
+        "description": "One page of the changes feed. `Cursor` is opaque — hand it back as `?since=`; loop while\n            `HasMore`. A full sync (no `since`, or a `Reset`) streams every live visible contact and suppresses\n            tombstones — the client replaces its mirror wholesale."
       },
       "SyncContainersResponse": {
         "required": [

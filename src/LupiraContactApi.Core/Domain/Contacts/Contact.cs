@@ -17,6 +17,9 @@ public sealed class Contact
 
     public Guid AddressBookId { get; set; }
 
+    /// <summary>Books this contact was moved out of, so the sync feed can still tombstone it to their readers.</summary>
+    public List<Guid> FormerAddressBookIds { get; set; } = new();
+
     public string ExternalId { get; set; } = string.Empty;
 
     public ContactKind Kind { get; set; }
@@ -138,7 +141,7 @@ public sealed class Contact
     {
         var d = e.Data;
         Id = d.ContactId;
-        AddressBookId = d.AddressBookId;
+        MoveTo(d.AddressBookId);
         ExternalId = d.ExternalId;
         SetFields(d.Fields);
         DeletedAt = null;
@@ -152,7 +155,7 @@ public sealed class Contact
     {
         var d = e.Data;
         Id = d.ContactId;
-        AddressBookId = d.AddressBookId;
+        MoveTo(d.AddressBookId);
         ExternalId = d.ExternalId;
         SetFields(d.Parsed);
         DeletedAt = null;
@@ -288,6 +291,13 @@ public sealed class Contact
         Relations = e.Data.Relations.Select(r => new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = r.Label, Since = r.Since, Note = r.Note, Ended = r.Ended, Until = r.Until }).ToList();
         Touch(e);
         RecomputeHash();
+    }
+
+    private void MoveTo(Guid addressBookId)
+    {
+        if (AddressBookId != Guid.Empty && AddressBookId != addressBookId && !FormerAddressBookIds.Contains(AddressBookId))
+            FormerAddressBookIds.Add(AddressBookId);
+        AddressBookId = addressBookId;
     }
 
     private void Created(IEvent e)

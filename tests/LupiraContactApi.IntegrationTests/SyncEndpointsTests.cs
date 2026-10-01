@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Sync;
 using Xunit;
@@ -9,7 +10,8 @@ using Xunit;
 namespace LupiraContactApi.IntegrationTests;
 
 /// <summary>The offline-client sync surface end to end: the delta loop (create → revise → delete), full-sync
-/// paging, guard exposure, Idempotency-Key replays, occurredAt LWW over REST, and SourceKey create dedup.</summary>
+/// paging, cursor scope (foreign churn, grant/revoke restarts, moves out of a readable book), guard exposure,
+/// Idempotency-Key replays, occurredAt LWW over REST, and SourceKey create dedup.</summary>
 public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest(factory)
 {
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
@@ -89,6 +91,98 @@ public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest
 
         var theirView = await ChangesAsync(stranger);
         Assert.DoesNotContain(theirView.Changed, c => c.Contact.Id == contact.Id);
+    }
+
+    [Fact]
+    public async Task Another_callers_churn_is_neither_content_nor_tombstones()
+    {
+        var api = Factory.ApiClient("a@x");
+        var stranger = Factory.ApiClient("b@x");
+        var book = await CreateAddressBookAsync(api);
+        await CreateContactAsync(api, book, "Before");
+
+        var full = await ChangesAsync(stranger);
+        Assert.Empty(full.Changed);
+        Assert.False(full.HasMore);
+
+        var contact = await CreateContactAsync(api, book, "After");
+        (await api.DeleteAsync($"/contacts/{contact.Id}")).EnsureSuccessStatusCode();
+        var delta = await ChangesAsync(stranger, full.Cursor);
+        Assert.False(delta.Reset);
+        Assert.Empty(delta.Changed);
+        Assert.Empty(delta.Deleted);
+        Assert.Equal(full.Cursor, delta.Cursor);
+    }
+
+    [Fact]
+    public async Task A_grant_restarts_the_stream_so_the_shared_book_arrives()
+    {
+        var api = Factory.ApiClient("a@x");
+        var partner = Factory.ApiClient("b@x");
+        var book = await CreateAddressBookAsync(api);
+        var contact = await CreateContactAsync(api, book, "Shared");
+
+        var before = await ChangesAsync(partner);
+        Assert.True(before.Reset);
+        Assert.Empty(before.Changed);
+
+        (await api.PostAsJsonAsync($"/address-books/{book}/owners", new GrantOwnerRequest { Email = "b@x", Access = "read" })).EnsureSuccessStatusCode();
+        var afterGrant = await ChangesAsync(partner, before.Cursor);
+        Assert.True(afterGrant.Reset);
+        Assert.Contains(afterGrant.Changed, c => c.Contact.Id == contact.Id);
+
+        var settled = await ChangesAsync(partner, afterGrant.Cursor);
+        Assert.False(settled.Reset);
+        Assert.Empty(settled.Changed);
+
+        (await api.DeleteAsync($"/address-books/{book}/owners?email=b@x")).EnsureSuccessStatusCode();
+        var afterRevoke = await ChangesAsync(partner, settled.Cursor);
+        Assert.True(afterRevoke.Reset);
+        Assert.DoesNotContain(afterRevoke.Changed, c => c.Contact.Id == contact.Id);
+    }
+
+    [Fact]
+    public async Task A_contact_moved_out_of_a_readable_book_is_tombstoned_to_its_readers()
+    {
+        const string uid = "moving@x";
+        var api = Factory.ApiClient("a@x");
+        var partner = Factory.ApiClient("b@x");
+        var shared = await CreateAddressBookAsync(api, "shared");
+        var first = await CreateAddressBookAsync(api, "first");
+        var second = await CreateAddressBookAsync(api, "second");
+        (await api.PostAsJsonAsync($"/address-books/{shared}/owners", new GrantOwnerRequest { Email = "b@x", Access = "read" })).EnsureSuccessStatusCode();
+        (await PutVcfAsync(api, "a@x", shared, uid, MinimalVcf(uid, "Moving Person"))).EnsureSuccessStatusCode();
+
+        var before = await ChangesAsync(partner);
+        var id = Assert.Single(before.Changed).Contact.Id;
+
+        // Two moves before the next pull: the book it first left must still answer for it.
+        (await PutVcfAsync(api, "a@x", first, uid, MinimalVcf(uid, "Moving Person"))).EnsureSuccessStatusCode();
+        (await PutVcfAsync(api, "a@x", second, uid, MinimalVcf(uid, "Moving Person"))).EnsureSuccessStatusCode();
+        var delta = await ChangesAsync(partner, before.Cursor);
+        Assert.False(delta.Reset);
+        Assert.Empty(delta.Changed);
+        Assert.Contains(id, delta.Deleted);
+    }
+
+    [Fact]
+    public async Task A_bare_sequence_cursor_restarts_the_stream_once()
+    {
+        var api = Factory.ApiClient("a@x");
+        var book = await CreateAddressBookAsync(api);
+        var contact = await CreateContactAsync(api, book, "Jane");
+
+        var legacy = await ChangesAsync(api, "999999999");
+        Assert.True(legacy.Reset);
+        Assert.Contains(legacy.Changed, c => c.Contact.Id == contact.Id);
+        Assert.False((await ChangesAsync(api, legacy.Cursor)).Reset);
+    }
+
+    [Fact]
+    public async Task A_garbage_cursor_is_rejected()
+    {
+        var resp = await Factory.ApiClient("a@x").GetAsync("/sync/changes?since=nope");
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
     [Fact]
