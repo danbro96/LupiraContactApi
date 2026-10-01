@@ -24,6 +24,14 @@ public static class ContactGroupsEndpoints
             .WithSummary("Rename a group.")
             .Produces<ContactGroupDto>(StatusCodes.Status200OK).ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/groups/{groupId:guid}/move", (Guid groupId, MoveContactGroupRequest body, ContactGroupsHandler h, CancellationToken ct) => h.MoveAsync(groupId, body, ct))
+            .WithName("MoveContactGroup")
+            .WithSummary("Move a group to another address book, keeping its id, name, kind, members and roles. Needs write access to both books; moving it to its current book is a no-op. includeMembers also moves the member contacts living in the group's current book; members in other books stay put.")
+            .Produces<MoveContactGroupResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapPost("/groups/{groupId:guid}/members", (Guid groupId, Guid contactId, string? role, DateOnly? since, DateOnly? until, ContactGroupsHandler h, CancellationToken ct) => h.AddMemberAsync(groupId, contactId, role, since, until, ct))
             .WithName("AddContactGroupMember")
             .WithSummary("Add a contact to a group; for an organization, role is the title held there (re-adding updates it).")

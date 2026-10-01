@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Dav;
 using Xunit;
 
@@ -62,7 +63,7 @@ public sealed class DavBackendTests(ContactApiTestFactory factory) : Integration
 
         var listing = await api.PostAsJsonAsync($"{Base()}/collections/{book}/query", new DavQueryRequest());
         var all = (await listing.Content.ReadFromJsonAsync<DavResourcesDto>())!.Resources;
-        Assert.Equal(2, all.Count);
+        Assert.Equal(3, all.Count);   // + the caller's own card, created by the bootstrap
         Assert.All(all, r => Assert.Null(r.Content));
 
         var multiget = await api.PostAsJsonAsync($"{Base()}/collections/{book}/query",
@@ -142,7 +143,29 @@ public sealed class DavBackendTests(ContactApiTestFactory factory) : Integration
 
         // Garbage token degrades to the full listing (self-healing resync).
         var healed = await ChangesAsync(api, book, "not-a-token");
-        Assert.Equal(2, healed.Changed.Count);
+        Assert.Equal(3, healed.Changed.Count);   // + the caller's own card
+    }
+
+    [Fact]
+    public async Task Changes_tombstone_a_resource_moved_to_another_collection()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await BookAsync(api);
+        var other = await CreateAddressBookAsync(api, "other");
+        await PutVcfAsync(api, Email, book, "g@x", MinimalVcf("g@x", "G Seven"));
+        var id = (await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?addressBookId={book}"))!.Single(c => c.ExternalId == "g@x").Id;
+        var left = await ChangesAsync(api, book, null);
+        var joined = await ChangesAsync(api, other, null);
+
+        (await api.PostAsJsonAsync($"/contacts/{id}/move", new MoveContactRequest { AddressBookId = other })).EnsureSuccessStatusCode();
+
+        var leftDiff = await ChangesAsync(api, book, left.SyncToken);
+        Assert.Equal(["g@x"], leftDiff.Deleted);
+        Assert.Empty(leftDiff.Changed);
+        var joinedDiff = await ChangesAsync(api, other, joined.SyncToken);
+        Assert.Equal("g@x", Assert.Single(joinedDiff.Changed).Uid);
+        Assert.Empty(joinedDiff.Deleted);
+        Assert.DoesNotContain((await ChangesAsync(api, book, null)).Changed, c => c.Uid == "g@x");
     }
 
     [Fact]

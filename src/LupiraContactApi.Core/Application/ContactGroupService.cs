@@ -9,7 +9,7 @@ using Marten;
 namespace LupiraContactApi.Core.Application;
 
 /// <summary>Contact groups (personal groupings + organizations) and their membership history. Authorized against the owning address book.</summary>
-public sealed class ContactGroupService(IDocumentSession session, AccessResolver access)
+public sealed class ContactGroupService(IDocumentSession session, AccessResolver access, ContactService contacts)
 {
     public async Task<OpResult<ContactGroupDto>> CreateAsync(Guid principalId, Guid addressBookId, string? kind, string name, CancellationToken ct = default)
     {
@@ -37,6 +37,27 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
 
     public Task<OpResult<ContactGroupDto>> RemoveMemberAsync(Guid principalId, Guid groupId, Guid contactId, CancellationToken ct = default) =>
         MutateAsync(principalId, groupId, new ContactRemovedFromGroup(groupId, contactId), ct);
+
+    /// <summary>Moves a group to another book, keeping its id, name, kind and members. <paramref name="includeMembers"/> also moves,
+    /// in the same transaction, the members living in the group's current book; the rest stay put. Needs write access to both
+    /// books; moving to the current book is a no-op.</summary>
+    public async Task<OpResult<ContactGroupMoveResult>> MoveAsync(Guid principalId, Guid groupId, Guid addressBookId, bool includeMembers, CancellationToken ct = default)
+    {
+        var stream = await session.Events.FetchForWriting<ContactGroup>(groupId, ct);
+        var g = stream.Aggregate;
+        if (g is null || g.DeletedAt is not null) return OpResult<ContactGroupMoveResult>.NotFound();
+        if (await contacts.DenyMoveTargetAsync(principalId, addressBookId, ct) is { } denied) return new(denied.Status, null, denied.Error);
+        if (!await access.CanWriteAddressBookAsync(principalId, g.AddressBookId, ct)) return OpResult<ContactGroupMoveResult>.Forbidden("No write access to this group.");
+        Stamp(principalId);
+
+        if (g.AddressBookId != addressBookId) stream.AppendOne(new ContactGroupMoved(groupId, addressBookId));
+        var members = includeMembers
+            ? await contacts.StageMovesAsync(principalId, g.Members.Select(m => m.ContactId), addressBookId, g.AddressBookId, ct)
+            : [];
+        await session.SaveChangesAsync(ct);
+        var moved = await session.LoadAsync<ContactGroup>(groupId, ct);
+        return OpResult<ContactGroupMoveResult>.Ok(new ContactGroupMoveResult { Group = ToDto(moved!), Members = members });
+    }
 
     public async Task<OpResult> DeleteAsync(Guid principalId, Guid groupId, CancellationToken ct = default)
     {

@@ -57,7 +57,7 @@
         "tags": [
           "Me"
         ],
-        "summary": "The caller's resolved local identity (JIT-provisioned on first login).",
+        "summary": "The caller's resolved local identity (JIT-provisioned on first login). While no contact is linked, one carrying the login email in a readable book is linked.",
         "operationId": "GetMe",
         "responses": {
           "200": {
@@ -103,7 +103,7 @@
         "tags": [
           "Me"
         ],
-        "summary": "Idempotently ensure the caller has a personal address book; returns all accessible books.",
+        "summary": "Idempotently ensure the caller has a personal address book and a linked contact of its own (one carrying the login email in a readable book, else a new one in the personal book); returns all accessible books.",
         "operationId": "BootstrapMe",
         "responses": {
           "200": {
@@ -1552,6 +1552,103 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/contacts/{id}/move": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Move a contact to another address book, keeping its id (so relations, group memberships and links to it survive), content and ETag. Needs write access to both books; moving it to its current book is a no-op. The sync feed reports it deleted to readers of the old book and changed to readers of the new one.",
+        "operationId": "MoveContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3113,6 +3210,103 @@
         ]
       }
     },
+    "/groups/{groupId}/move": {
+      "post": {
+        "tags": [
+          "ContactGroups"
+        ],
+        "summary": "Move a group to another address book, keeping its id, name, kind, members and roles. Needs write access to both books; moving it to its current book is a no-op. includeMembers also moves the member contacts living in the group's current book; members in other books stay put.",
+        "operationId": "MoveContactGroup",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContactGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveContactGroupResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/groups/{groupId}/members": {
       "post": {
         "tags": [
@@ -4499,6 +4693,59 @@
           }
         },
         "description": "The resolved local identity of the caller: the stable Guid MeDto.PrincipalId plus current\n            email/display name — the same identity shape (`principalId`/`email`/`displayName`) the\n            platform uses everywhere it returns a person."
+      },
+      "MoveContactGroupRequest": {
+        "required": [
+          "addressBookId"
+        ],
+        "type": "object",
+        "properties": {
+          "addressBookId": {
+            "type": "string",
+            "description": "The address book to move the group into.",
+            "format": "uuid"
+          },
+          "includeMembers": {
+            "type": "boolean",
+            "description": "Also move the member contacts that live in the group's current book; members in other books stay put."
+          }
+        }
+      },
+      "MoveContactGroupResponse": {
+        "required": [
+          "group",
+          "membersMoved",
+          "membersSkipped"
+        ],
+        "type": "object",
+        "properties": {
+          "group": {
+            "$ref": "#/components/schemas/ContactGroupDto"
+          },
+          "membersMoved": {
+            "type": "integer",
+            "description": "Members moved with the group (always 0 without `includeMembers`).",
+            "format": "int32"
+          },
+          "membersSkipped": {
+            "type": "integer",
+            "description": "Live members left where they are because they live in another book.",
+            "format": "int32"
+          }
+        }
+      },
+      "MoveContactRequest": {
+        "required": [
+          "addressBookId"
+        ],
+        "type": "object",
+        "properties": {
+          "addressBookId": {
+            "type": "string",
+            "description": "The address book to move the contact into.",
+            "format": "uuid"
+          }
+        }
       },
       "NameMatchOutcome": {
         "enum": [

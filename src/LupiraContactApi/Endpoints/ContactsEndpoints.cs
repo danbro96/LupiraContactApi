@@ -82,6 +82,14 @@ public static class ContactsEndpoints
             .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/move", (Guid id, MoveContactRequest body, ContactsHandler h, CancellationToken ct) => h.MoveAsync(id, body, ct))
+            .WithName("MoveContact")
+            .WithSummary("Move a contact to another address book, keeping its id (so relations, group memberships and links to it survive), content and ETag. Needs write access to both books; moving it to its current book is a no-op. The sync feed reports it deleted to readers of the old book and changed to readers of the new one.")
+            .Produces<ContactDto>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden);
+
         group.MapGet("/circles", (Guid? focusId, ContactsHandler h, CancellationToken ct) => h.CirclesAsync(focusId, ct))
             .WithName("GetContactCircles")
             .WithSummary("Computed social circles (close family, extended family, friends, colleagues, household) around a focus contact — the caller's own linked contact unless focusId overrides. Degree is a closeness bucket (1 immediate, 2 two-generation kin, 3 cousin). Ended relations are excluded.")

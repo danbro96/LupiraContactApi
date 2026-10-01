@@ -53,6 +53,12 @@ public sealed class ContactGroup
         Touch(e);
     }
 
+    public void Apply(IEvent<ContactGroupMoved> e)
+    {
+        AddressBookId = e.Data.AddressBookId;
+        Touch(e);
+    }
+
     public void Apply(IEvent<ContactAddedToGroup> e)
     {
         var d = e.Data;

@@ -12,7 +12,9 @@ public sealed class MeHandler(CurrentUser user, AddressBookService books, Contac
     public async Task<Results<Ok<MeDto>, UnauthorizedHttpResult>> GetAsync(CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return TypedResults.Ok(new MeDto { PrincipalId = u.Id, Email = u.Email, DisplayName = u.DisplayName, ContactId = u.ContactId });
+        // Unlinked only: a book shared since the last call may hold the caller's card by now.
+        var contactId = u.ContactId ?? await contacts.MatchSelfContactAsync(u.Id, ct);
+        return TypedResults.Ok(new MeDto { PrincipalId = u.Id, Email = u.Email, DisplayName = u.DisplayName, ContactId = contactId });
     }
 
     public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetContactAsync(SetMyContactRequest body, CancellationToken ct)

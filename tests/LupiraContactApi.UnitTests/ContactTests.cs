@@ -342,6 +342,22 @@ public class ContactTests
     }
 
     [Fact]
+    public void Moved_records_the_book_it_left_and_bumps_the_watermark_but_not_the_etag()
+    {
+        var id = Guid.NewGuid();
+        var c = Created(id);
+        var (from, hash, seq) = (c.AddressBookId, c.ContentHash, c.UpdatedSequence);
+        var to = Guid.NewGuid();
+
+        c.Apply(Ev(new ContactMoved(id, to)));
+
+        Assert.Equal(to, c.AddressBookId);
+        Assert.Equal([from], c.FormerAddressBookIds);
+        Assert.True(c.UpdatedSequence > seq);
+        Assert.Equal(hash, c.ContentHash);
+    }
+
+    [Fact]
     public void Recomputed_hash_is_deterministic_for_identical_state()
     {
         var id = Guid.NewGuid();

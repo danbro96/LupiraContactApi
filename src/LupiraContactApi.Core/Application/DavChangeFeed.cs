@@ -4,7 +4,7 @@ using Marten;
 namespace LupiraContactApi.Core.Application;
 
 /// <summary>The CardDAV change feed backing the <c>/dav-backend</c> seam: sync tokens are Marten's global event
-/// sequence (opaque to the gateway), changes are the contact streams touched past a token, deletions are tombstones.</summary>
+/// sequence (opaque to the gateway), changes are the contact streams touched past a token, deletions and moves out are tombstones.</summary>
 public sealed class DavChangeFeed(IQuerySession session)
 {
     /// <summary>The current sync token = the store's latest global event sequence.</summary>
@@ -28,8 +28,11 @@ public sealed class DavChangeFeed(IQuerySession session)
 
         var changedIds = (await session.Events.QueryAllRawEvents().Where(e => e.Sequence > since).ToListAsync(ct))
             .Select(e => e.StreamId).Distinct().ToList();
-        var contacts = await session.Query<Contact>().Where(c => changedIds.Contains(c.Id) && c.AddressBookId == addressBookId).ToListAsync(ct);
-        return (newToken, [.. contacts.Select(c => c.DeletedAt is not null
+        // A contact moved to another book is gone from this one, so it still matches here to be tombstoned.
+        var contacts = await session.Query<Contact>()
+            .Where(c => changedIds.Contains(c.Id) && (c.AddressBookId == addressBookId || c.FormerAddressBookIds.Contains(addressBookId)))
+            .ToListAsync(ct);
+        return (newToken, [.. contacts.Select(c => c.DeletedAt is not null || c.AddressBookId != addressBookId
             ? new DavChange(c.ExternalId, null, Deleted: true)
             : new DavChange(c.ExternalId, c.ContentHash, Deleted: false))]);
     }

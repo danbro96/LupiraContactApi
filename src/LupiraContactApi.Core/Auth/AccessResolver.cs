@@ -11,6 +11,9 @@ public sealed class AccessResolver(IQuerySession session)
     public async Task<List<Guid>> AccessibleAddressBookIdsAsync(Guid principalId, CancellationToken ct = default) =>
         await session.Query<AddressBookOwner>().Where(o => o.PrincipalId == principalId).Select(o => o.AddressBookId).ToListAsync(ct) is { } l ? [.. l] : [];
 
+    public async Task<List<AddressBookOwner>> GrantsAsync(Guid principalId, CancellationToken ct = default) =>
+        [.. await session.Query<AddressBookOwner>().Where(o => o.PrincipalId == principalId).ToListAsync(ct)];
+
     /// <summary>Owner-only (not read-write): gates granting/revoking co-owners on a container.</summary>
     public async Task<bool> IsAddressBookOwnerAsync(Guid principalId, Guid addressBookId, CancellationToken ct = default) =>
         await session.Query<AddressBookOwner>().AnyAsync(o => o.AddressBookId == addressBookId && o.PrincipalId == principalId && o.Access == Access.Owner, ct);

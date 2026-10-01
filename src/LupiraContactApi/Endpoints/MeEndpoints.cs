@@ -12,14 +12,14 @@ public static class MeEndpoints
             .RequireAuthorization("ApiPolicy")
             .WithTags("Me")
             .WithName("GetMe")
-            .WithSummary("The caller's resolved local identity (JIT-provisioned on first login).")
+            .WithSummary("The caller's resolved local identity (JIT-provisioned on first login). While no contact is linked, one carrying the login email in a readable book is linked.")
             .Produces<MeDto>(StatusCodes.Status200OK);
 
         app.MapPost("/me/bootstrap", (MeHandler h, CancellationToken ct) => h.BootstrapAsync(ct))
             .RequireAuthorization("ApiPolicy")
             .WithTags("Me")
             .WithName("BootstrapMe")
-            .WithSummary("Idempotently ensure the caller has a personal address book; returns all accessible books.")
+            .WithSummary("Idempotently ensure the caller has a personal address book and a linked contact of its own (one carrying the login email in a readable book, else a new one in the personal book); returns all accessible books.")
             .Produces<List<AddressBookDto>>(StatusCodes.Status200OK);
 
         app.MapPut("/me/contact", (SetMyContactRequest body, MeHandler h, CancellationToken ct) => h.SetContactAsync(body, ct))

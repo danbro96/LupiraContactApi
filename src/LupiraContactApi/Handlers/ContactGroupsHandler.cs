@@ -1,5 +1,6 @@
 using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -37,6 +38,20 @@ public sealed class ContactGroupsHandler(CurrentUser user, ContactGroupService g
     {
         var u = await user.GetAsync(ct);
         return OpResultMap.OkNotFoundProblem(await groups.RemoveMemberAsync(u.Id, groupId, contactId, ct));
+    }
+
+    public async Task<Results<Ok<MoveContactGroupResponse>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> MoveAsync(Guid groupId, MoveContactGroupRequest body, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        var r = await groups.MoveAsync(u.Id, groupId, body.AddressBookId, body.IncludeMembers, ct);
+        return OpResultMap.OkNotFoundProblem(r.Value is { } moved
+            ? OpResult<MoveContactGroupResponse>.Ok(new MoveContactGroupResponse
+            {
+                Group = moved.Group,
+                MembersMoved = moved.Members.Count(m => m.Outcome == ContactMoveOutcome.Moved),
+                MembersSkipped = moved.Members.Count(m => m.Outcome == ContactMoveOutcome.Skipped),
+            })
+            : new OpResult<MoveContactGroupResponse>(r.Status, null, r.Error));
     }
 
     public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> DeleteAsync(Guid groupId, CancellationToken ct)

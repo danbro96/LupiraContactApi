@@ -84,6 +84,23 @@ public class ContactGroupTests
     }
 
     [Fact]
+    public void Moved_changes_the_book_and_keeps_members()
+    {
+        var gid = Guid.NewGuid();
+        var contact = Guid.NewGuid();
+        var to = Guid.NewGuid();
+        var g = Created(gid);
+        g.Apply(Ev(new ContactAddedToGroup(gid, contact, "Engineer")));
+
+        g.Apply(Ev(new ContactGroupMoved(gid, to), at: T0.AddHours(1)));
+
+        Assert.Equal(to, g.AddressBookId);
+        Assert.Equal(T0.AddHours(1), g.UpdatedAt);
+        var m = Assert.Single(g.Members);
+        Assert.Equal((contact, "Engineer"), (m.ContactId, m.Role));
+    }
+
+    [Fact]
     public void Duplicate_add_is_idempotent()
     {
         var gid = Guid.NewGuid();

@@ -102,6 +102,17 @@ public sealed class ContactTools
         return $"Deleted contact {contactId}.";
     }
 
+    [McpServerTool(Name = "move_contacts")]
+    [Description("Move contacts to another address book, keeping their ids, so relations, group memberships and links elsewhere stay intact. Needs write access to the target and to each contact's current book. Returns each id's outcome: Moved, Unchanged (already there), NotFound or Forbidden. Max 500 per call.")]
+    public static async Task<IReadOnlyList<ContactMoveResult>> MoveContacts(
+        ContactService contacts, CurrentUser user,
+        [Description("The contacts to move.")] List<Guid> contactIds,
+        [Description("The target address book id.")] Guid addressBookId)
+    {
+        var u = await user.GetAsync();
+        return Require(await contacts.MoveManyAsync(u.Id, contactIds, addressBookId));
+    }
+
     [McpServerTool(Name = "relate_contacts")]
     [Description("Relate two contacts, from either side: kind is toContactId's role relative to contactId — 'toContactId is contactId's <kind>'. Example: 'X is Y's dad' → relate_contacts(contactId: Y, toContactId: X, kind: 'parent', label: 'dad'), or equally relate_contacts(contactId: X, toContactId: Y, kind: 'child'). Re-adding the same pair+kind updates it.")]
     public static async Task<ContactRelationEntryDto> RelateContacts(
@@ -285,7 +296,7 @@ public sealed class ContactTools
     }
 
     [McpServerTool(Name = "bootstrap_me")]
-    [Description("Ensure the caller has a personal address book (idempotent); returns all accessible books.")]
+    [Description("Ensure the caller has a personal address book and a linked contact of its own — one carrying the login email in a readable book, else a new one in the personal book (idempotent); returns all accessible books.")]
     public static async Task<IReadOnlyList<AddressBookDto>> BootstrapMe(AddressBookService books, CurrentUser user)
     {
         var u = await user.GetAsync();
@@ -345,6 +356,18 @@ public sealed class ContactTools
     {
         var u = await user.GetAsync();
         return Require(await groups.RemoveMemberAsync(u.Id, groupId, contactId));
+    }
+
+    [McpServerTool(Name = "move_contact_group")]
+    [Description("Move a contact group to another address book, keeping its id, name, kind, members and roles. Needs write access to both books. includeMembers=true also moves the member contacts living in the group's current book; members in other books stay put (Skipped). Lists each member's outcome when includeMembers is set.")]
+    public static async Task<ContactGroupMoveResult> MoveContactGroup(
+        ContactGroupService groups, CurrentUser user,
+        [Description("Group id.")] Guid groupId,
+        [Description("The target address book id.")] Guid addressBookId,
+        [Description("Also move the members that live in the group's current book.")] bool includeMembers = false)
+    {
+        var u = await user.GetAsync();
+        return Require(await groups.MoveAsync(u.Id, groupId, addressBookId, includeMembers));
     }
 
     [McpServerTool(Name = "delete_contact_group")]

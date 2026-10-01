@@ -1,10 +1,13 @@
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Me;
 using Marten;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -41,6 +44,26 @@ public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLif
         var resp = await api.PostAsJsonAsync("/contacts", req);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+    }
+
+    protected static async Task GrantAsync(HttpClient owner, Guid addressBookId, string email, string access) =>
+        (await owner.PostAsJsonAsync($"/address-books/{addressBookId}/owners", new GrantOwnerRequest { Email = email, Access = access })).EnsureSuccessStatusCode();
+
+    protected async Task<McpClient> McpAsync(string email)
+    {
+        var http = Factory.ApiClient(email);
+        var transport = new HttpClientTransport(
+            new HttpClientTransportOptions { Endpoint = new Uri(http.BaseAddress!, "/mcp"), TransportMode = HttpTransportMode.StreamableHttp },
+            http, ownsHttpClient: true);
+        return await McpClient.CreateAsync(transport);
+    }
+
+    /// <summary>A successful tool call's JSON payload.</summary>
+    protected static T ToolResult<T>(CallToolResult result)
+    {
+        var text = Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
+        Assert.True(result.IsError != true, text);
+        return JsonSerializer.Deserialize<T>(text, JsonSerializerOptions.Web)!;
     }
 
     protected static string MinimalVcf(string uid, string fullName, string? email = null)

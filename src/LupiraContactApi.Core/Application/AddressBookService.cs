@@ -12,7 +12,7 @@ namespace LupiraContactApi.Core.Application;
 
 /// <summary>Lists and creates the address books a principal can access, and shares them by granting/revoking
 /// co-owners. Creation grants the caller <c>owner</c>; sharing is owner-only and targets a member by email.</summary>
-public sealed class AddressBookService(IDocumentSession session, PrincipalDirectory principals, AccessResolver access)
+public sealed class AddressBookService(IDocumentSession session, PrincipalDirectory principals, AccessResolver access, ContactService contacts)
 {
     public async Task<OpResult<List<AddressBookDto>>> ListAsync(Guid principalId, CancellationToken ct = default)
     {
@@ -60,7 +60,7 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         var book = await session.LoadAsync<AddressBook>(addressBookId, ct);
         if (book is null) return OpResult.NotFound();
         if (!await access.IsAddressBookOwnerAsync(callerId, addressBookId, ct)) return OpResult.Forbidden("Only an owner may delete this address book.");
-        if (book.Slug == "personal") return OpResult.Conflict("The personal address book cannot be deleted.");
+        if (book.Slug == AddressBook.PersonalSlug) return OpResult.Conflict("The personal address book cannot be deleted.");
         if (await session.Query<Contact>().AnyAsync(c => c.AddressBookId == addressBookId && c.DeletedAt == null, ct))
             return OpResult.Conflict("Address book is not empty: move or delete its contacts first.");
         if (await session.Query<ContactGroup>().AnyAsync(g => g.AddressBookId == addressBookId && g.DeletedAt == null, ct))
@@ -73,12 +73,14 @@ public sealed class AddressBookService(IDocumentSession session, PrincipalDirect
         return OpResult.Ok();
     }
 
-    /// <summary>Ensures the caller has a <c>personal</c> address book; idempotent — matched on slug, so a second call creates nothing.</summary>
+    /// <summary>Ensures the caller has a <c>personal</c> address book and a linked contact of its own
+    /// (<see cref="ContactService.EnsureSelfContactAsync"/>); idempotent — the book is matched on slug, so a second call creates nothing.</summary>
     public async Task<OpResult<List<AddressBookDto>>> BootstrapPersonalAsync(Guid principalId, CancellationToken ct = default)
     {
         var existing = (await ListAsync(principalId, ct)).Value!;
-        if (!existing.Any(b => b.Slug == "personal"))
-            existing.Add((await CreateAsync(principalId, new CreateAddressBookRequest { Slug = "personal", DisplayName = "Personal" }, ct)).Value!);
+        if (!existing.Any(b => b.Slug == AddressBook.PersonalSlug))
+            existing.Add((await CreateAsync(principalId, new CreateAddressBookRequest { Slug = AddressBook.PersonalSlug, DisplayName = "Personal" }, ct)).Value!);
+        await contacts.EnsureSelfContactAsync(principalId, ct);
         return OpResult<List<AddressBookDto>>.Ok(existing);
     }
 

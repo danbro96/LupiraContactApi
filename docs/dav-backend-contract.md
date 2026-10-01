@@ -75,4 +75,5 @@ Optional `If-Match`. → `204` | `403` | `404` | `412`.
 → `200 { "syncToken": "…", "changed": [ { "uid", "etag" } ], "deleted": [ "uid" ] }`.
 `since` absent/unknown/unparsable → full listing (`changed` = all live, `deleted` empty) —
 self-healing full resync. `deleted` entries are tombstones the gateway renders as 404-status
-responses in the sync REPORT.
+responses in the sync REPORT. A resource moved to another collection is a tombstone in the one it
+left and a change in the one it joined.

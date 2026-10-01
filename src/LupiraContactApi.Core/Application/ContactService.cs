@@ -1,8 +1,10 @@
 using System.Text.Json.Nodes;
+using JasperFx;
 using JasperFx.Events;
 using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
+using LupiraContactApi.Core.Domain.AddressBooks;
 using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Contacts.Events;
@@ -357,6 +359,73 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         stream.AppendOne(new ContactDeleted(id));
         await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult.Ok();
+    }
+
+    // ---- Moves between address books (the id, and so every relation, membership and link to it, survives) ----
+
+    public const int MaxMoveBatch = 500;
+
+    /// <summary>Moves a contact to another address book. Needs write access to both; moving it to its current book is a no-op.</summary>
+    public async Task<OpResult<ContactDto>> MoveAsync(Guid principalId, Guid id, Guid addressBookId, CancellationToken ct = default)
+    {
+        if (await DenyMoveTargetAsync(principalId, addressBookId, ct) is { } denied) return new(denied.Status, null, denied.Error);
+        switch ((await StageMovesAsync(principalId, [id], addressBookId, null, ct))[0].Outcome)
+        {
+            case ContactMoveOutcome.NotFound: return OpResult<ContactDto>.NotFound();
+            case ContactMoveOutcome.Forbidden: return OpResult<ContactDto>.Forbidden("No write access to this contact.");
+        }
+
+        await session.SaveChangesAsync(ct);
+        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
+    }
+
+    /// <summary>Moves many contacts in one transaction, reporting each id's outcome in input order (duplicates collapse).
+    /// A missing or unwritable target fails the whole call.</summary>
+    public async Task<OpResult<List<ContactMoveResult>>> MoveManyAsync(Guid principalId, IReadOnlyCollection<Guid> ids, Guid addressBookId, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return OpResult<List<ContactMoveResult>>.Invalid("At least one contact id is required.");
+        if (ids.Count > MaxMoveBatch) return OpResult<List<ContactMoveResult>>.Invalid($"At most {MaxMoveBatch} contacts per move.");
+        if (await DenyMoveTargetAsync(principalId, addressBookId, ct) is { } denied) return new(denied.Status, null, denied.Error);
+
+        var results = await StageMovesAsync(principalId, ids, addressBookId, null, ct);
+        await session.SaveChangesAsync(ct);
+        return OpResult<List<ContactMoveResult>>.Ok(results);
+    }
+
+    internal async Task<OpResult?> DenyMoveTargetAsync(Guid principalId, Guid addressBookId, CancellationToken ct)
+    {
+        if (addressBookId == Guid.Empty) return OpResult.Invalid("addressBookId is required.");
+        if (await session.LoadAsync<AddressBook>(addressBookId, ct) is null) return OpResult.NotFound();
+        if (!await access.CanWriteAddressBookAsync(principalId, addressBookId, ct)) return OpResult.Forbidden("No write access to the target address book.");
+        return null;
+    }
+
+    /// <summary>Appends a move for each live contact the caller can write, leaving the save to the caller so a group move can
+    /// commit its members with it. With <paramref name="onlyFromBookId"/>, contacts living elsewhere are skipped. The target
+    /// must already have passed <see cref="DenyMoveTargetAsync"/>.</summary>
+    internal async Task<List<ContactMoveResult>> StageMovesAsync(Guid principalId, IEnumerable<Guid> ids, Guid addressBookId, Guid? onlyFromBookId, CancellationToken ct)
+    {
+        Stamp(principalId);
+        var writable = new Dictionary<Guid, bool> { [addressBookId] = true };
+        var results = new List<ContactMoveResult>();
+        foreach (var id in ids.Distinct())
+        {
+            var stream = await session.Events.FetchForWriting<Contact>(id, ct);
+            var outcome = stream.Aggregate switch
+            {
+                not { DeletedAt: null } => ContactMoveOutcome.NotFound,
+                var c when c.AddressBookId == addressBookId => ContactMoveOutcome.Unchanged,
+                var c when onlyFromBookId is { } from && c.AddressBookId != from => ContactMoveOutcome.Skipped,
+                var c => await CanWriteAsync(c.AddressBookId) ? ContactMoveOutcome.Moved : ContactMoveOutcome.Forbidden,
+            };
+            if (outcome == ContactMoveOutcome.Moved) stream.AppendOne(new ContactMoved(id, addressBookId));
+            results.Add(new ContactMoveResult { ContactId = id, Outcome = outcome });
+        }
+
+        return results;
+
+        async Task<bool> CanWriteAsync(Guid bookId) =>
+            writable.TryGetValue(bookId, out var known) ? known : writable[bookId] = await access.CanWriteAddressBookAsync(principalId, bookId, ct);
     }
 
     // ---- Deceased (death is not deletion — the contact stays in the kinship graph) ----
@@ -733,6 +802,84 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         session.Store(principal);
         await session.SaveChangesAsync(ct);
         return OpResult.Ok();
+    }
+
+    /// <summary>Links a principal that has no live, readable self-contact to one: an email match among the contacts it can
+    /// read (<see cref="MatchSelfContactAsync"/>), else a new contact in its personal book. Returns the linked id.</summary>
+    public async Task<Guid?> EnsureSelfContactAsync(Guid principalId, CancellationToken ct = default)
+    {
+        if (await session.LoadAsync<Principal>(principalId, ct) is not { } principal) return null;
+        if (principal.ContactId is { } linked && await session.LoadAsync<Contact>(linked, ct) is { DeletedAt: null } c
+            && await access.CanReadAddressBookAsync(principalId, c.AddressBookId, ct))
+            return linked;
+
+        var grants = await access.GrantsAsync(principalId, ct);
+        return await LinkByEmailAsync(principal, grants, ct) ?? await CreateSelfContactAsync(principal, grants, ct);
+    }
+
+    /// <summary>Links the principal to a contact it can read carrying its login email, if one exists — never creates. Several
+    /// matches resolve to one in a book the principal owns, then the most recently updated.</summary>
+    public async Task<Guid?> MatchSelfContactAsync(Guid principalId, CancellationToken ct = default) =>
+        await session.LoadAsync<Principal>(principalId, ct) is { } principal
+            ? await LinkByEmailAsync(principal, await access.GrantsAsync(principalId, ct), ct)
+            : null;
+
+    private async Task<Guid?> LinkByEmailAsync(Principal principal, List<AddressBookOwner> grants, CancellationToken ct)
+    {
+        var email = principal.Email.Trim();
+        if (email.Length == 0) return null;
+        var owned = grants.Where(g => g.Access == Access.Owner).Select(g => g.AddressBookId).ToHashSet();
+        var matches = await LiveContactsIn([.. grants.Select(g => g.AddressBookId)])
+            .Where(c => c.Channels.Any(ch => ch.Medium == ReachMedium.Email && ch.Value.Equals(email, StringComparison.OrdinalIgnoreCase)))
+            .ToListAsync(ct);
+        var pick = matches
+            .OrderByDescending(c => owned.Contains(c.AddressBookId))
+            .ThenByDescending(c => c.UpdatedSequence)
+            .ThenBy(c => c.Id)
+            .FirstOrDefault();
+        if (pick is null) return null;
+        await StoreSelfLinkAsync(principal, pick.Id, ct);
+        return pick.Id;
+    }
+
+    private async Task<Guid?> CreateSelfContactAsync(Principal principal, List<AddressBookOwner> grants, CancellationToken ct)
+    {
+        var owned = grants.Where(g => g.Access == Access.Owner).Select(g => g.AddressBookId).ToList();
+        var personal = await session.Query<AddressBook>()
+            .Where(b => owned.Contains(b.Id) && b.Slug == AddressBook.PersonalSlug).OrderBy(b => b.Id).FirstOrDefaultAsync(ct);
+        var (given, family) = SelfContactName.From(principal.DisplayName, principal.Email);
+        if (personal is null || given is null) return null;
+
+        var email = principal.Email.Trim();
+        var request = new CreateContactRequest
+        {
+            AddressBookId = personal.Id,
+            SourceKey = $"self-{principal.Id:N}@cal.lupira.com",   // one stream per principal, so racing bootstraps converge on one contact
+            GivenName = given,
+            FamilyName = family,
+            Channels = email.Length == 0 ? null : [new ContactReachChannel(ReachMedium.Email, email, null, true)],
+        };
+        OpResult<ContactDto> created;
+        try
+        {
+            created = await CreateAsync(principal.Id, request, ct);
+        }
+        catch (Exception ex) when (ex is ConcurrencyException or Marten.Exceptions.ExistingStreamIdCollisionException)
+        {
+            session.EjectAllPendingChanges();
+            created = await CreateAsync(principal.Id, request, ct);   // the winner's contact, as an idempotent hit
+        }
+
+        if (created.Value is not { } contact) return null;
+        await StoreSelfLinkAsync(principal, contact.Id, ct);
+        return contact.Id;
+    }
+
+    private async Task StoreSelfLinkAsync(Principal principal, Guid contactId, CancellationToken ct)
+    {
+        principal.ContactId = contactId;
+        session.Store(principal);
+        await session.SaveChangesAsync(ct);
     }
 
     // Order-sensitive equality: order is part of the canonical content, so a reorder is a real change.

@@ -38,6 +38,7 @@ public static class MartenRegistrations
         opts.Events.MapEventType<ContactRevised>("contact_revised");
         opts.Events.MapEventType<ContactDeleted>("contact_deleted");
         opts.Events.MapEventType<ContactRestored>("contact_restored");
+        opts.Events.MapEventType<ContactMoved>("contact_moved");
         opts.Events.MapEventType<ContactAddressesReplaced>("contact_addresses_replaced");
         opts.Events.MapEventType<ContactProfilesReplaced>("contact_profiles_replaced");
         opts.Events.MapEventType<ContactRelationAdded>("contact_relation_added");
@@ -51,6 +52,7 @@ public static class MartenRegistrations
         opts.Events.MapEventType<ContactMetadataAttached>("contact_metadata_attached");
         opts.Events.MapEventType<ContactGroupCreated>("contact_group_created");
         opts.Events.MapEventType<ContactGroupRenamed>("contact_group_renamed");
+        opts.Events.MapEventType<ContactGroupMoved>("contact_group_moved");
         opts.Events.MapEventType<ContactAddedToGroup>("contact_added_to_group");
         opts.Events.MapEventType<ContactRemovedFromGroup>("contact_removed_from_group");
         opts.Events.MapEventType<ContactGroupDeleted>("contact_group_deleted");

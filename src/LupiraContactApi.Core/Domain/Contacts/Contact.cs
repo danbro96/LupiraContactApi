@@ -187,6 +187,12 @@ public sealed class Contact
         RecomputeHash();
     }
 
+    public void Apply(IEvent<ContactMoved> e)
+    {
+        MoveTo(e.Data.AddressBookId);
+        Touch(e);
+    }
+
     public void Apply(IEvent<ContactAddressesReplaced> e)
     {
         Touch(e);
