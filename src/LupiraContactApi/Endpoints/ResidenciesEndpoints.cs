@@ -54,7 +54,7 @@ public static class ResidenciesEndpoints
             .Produces<List<ResidencyDto>>(StatusCodes.Status200OK);
 
         group.MapPost("/moves", (MoveRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ResidenciesHandler h, CancellationToken ct) => h.MoveAsync(body, idempotencyKey, ct))
-            .WithName("MoveContacts")
+            .WithName("RecordMove")
             .WithSummary("Several contacts move together: each one's current residencies at fromPlaceId end on movedIn, and a residency at toPlaceId starts then. All or nothing. Returns the new residencies.")
             .Produces<List<ResidencyDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)

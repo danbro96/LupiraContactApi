@@ -3970,7 +3970,7 @@
           "Residencies"
         ],
         "summary": "Several contacts move together: each one's current residencies at fromPlaceId end on movedIn, and a residency at toPlaceId starts then. All or nothing. Returns the new residencies.",
-        "operationId": "MoveContacts",
+        "operationId": "RecordMove",
         "parameters": [
           {
             "name": "Idempotency-Key",
