@@ -1,7 +1,7 @@
-using LupiraContactApi.Core.Application;
-using LupiraContactApi.Core.Domain.Identity;
+using Lupira.Identity.Marten;
 using Marten;
 using Xunit;
+using Principal = LupiraContactApi.Core.Domain.Identity.Principal;
 
 namespace LupiraContactApi.IntegrationTests;
 
@@ -22,7 +22,7 @@ public sealed class PrincipalIdentityTests(ContactApiTestFactory factory) : Inte
         var resolved = await Task.WhenAll(Enumerable.Range(0, 20).Select(async _ =>
         {
             await using var s = Store.LightweightSession();
-            return (await new PrincipalDirectory(s).ResolveOrProvisionAsync(sub, "racer@x.test", "Racer")).Id;
+            return (await new PrincipalDirectory<Principal>(s).ResolveOrProvisionAsync(sub, "racer@x.test", "Racer")).Id;
         }));
 
         Assert.Single(resolved.Distinct());
@@ -39,7 +39,7 @@ public sealed class PrincipalIdentityTests(ContactApiTestFactory factory) : Inte
     public async Task Repeated_resolution_is_stable()
     {
         await using var s = Store.LightweightSession();
-        var directory = new PrincipalDirectory(s);
+        var directory = new PrincipalDirectory<Principal>(s);
 
         var first = await directory.ResolveOrProvisionAsync("authentik-sub-stable", "stable@x.test", "Stable");
         for (var i = 0; i < 10; i++)

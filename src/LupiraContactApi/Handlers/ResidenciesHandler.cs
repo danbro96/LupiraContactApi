@@ -1,12 +1,13 @@
 using Lupira.Hosting.Problems;
-using LupiraContactApi.Auth;
+using Lupira.Identity.Marten.AspNetCore;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Dtos.Residencies;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-public sealed class ResidenciesHandler(CurrentUser user, ResidencyService residencies, ResidencyFeed feed)
+public sealed class ResidenciesHandler(CurrentUser<Principal> user, ResidencyService residencies, ResidencyFeed feed)
 {
     public async Task<Results<Ok<List<ResidencyDto>>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ListAsync(Guid contactId, CancellationToken ct)
     {

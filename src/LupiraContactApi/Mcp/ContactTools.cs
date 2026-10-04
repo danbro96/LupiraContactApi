@@ -1,8 +1,9 @@
 using System.ComponentModel;
+using Lupira.Identity.Marten.AspNetCore;
 using Lupira.Mcp;
-using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Application;
 using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
@@ -13,7 +14,7 @@ using ModelContextProtocol.Server;
 namespace LupiraContactApi.Mcp;
 
 /// <summary>
-/// The agent's MCP tool surface, mounted at /mcp. Each tool resolves the caller via <see cref="CurrentUser"/>
+/// The agent's MCP tool surface, mounted at /mcp. Each tool resolves the caller via <see cref="CurrentUser{TPrincipal}"/>
 /// and delegates to the same Core services as REST, so results are scoped to the member's accessible address books.
 /// Non-Ok outcomes surface as a structured <see cref="McpException"/> tool error.
 /// </summary>
@@ -23,7 +24,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "search_contacts")]
     [Description("Find contacts the caller can access, optionally by name.")]
     public static async Task<IReadOnlyList<ContactDto>> SearchContacts(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("Free-text query over the contact's name.")] string? query = null)
     {
         var u = await user.GetAsync();
@@ -33,7 +34,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "list_thin_contacts")]
     [Description("Check-in worklist: contacts ranked thinnest-first by completeness score (0..1 ascending). Kind-aware: organisation/venue cards are only scored on name/reach/address; the deceased on remembrance data. Each contact carries Completeness with ranked Gaps — the fields worth asking about. When a gap doesn't apply (grandma has no employer), acknowledge it via attach_metadata with {\"completeness\":{\"na\":[\"organisation\"]}} so it stops counting.")]
     public static async Task<IReadOnlyList<ContactDto>> ListThinContacts(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("Restrict to one address book id.")] Guid? addressBookId = null,
         [Description("Only contacts scoring strictly below this (0..1). Default 1 = any contact with gaps.")] double? maxScore = null,
         [Description("Max contacts returned (default 25).")] int? take = null)
@@ -45,7 +46,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "attach_metadata")]
     [Description("Merge an arbitrary JSON object of metadata into a contact (top-level keys overwrite). Also the channel for completeness N/A acknowledgments: {\"completeness\":{\"na\":[\"organisation\",\"birthday\"]}} marks those rubric fields as not applicable so the contact's completeness score stops counting them.")]
     public static async Task<ContactDto> AttachMetadata(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact id.")] Guid contactId,
         [Description("A JSON object of metadata keys to merge.")] string metadataJson)
     {
@@ -59,7 +60,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "create_contact")]
     [Description("Create a contact in an address book (AddressBookId required). Kind = Individual (default) or Organization — use Organization for a business/venue card (a restaurant, clinic, airline); it skips person-only completeness asks. Name is structured parts; employer is set separately as an organization group. Notes/pronouns and a year-optional birthday can be set here.")]
-    public static async Task<ContactDto> CreateContact(ContactService contacts, CurrentUser user, CreateContactRequest request)
+    public static async Task<ContactDto> CreateContact(ContactService contacts, CurrentUser<Principal> user, CreateContactRequest request)
     {
         var u = await user.GetAsync();
         return (await contacts.CreateAsync(u.Id, request)).Require();
@@ -67,7 +68,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "create_contacts_batch")]
     [Description("Create many contacts in one call (each item carries its AddressBookId). Returns them in input order. Use for imports instead of repeated create_contact. Max 100; the whole batch fails on any forbidden book or channel conflict.")]
-    public static async Task<IReadOnlyList<ContactDto>> CreateContactsBatch(ContactService contacts, CurrentUser user, CreateContactsBatchRequest request)
+    public static async Task<IReadOnlyList<ContactDto>> CreateContactsBatch(ContactService contacts, CurrentUser<Principal> user, CreateContactsBatchRequest request)
     {
         var u = await user.GetAsync();
         return (await contacts.CreateBatchAsync(u.Id, request.Contacts)).Require();
@@ -75,7 +76,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "resolve_contacts")]
     [Description("Batch-match a list of names to existing contacts for import disambiguation. Per name: outcome Matched (one contact whose full name/nickname equals it, or the only contact holding every word of a multi-word name → contactId), Ambiguous (several, or a lone hit on a single word → see candidates), or NotFound; candidates are id+displayName. Case/diacritic-insensitive, not phonetic. Optionally scope to one AddressBookId.")]
-    public static async Task<IReadOnlyList<ContactNameMatch>> ResolveContacts(ContactService contacts, CurrentUser user, ResolveContactsByNameRequest request)
+    public static async Task<IReadOnlyList<ContactNameMatch>> ResolveContacts(ContactService contacts, CurrentUser<Principal> user, ResolveContactsByNameRequest request)
     {
         var u = await user.GetAsync();
         return (await contacts.ResolveByNameAsync(u.Id, request.Names, request.AddressBookId)).Require();
@@ -83,7 +84,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "get_contact")]
     [Description("Fetch one contact by id (search_contacts searches by name).")]
-    public static async Task<ContactDto> GetContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
+    public static async Task<ContactDto> GetContact(ContactService contacts, CurrentUser<Principal> user, [Description("The contact id.")] Guid contactId)
     {
         var u = await user.GetAsync();
         return (await contacts.GetAsync(u.Id, contactId)).Require();
@@ -91,7 +92,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "update_contact")]
     [Description("Merge-update a contact: provided scalars overwrite, provided channels/tags union onto the existing, null fields are kept (never wipes what it didn't mention). Use set_contact_channels/set_contact_tags to remove.")]
-    public static async Task<ContactDto> UpdateContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId, ReviseContactRequest request)
+    public static async Task<ContactDto> UpdateContact(ContactService contacts, CurrentUser<Principal> user, [Description("The contact id.")] Guid contactId, ReviseContactRequest request)
     {
         var u = await user.GetAsync();
         return (await contacts.ReviseAsync(u.Id, contactId, request)).Require();
@@ -99,7 +100,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "delete_contact")]
     [Description("Soft-delete a contact (tombstoned; a subsequent create/import with the same uid resurrects it). Do not delete the dead — mark_contact_deceased keeps them in the graph. Refused for a member's own contact.")]
-    public static async Task<string> DeleteContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
+    public static async Task<string> DeleteContact(ContactService contacts, CurrentUser<Principal> user, [Description("The contact id.")] Guid contactId)
     {
         var u = await user.GetAsync();
         (await contacts.DeleteAsync(u.Id, contactId)).Require();
@@ -109,7 +110,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "move_contacts")]
     [Description("Move contacts to another address book, keeping their ids, so relations, group memberships and links elsewhere stay intact. Needs write access to the target and to each contact's current book. Returns each id's outcome: Moved, Unchanged (already there), NotFound or Forbidden. Max 500 per call.")]
     public static async Task<IReadOnlyList<ContactMoveResult>> MoveContacts(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contacts to move.")] List<Guid> contactIds,
         [Description("The target address book id.")] Guid addressBookId)
     {
@@ -120,7 +121,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "relate_contacts")]
     [Description("Relate two contacts, from either side: kind is toContactId's role relative to contactId — 'toContactId is contactId's <kind>'. Example: 'X is Y's dad' → relate_contacts(contactId: Y, toContactId: X, kind: 'parent', label: 'dad'), or equally relate_contacts(contactId: X, toContactId: Y, kind: 'child'). Re-adding the same pair+kind updates it.")]
     public static async Task<ContactRelationEntryDto> RelateContacts(
-        RelationshipService relationships, CurrentUser user,
+        RelationshipService relationships, CurrentUser<Principal> user,
         [Description("Either contact of the relationship.")] Guid contactId,
         [Description("The other contact.")] Guid toContactId,
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind,
@@ -133,7 +134,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "end_contact_relation")]
     [Description("End a relationship, from either side (ex-spouse, falling-out): it stays, flagged with an optional end date, and no longer asserts current kinship. Use unrelate_contacts only for relationships entered by mistake.")]
     public static async Task<ContactRelationEntryDto> EndContactRelation(
-        RelationshipService relationships, CurrentUser user,
+        RelationshipService relationships, CurrentUser<Principal> user,
         [Description("Either contact of the relationship.")] Guid contactId,
         [Description("The other contact; kind is its role relative to contactId.")] Guid toContactId,
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind,
@@ -146,7 +147,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "unrelate_contacts")]
     [Description("Remove a relationship entered by mistake, from either side. A relationship that ran its course should be ended via end_contact_relation instead.")]
     public static async Task<string> UnrelateContacts(
-        RelationshipService relationships, CurrentUser user,
+        RelationshipService relationships, CurrentUser<Principal> user,
         [Description("Either contact of the relationship.")] Guid contactId,
         [Description("The other contact; kind is its role relative to contactId.")] Guid toContactId,
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind)
@@ -159,7 +160,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "list_contact_relations")]
     [Description("List a contact's relationships, identical whichever side stores them: each entry's kind is the other contact's role relative to this one (X is Y's parent ⇔ Y is X's child) and its label this contact's own name for them. Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), each tagged provenance=Inferred.")]
     public static async Task<IReadOnlyList<ContactRelationEntryDto>> ListContactRelations(
-        RelationshipService relationships, CurrentUser user,
+        RelationshipService relationships, CurrentUser<Principal> user,
         [Description("The contact whose relations to list.")] Guid contactId,
         [Description("Also return kin derived from the parent/child graph, tagged provenance=Inferred.")] bool includeInferred = false)
     {
@@ -170,7 +171,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "list_contact_circles")]
     [Description("Computed social circles (closeFamily, extendedFamily, friends, colleagues, household) around a focus contact — the caller's own linked contact unless focusId is given. Degree: 1 immediate, 2 two-generation kin, 3 cousin.")]
     public static async Task<ContactCirclesDto> ListContactCircles(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("Focus contact; defaults to the caller's linked self-contact.")] Guid? focusId = null)
     {
         var u = await user.GetAsync();
@@ -180,7 +181,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "mark_contact_deceased")]
     [Description("Mark a contact as deceased (idempotent; date may be unknown). Deceased contacts stay in the kinship graph — never delete the dead.")]
     public static async Task<ContactDto> MarkContactDeceased(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("Date of death, if known.")] DateOnly? deathDate = null)
     {
@@ -191,7 +192,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "clear_contact_deceased")]
     [Description("Undo a deceased marking recorded in error.")]
     public static async Task<ContactDto> ClearContactDeceased(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
@@ -201,7 +202,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "set_contact_profiles")]
     [Description("Replace a contact's social/IM handles wholesale (telegram, messenger, whatsapp, signal, instagram…). Well-known services get the profile URL derived from the handle; set preferred=true on the handle that actually reaches the person. At most one preferred per service.")]
     public static async Task<ContactDto> SetContactProfiles(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("The full new list — an empty list clears.")] List<ContactSocialProfileInput> profiles)
     {
@@ -212,7 +213,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "list_residencies")]
     [Description("Where a contact lives, holidays and works: residencies at LupiraGeoApi places, current first. type = home|vacation|work|other; movedIn/movedOut are fuzzy dates ({year, month?, day?}); a past movedOut = former, future dates = planned.")]
     public static async Task<List<ResidencyDto>> ListResidencies(
-        ResidencyService residencies, CurrentUser user,
+        ResidencyService residencies, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
@@ -222,7 +223,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "add_residency")]
     [Description("Start a residency for a contact at a LupiraGeoApi place (resolve the address there first — no free text). Refused when it overlaps another residency of the contact at the same place.")]
     public static async Task<ResidencyDto> AddResidency(
-        ResidencyService residencies, CurrentUser user,
+        ResidencyService residencies, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("The LupiraGeoApi place id.")] Guid placeId,
         [Description("home|vacation|work|other.")] ContactAddressType type,
@@ -237,7 +238,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "move_out")]
     [Description("End a residency: the contact moved out on the given date. To record a move to a new place, use move_contacts_home instead.")]
     public static async Task<ResidencyDto> MoveOut(
-        ResidencyService residencies, CurrentUser user,
+        ResidencyService residencies, CurrentUser<Principal> user,
         [Description("The residency id (from list_residencies).")] Guid residencyId,
         [Description("When they moved out ({year, month?, day?}).")] FuzzyDate movedOut)
     {
@@ -248,7 +249,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "move_contacts_home")]
     [Description("Record that one or more contacts (a family, say) moved together: each one's current residencies at fromPlaceId end on movedIn, and a residency at toPlaceId starts then. All or nothing.")]
     public static async Task<List<ResidencyDto>> MoveContactsHome(
-        ResidencyService residencies, CurrentUser user,
+        ResidencyService residencies, CurrentUser<Principal> user,
         [Description("The contacts who move.")] List<Guid> contactIds,
         [Description("The LupiraGeoApi place they move to.")] Guid toPlaceId,
         [Description("When they moved in ({year, month?, day?}).")] FuzzyDate movedIn,
@@ -262,7 +263,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "set_contact_channels")]
     [Description("Replace a contact's reach channels (emails + phones) wholesale (empty clears). Each channel: medium=email|phone, value, optional type (home|work|cell|fax|…), preferred. At most one preferred per medium.")]
     public static async Task<ContactDto> SetContactChannels(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("The full new list — an empty list clears.")] List<ContactReachChannel> channels)
     {
@@ -273,7 +274,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "set_emergency_contacts")]
     [Description("Replace a contact's emergency-contact designation wholesale (order = priority, empty clears). A designation, not a relation kind.")]
     public static async Task<ContactDto> SetEmergencyContacts(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("Emergency contact ids in priority order.")] List<Guid> contactIds)
     {
@@ -284,7 +285,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "set_contact_tags")]
     [Description("Replace a contact's tags wholesale (empty clears). Tags are trimmed and de-duplicated case-insensitively; order is preserved.")]
     public static async Task<ContactDto> SetContactTags(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("The full new tag list — an empty list clears.")] string[] tags)
     {
@@ -295,7 +296,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "set_contact_avatar")]
     [Description("Set (or clear, with an empty value) a contact's avatar — a URL/media id, never image bytes.")]
     public static async Task<ContactDto> SetContactAvatar(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The contact.")] Guid contactId,
         [Description("Avatar URL/media id; empty clears.")] string? avatarRef = null)
     {
@@ -306,7 +307,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "set_my_contact")]
     [Description("Link the caller's identity to its own contact ('this card is me') — the default focus for list_contact_circles.")]
     public static async Task<string> SetMyContact(
-        ContactService contacts, CurrentUser user,
+        ContactService contacts, CurrentUser<Principal> user,
         [Description("The caller's own contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
@@ -321,7 +322,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "list_address_books")]
     [Description("List the address books the caller can access.")]
-    public static async Task<IReadOnlyList<AddressBookDto>> ListAddressBooks(AddressBookService books, CurrentUser user)
+    public static async Task<IReadOnlyList<AddressBookDto>> ListAddressBooks(AddressBookService books, CurrentUser<Principal> user)
     {
         var u = await user.GetAsync();
         return (await books.ListAsync(u.Id)).Require();
@@ -330,7 +331,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "create_address_book")]
     [Description("Create an address book (Slug required); the caller becomes its owner.")]
     public static async Task<AddressBookDto> CreateAddressBook(
-        AddressBookService books, CurrentUser user,
+        AddressBookService books, CurrentUser<Principal> user,
         [Description("URL-safe short name, e.g. 'family'.")] string slug,
         [Description("Human-readable name.")] string? displayName = null)
     {
@@ -340,7 +341,7 @@ public sealed class ContactTools
 
     [McpServerTool(Name = "bootstrap_me")]
     [Description("Ensure the caller has a personal address book and a linked contact of its own — one carrying the login email in a readable book, else a new one in the personal book (idempotent); returns all accessible books.")]
-    public static async Task<IReadOnlyList<AddressBookDto>> BootstrapMe(AddressBookService books, CurrentUser user)
+    public static async Task<IReadOnlyList<AddressBookDto>> BootstrapMe(AddressBookService books, CurrentUser<Principal> user)
     {
         var u = await user.GetAsync();
         return (await books.BootstrapPersonalAsync(u.Id)).Require();
@@ -351,7 +352,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "list_contact_groups")]
     [Description("List the contact groups (personal groupings + organizations) in an address book.")]
     public static async Task<IReadOnlyList<ContactGroupDto>> ListContactGroups(
-        ContactGroupService groups, CurrentUser user, [Description("Address book id.")] Guid addressBookId)
+        ContactGroupService groups, CurrentUser<Principal> user, [Description("Address book id.")] Guid addressBookId)
     {
         var u = await user.GetAsync();
         return (await groups.ListAsync(u.Id, addressBookId)).Require();
@@ -360,7 +361,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "create_contact_group")]
     [Description("Create a contact group. kind = group|organization — an employer is an organization-kind group, and the Colleagues circle derives from shared organization membership.")]
     public static async Task<ContactGroupDto> CreateContactGroup(
-        ContactGroupService groups, CurrentUser user,
+        ContactGroupService groups, CurrentUser<Principal> user,
         [Description("Address book id.")] Guid addressBookId,
         [Description("Group name, e.g. 'Firefly'.")] string name,
         [Description("group|organization (default group).")] string kind = "group")
@@ -372,7 +373,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "rename_contact_group")]
     [Description("Rename a contact group.")]
     public static async Task<ContactGroupDto> RenameContactGroup(
-        ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId, [Description("New name.")] string name)
+        ContactGroupService groups, CurrentUser<Principal> user, [Description("Group id.")] Guid groupId, [Description("New name.")] string name)
     {
         var u = await user.GetAsync();
         return (await groups.RenameAsync(u.Id, groupId, name)).Require();
@@ -381,7 +382,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "add_group_member")]
     [Description("Add a contact to a group (re-adding updates the details). For an organization, role is the title held there and since/until bound the tenure — a person can hold several jobs via several memberships.")]
     public static async Task<ContactGroupDto> AddGroupMember(
-        ContactGroupService groups, CurrentUser user,
+        ContactGroupService groups, CurrentUser<Principal> user,
         [Description("Group id.")] Guid groupId,
         [Description("Contact to add.")] Guid contactId,
         [Description("Title/role held in an organization (optional).")] string? role = null,
@@ -395,7 +396,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "remove_group_member")]
     [Description("Remove a contact from a group.")]
     public static async Task<ContactGroupDto> RemoveGroupMember(
-        ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId, [Description("Contact to remove.")] Guid contactId)
+        ContactGroupService groups, CurrentUser<Principal> user, [Description("Group id.")] Guid groupId, [Description("Contact to remove.")] Guid contactId)
     {
         var u = await user.GetAsync();
         return (await groups.RemoveMemberAsync(u.Id, groupId, contactId)).Require();
@@ -404,7 +405,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "move_contact_group")]
     [Description("Move a contact group to another address book, keeping its id, name, kind, members and roles. Needs write access to both books. includeMembers=true also moves the member contacts living in the group's current book; members in other books stay put (Skipped). Lists each member's outcome when includeMembers is set.")]
     public static async Task<ContactGroupMoveResult> MoveContactGroup(
-        ContactGroupService groups, CurrentUser user,
+        ContactGroupService groups, CurrentUser<Principal> user,
         [Description("Group id.")] Guid groupId,
         [Description("The target address book id.")] Guid addressBookId,
         [Description("Also move the members that live in the group's current book.")] bool includeMembers = false)
@@ -416,7 +417,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "delete_contact_group")]
     [Description("Delete a contact group.")]
     public static async Task<string> DeleteContactGroup(
-        ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId)
+        ContactGroupService groups, CurrentUser<Principal> user, [Description("Group id.")] Guid groupId)
     {
         var u = await user.GetAsync();
         (await groups.DeleteAsync(u.Id, groupId)).Require();
@@ -426,7 +427,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "grant_addressbook_owner")]
     [Description("Grant a member access to an address book, by email. access = owner|read-write|read (default owner).")]
     public static async Task<OwnerGrantDto> GrantAddressbookOwner(
-        AddressBookService books, CurrentUser user,
+        AddressBookService books, CurrentUser<Principal> user,
         [Description("Address book id.")] Guid addressBookId,
         [Description("The member's login email.")] string email,
         [Description("owner|read-write|read.")] string access = "owner")
@@ -438,7 +439,7 @@ public sealed class ContactTools
     [McpServerTool(Name = "revoke_addressbook_owner")]
     [Description("Revoke a member's access to an address book, by email. Fails if it would remove the last owner.")]
     public static async Task<string> RevokeAddressbookOwner(
-        AddressBookService books, CurrentUser user,
+        AddressBookService books, CurrentUser<Principal> user,
         [Description("Address book id.")] Guid addressBookId,
         [Description("The member's login email.")] string email)
     {

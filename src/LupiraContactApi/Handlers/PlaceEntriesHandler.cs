@@ -1,12 +1,13 @@
 using Lupira.Hosting.Problems;
-using LupiraContactApi.Auth;
+using Lupira.Identity.Marten.AspNetCore;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Dtos.PlaceEntries;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-public sealed class PlaceEntriesHandler(CurrentUser user, PlaceEntryService entries)
+public sealed class PlaceEntriesHandler(CurrentUser<Principal> user, PlaceEntryService entries)
 {
     public async Task<Results<Ok<PlaceEntryDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> GetAsync(Guid placeId, CancellationToken ct)
     {

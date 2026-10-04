@@ -1,10 +1,10 @@
 using JasperFx.Events;
+using Lupira.Identity.Marten;
 using Lupira.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.PlaceEntries;
-using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.PlaceEntries;
 using LupiraContactApi.Core.Mappers;
 using Marten;

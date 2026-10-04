@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Dtos.Residencies;
 using LupiraContactApi.Core.Dtos.Sync;
 using Xunit;

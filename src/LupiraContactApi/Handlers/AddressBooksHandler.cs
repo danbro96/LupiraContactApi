@@ -1,12 +1,13 @@
 using Lupira.Hosting.Problems;
-using LupiraContactApi.Auth;
+using Lupira.Identity.Marten.AspNetCore;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-public sealed class AddressBooksHandler(CurrentUser user, AddressBookService books)
+public sealed class AddressBooksHandler(CurrentUser<Principal> user, AddressBookService books)
 {
     public async Task<Results<Ok<List<AddressBookDto>>, UnauthorizedHttpResult>> ListAsync(CancellationToken ct)
     {

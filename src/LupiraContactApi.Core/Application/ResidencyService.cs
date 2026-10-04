@@ -1,4 +1,6 @@
 using JasperFx.Events;
+using Lupira.Identity.Marten;
+using Lupira.Marten.Idempotency;
 using Lupira.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
@@ -41,7 +43,7 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
         var id = Guid.CreateVersion7();
         session.Events.StartStream<Residency>(id, Residency.Start(id, contactId, r.PlaceId, r.Type, Trimmed(r.Label), r.MovedIn, r.MovedOut));
         // Losing the dedup race means another delivery of this command committed first: answer with its residency.
-        return await ReplayedAsync(await SaveGuardedAsync(commandId, id, 1, ct) ? id : (await idempotency.SeenAsync(commandId, ct))?.AggregateId, ct);
+        return await ReplayedAsync(await idempotency.CommitAsync(commandId, id, 1, ct) ? id : (await idempotency.SeenAsync(commandId, ct))?.AggregateId, ct);
     }
 
     /// <summary>Corrects a residency as entered — place, type, label, period — wholesale.</summary>
@@ -118,7 +120,7 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
             started.Add(newId);
         }
 
-        await SaveGuardedAsync(commandId, started[0], 1, ct);
+        await idempotency.CommitAsync(commandId, started[0], 1, ct);
         return OpResult<List<ResidencyDto>>.Ok(await StartedAtAsync(contactIds, r.ToPlaceId, ct));
     }
 
@@ -151,7 +153,7 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
         if (events.Count == 0) return OpResult<ResidencyDto>.Ok(stream.Aggregate!.ToResponse());
         Stamp(principalId);
         stream.AppendMany(events);
-        await SaveGuardedAsync(commandId, stream.Id, (int) (stream.CurrentVersion ?? 0) + events.Count, ct);
+        await idempotency.CommitAsync(commandId, stream.Id, (int) (stream.CurrentVersion ?? 0) + events.Count, ct);
         return await ReplayedAsync(stream.Id, ct);
     }
 
@@ -159,22 +161,6 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
         id is { } key && await session.LoadAsync<Residency>(key, ct) is { } r
             ? OpResult<ResidencyDto>.Ok(r.ToResponse())
             : OpResult<ResidencyDto>.NotFound();
-
-    /// <summary>Commit staged events + the dedup ledger row in one transaction. False when the dedup race was lost.</summary>
-    private async Task<bool> SaveGuardedAsync(Guid? commandId, Guid aggregateId, int resultVersion, CancellationToken ct)
-    {
-        idempotency.Record(commandId, aggregateId, resultVersion);
-        try
-        {
-            await session.SaveChangesAsync(ct);
-        }
-        catch (Exception ex) when (Idempotency.IsDuplicate(ex))
-        {
-            return false;
-        }
-
-        return true;
-    }
 
     // Stamp the acting principal + trace correlation onto every event in this unit of work (before SaveChangesAsync).
     private void Stamp(Guid principalId)

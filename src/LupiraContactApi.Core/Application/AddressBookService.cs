@@ -1,19 +1,20 @@
+using Lupira.Identity.Marten;
 using Lupira.Primitives;
 using Lupira.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.AddressBooks;
 using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
-using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using Marten;
+using Principal = LupiraContactApi.Core.Domain.Identity.Principal;
 
 namespace LupiraContactApi.Core.Application;
 
 /// <summary>Lists and creates the address books a principal can access, and shares them by granting/revoking
 /// co-owners. Creation grants the caller <c>owner</c>; sharing is owner-only and targets a member by email.</summary>
-public sealed class AddressBookService(IDocumentSession session, PrincipalDirectory principals, AccessResolver access, ContactService contacts)
+public sealed class AddressBookService(IDocumentSession session, PrincipalDirectory<Principal> principals, AccessResolver access, ContactService contacts)
 {
     public async Task<OpResult<List<AddressBookDto>>> ListAsync(Guid principalId, CancellationToken ct = default)
     {

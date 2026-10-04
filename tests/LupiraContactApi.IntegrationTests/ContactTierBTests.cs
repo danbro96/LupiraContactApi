@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using Xunit;

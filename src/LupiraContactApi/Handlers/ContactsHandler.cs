@@ -1,13 +1,14 @@
 using Lupira.Hosting.Problems;
-using LupiraContactApi.Auth;
+using Lupira.Identity.Marten.AspNetCore;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-public sealed class ContactsHandler(CurrentUser user, ContactService contacts, RelationshipService relationships)
+public sealed class ContactsHandler(CurrentUser<Principal> user, ContactService contacts, RelationshipService relationships)
 {
     public async Task<Results<Ok<List<ContactDto>>, ProblemHttpResult, UnauthorizedHttpResult>> QueryAsync(string? query, Guid? addressBookId, CancellationToken ct)
     {

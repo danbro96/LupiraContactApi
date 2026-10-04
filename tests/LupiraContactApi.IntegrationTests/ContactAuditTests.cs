@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using JasperFx.Events;
+using Lupira.Identity.Marten;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Shared;

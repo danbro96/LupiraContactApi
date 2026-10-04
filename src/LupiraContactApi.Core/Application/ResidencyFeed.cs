@@ -1,4 +1,5 @@
 using Lupira.Results;
+using Lupira.Sync;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
 using LupiraContactApi.Core.Domain.Residencies;

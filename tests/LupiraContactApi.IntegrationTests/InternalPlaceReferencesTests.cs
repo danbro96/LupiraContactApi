@@ -1,23 +1,24 @@
 using System.Net.Http.Json;
+using Lupira.Contracts.PlaceRefs;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
-using LupiraContactApi.Core.Dtos.Internal;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
 
-/// <summary>The place-reference check seam for geo's orphan sweep: counts per requested place id, residency
-/// history and deceased contacts included, deleted contacts and unrequested ids excluded.</summary>
+/// <summary>The place-reference check seam for geo's orphan sweep: live and deleted counts per requested place id,
+/// residency history and deceased contacts live, deleted contacts counted apart, unrequested ids excluded.</summary>
 public sealed class InternalPlaceReferencesTests(ContactApiTestFactory factory) : IntegrationTest(factory)
 {
     private const string Email = "alice@x.test";
 
-    private static async Task<ContactPlaceReferencesResponse> CheckAsync(HttpClient svc, params Guid[] placeIds)
+    private static async Task<PlaceReferencesResponse> CheckAsync(HttpClient svc, params Guid[] placeIds)
     {
         var resp = await svc.PostAsJsonAsync("/internal/contacts/place-references:check",
             new CheckPlaceReferencesRequest { PlaceIds = [.. placeIds] });
         resp.EnsureSuccessStatusCode();
-        return (await resp.Content.ReadFromJsonAsync<ContactPlaceReferencesResponse>())!;
+        return (await resp.Content.ReadFromJsonAsync<PlaceReferencesResponse>())!;
     }
 
     [Fact]
@@ -37,42 +38,47 @@ public sealed class InternalPlaceReferencesTests(ContactApiTestFactory factory) 
         await AddResidencyAsync(api, john.Id, home);
         await AddResidencyAsync(api, john.Id, unrequested, ContactAddressType.Work);
 
-        var result = await CheckAsync(Factory.ServiceClient(), home, former, Guid.NewGuid());
+        var result = await CheckAsync(Factory.ScopedClient("svc@x.test", "internal:read"), home, former, Guid.NewGuid());
 
-        var byId = result.Places.ToDictionary(p => p.PlaceId, p => p.Count);
-        Assert.Equal(2, byId[home]);
-        Assert.Equal(1, byId[former]);
+        var byId = result.Places.ToDictionary(p => p.PlaceId, p => (p.LiveCount, p.DeletedCount));
+        Assert.Equal((2, 0), byId[home]);
+        Assert.Equal((1, 0), byId[former]);
         Assert.Equal(2, byId.Count);   // zero-ref requested id omitted, unrequested id absent
     }
 
     [Fact]
-    public async Task Includes_deceased_and_excludes_deleted_contacts()
+    public async Task Counts_deceased_as_live_and_deleted_contacts_apart()
     {
         var api = Factory.ApiClient(Email);
         var book = await CreateAddressBookAsync(api);
         var keptPlace = Guid.NewGuid();
         var lostPlace = Guid.NewGuid();
+        var sharedPlace = Guid.NewGuid();
 
         var deceased = await CreateContactAsync(api, book, "Alan", "Turing");
         await AddResidencyAsync(api, deceased.Id, keptPlace);
+        await AddResidencyAsync(api, deceased.Id, sharedPlace, ContactAddressType.Work);
         (await api.PutAsJsonAsync($"/contacts/{deceased.Id}/deceased", new SetDeceasedRequest { DeathDate = null }))
             .EnsureSuccessStatusCode();
 
         var deleted = await CreateContactAsync(api, book, "Gone", "Soon");
         await AddResidencyAsync(api, deleted.Id, lostPlace);
+        await AddResidencyAsync(api, deleted.Id, sharedPlace, ContactAddressType.Work);
         (await api.DeleteAsync($"/contacts/{deleted.Id}")).EnsureSuccessStatusCode();
 
-        var result = await CheckAsync(Factory.ServiceClient(), keptPlace, lostPlace);
+        var result = await CheckAsync(Factory.ScopedClient("svc@x.test", "internal:read"), keptPlace, lostPlace, sharedPlace);
 
-        var only = Assert.Single(result.Places);
-        Assert.Equal(keptPlace, only.PlaceId);
-        Assert.Equal(1, only.Count);
+        var byId = result.Places.ToDictionary(p => p.PlaceId, p => (p.LiveCount, p.DeletedCount));
+        Assert.Equal((1, 0), byId[keptPlace]);
+        Assert.Equal((0, 1), byId[lostPlace]);
+        Assert.Equal((1, 1), byId[sharedPlace]);
+        Assert.Equal(3, byId.Count);
     }
 
     [Fact]
     public async Task Caps_the_id_batch_and_rejects_empty()
     {
-        var svc = Factory.ServiceClient();
+        var svc = Factory.ScopedClient("svc@x.test", "internal:read");
         var empty = await svc.PostAsJsonAsync("/internal/contacts/place-references:check",
             new CheckPlaceReferencesRequest { PlaceIds = [] });
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, empty.StatusCode);

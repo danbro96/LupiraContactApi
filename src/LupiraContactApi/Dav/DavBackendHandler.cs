@@ -1,9 +1,12 @@
+using Lupira.Contracts.Dav;
+using Lupira.Identity.Marten;
 using Lupira.Primitives;
 using Lupira.Results;
 using LupiraContactApi.Core.Application;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.Contacts;
 using Marten;
+using Principal = LupiraContactApi.Core.Domain.Identity.Principal;
 
 namespace LupiraContactApi.Dav;
 
@@ -16,7 +19,7 @@ namespace LupiraContactApi.Dav;
 public sealed class DavBackendHandler(
     IQuerySession session,
     AccessResolver access,
-    PrincipalDirectory principals,
+    PrincipalDirectory<Principal> principals,
     AddressBookService books,
     ContactService contacts,
     DavCards cards,

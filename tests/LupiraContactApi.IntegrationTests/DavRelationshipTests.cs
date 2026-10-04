@@ -1,7 +1,8 @@
 using System.Net.Http.Json;
+using Lupira.Contracts.Dav;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
-using LupiraContactApi.Dav;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;

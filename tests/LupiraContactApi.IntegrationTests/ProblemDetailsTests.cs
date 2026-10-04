@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Lupira.Testing.Postgres;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;

@@ -1,4 +1,5 @@
 using JasperFx.Events;
+using Lupira.Identity.Marten;
 using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Shared;
 using static Lupira.Primitives.ContentHash;   // Of(); the type name clashes with the ContentHash property

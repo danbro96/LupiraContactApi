@@ -1,7 +1,7 @@
 using JasperFx.Events;
+using Lupira.Identity.Marten;
 using Lupira.Primitives;
 using LupiraContactApi.Core.Domain.PlaceEntries.Events;
-using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.PlaceEntries;
 

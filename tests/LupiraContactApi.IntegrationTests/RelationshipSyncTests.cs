@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;

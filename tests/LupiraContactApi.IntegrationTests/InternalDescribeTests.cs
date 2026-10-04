@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
@@ -35,7 +36,7 @@ public sealed class InternalDescribeTests(ContactApiTestFactory factory) : Integ
             Kind = ContactRelationKind.Friend,
         })).EnsureSuccessStatusCode();
 
-        var resp = await Factory.ServiceClient().PostAsJsonAsync("/internal/contacts/describe",
+        var resp = await Factory.ScopedClient("svc@x.test", "internal:read").PostAsJsonAsync("/internal/contacts/describe",
             new DescribeContactsRequest { ContactIds = [anton.Id, Guid.NewGuid()] });
         resp.EnsureSuccessStatusCode();
 
@@ -63,7 +64,7 @@ public sealed class InternalDescribeTests(ContactApiTestFactory factory) : Integ
             Label = "mum",
         })).EnsureSuccessStatusCode();
 
-        var resp = await Factory.ServiceClient().PostAsJsonAsync("/internal/contacts/describe",
+        var resp = await Factory.ScopedClient("svc@x.test", "internal:read").PostAsJsonAsync("/internal/contacts/describe",
             new DescribeContactsRequest { ContactIds = [child.Id, parent.Id] });
         resp.EnsureSuccessStatusCode();
 

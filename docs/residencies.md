@@ -57,7 +57,7 @@ classDiagram
 - **Derived from residencies:**
   - Household circle: a shared current Home; Vacation never makes a household.
   - Completeness: `postalAddress` needs a current residency.
-  - Geo's orphan check: every residency of a non-deleted contact counts.
+  - Geo's orphan check: residencies of live contacts count as live, residencies of deleted contacts as deleted.
 
 ## Door codes
 

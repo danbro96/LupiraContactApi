@@ -1,7 +1,8 @@
 using Lupira.Hosting.Problems;
+using Lupira.Identity.Marten.AspNetCore;
 using Lupira.Results;
-using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Sync;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -11,7 +12,7 @@ namespace LupiraContactApi.Handlers;
 /// <summary>The offline-client sync surface: the paged contact changes feed, the relationship, residency and entry-code
 /// changes feeds, and the containers snapshot.</summary>
 public sealed class SyncHandler(
-    CurrentUser user, SyncFeed feed, RelationshipFeed relationships, ResidencyFeed residencies, PlaceEntryFeed placeEntries,
+    CurrentUser<Principal> user, SyncFeed feed, RelationshipFeed relationships, ResidencyFeed residencies, PlaceEntryFeed placeEntries,
     AddressBookService books, ContactGroupService groups)
 {
     public async Task<Results<Ok<SyncChangesResponse>, ProblemHttpResult, UnauthorizedHttpResult>> ChangesAsync(string? since, int? limit, CancellationToken ct)

@@ -1,3 +1,4 @@
+using Lupira.Sync;
 using LupiraContactApi.Core.Domain.Contacts;
 
 namespace LupiraContactApi.Core.Dtos.Sync;

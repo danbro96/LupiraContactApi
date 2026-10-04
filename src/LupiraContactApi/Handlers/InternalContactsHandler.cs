@@ -1,3 +1,4 @@
+using Lupira.Contracts.PlaceRefs;
 using LupiraContactApi.Core.Data;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
@@ -59,9 +60,9 @@ public sealed class InternalContactsHandler(IQuerySession session)
     }
 
     /// <summary>How many residencies reference each of the requested geo place ids — geo's orphan sweep asks this
-    /// before pruning. Deceased contacts and moved-out residencies still count (residency history anchors places);
-    /// only deleted contacts' don't. Zero-count ids are omitted.</summary>
-    public async Task<Results<Ok<ContactPlaceReferencesResponse>, BadRequest<string>>> CheckPlaceReferencesAsync(
+    /// before pruning. Deceased contacts and moved-out residencies still count as live (residency history anchors
+    /// places); deleted contacts' residencies count separately. Zero-count ids are omitted.</summary>
+    public async Task<Results<Ok<PlaceReferencesResponse>, BadRequest<string>>> CheckPlaceReferencesAsync(
         CheckPlaceReferencesRequest body, CancellationToken ct)
     {
         if (body.PlaceIds.Count == 0 || body.PlaceIds.Count > MaxPlaceIds)
@@ -70,9 +71,13 @@ public sealed class InternalContactsHandler(IQuerySession session)
         var contactIds = residencies.Select(r => r.ContactId).Distinct().ToArray();
         var deleted = (await session.LoadManyAsync<Contact>(ct, contactIds)).Where(c => c.DeletedAt is not null).Select(c => c.Id).ToHashSet();
         var counts = residencies
-            .Where(r => !deleted.Contains(r.ContactId))
             .GroupBy(r => r.PlaceId)
-            .Select(g => new ContactPlaceRefDto { PlaceId = g.Key, Count = g.Count() });
-        return TypedResults.Ok(new ContactPlaceReferencesResponse { Places = [.. counts] });
+            .Select(g => new PlaceReferenceCountDto
+            {
+                PlaceId = g.Key,
+                LiveCount = g.Count(r => !deleted.Contains(r.ContactId)),
+                DeletedCount = g.Count(r => deleted.Contains(r.ContactId)),
+            });
+        return TypedResults.Ok(new PlaceReferencesResponse { Places = [.. counts] });
     }
 }

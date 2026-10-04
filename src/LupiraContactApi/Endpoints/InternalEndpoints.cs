@@ -1,3 +1,4 @@
+using Lupira.Contracts.PlaceRefs;
 using LupiraContactApi.Core.Dtos.Internal;
 using LupiraContactApi.Handlers;
 

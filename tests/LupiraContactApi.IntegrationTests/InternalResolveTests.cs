@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Dtos.Internal;
 using Xunit;
 
@@ -14,7 +15,7 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
     public async Task Resolves_live_contacts_and_omits_unknown_and_deleted()
     {
         var api = Factory.ApiClient(Email);
-        var svc = Factory.ServiceClient();
+        var svc = Factory.ScopedClient("svc@x.test", "internal:read");
         var book = await CreateAddressBookAsync(api);
         var jane = await CreateContactAsync(api, book, "Jane", "Doe");
         var gone = await CreateContactAsync(api, book, "Gone", "Soon");
@@ -33,7 +34,7 @@ public sealed class InternalResolveTests(ContactApiTestFactory factory) : Integr
     [Fact]
     public async Task Caps_the_id_batch()
     {
-        var resp = await Factory.ServiceClient().PostAsJsonAsync("/internal/contacts/resolve",
+        var resp = await Factory.ScopedClient("svc@x.test", "internal:read").PostAsJsonAsync("/internal/contacts/resolve",
             new ResolveContactsRequest { ContactIds = [.. Enumerable.Range(0, 101).Select(_ => Guid.NewGuid())] });
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, resp.StatusCode);
     }

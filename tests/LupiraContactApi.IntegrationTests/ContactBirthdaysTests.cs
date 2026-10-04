@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
@@ -68,7 +69,7 @@ public sealed class ContactBirthdaysTests(ContactApiTestFactory factory) : Integ
         var book = await CreateAddressBookAsync(alice);
         _ = await CreateWithBirthdayAsync(alice, book, "Ada", new PartialDate(1815, 12, 10));
 
-        Assert.Empty((await Factory.ServiceClient().GetFromJsonAsync<List<ContactBirthdayDto>>("/contacts/birthdays"))!);
+        Assert.Empty((await Factory.ScopedClient("svc@x.test", "internal:read").GetFromJsonAsync<List<ContactBirthdayDto>>("/contacts/birthdays"))!);
     }
 
     [Fact]

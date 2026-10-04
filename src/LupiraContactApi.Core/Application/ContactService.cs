@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
 using JasperFx;
+using Lupira.Identity.Marten;
+using Lupira.Marten.Idempotency;
 using Lupira.Primitives;
 using Lupira.Results;
 using LupiraContactApi.Core.Auth;
@@ -16,6 +18,7 @@ using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Mappers;
 using LupiraContactApi.Core.Serialization;
 using Marten;
+using Principal = LupiraContactApi.Core.Domain.Identity.Principal;
 
 namespace LupiraContactApi.Core.Application;
 
@@ -24,23 +27,6 @@ namespace LupiraContactApi.Core.Application;
 /// <c>occurredAt</c> client stamp (see <see cref="SectionLww"/>); creates dedup on <c>SourceKey</c> instead.</summary>
 public sealed class ContactService(IDocumentSession session, AccessResolver access, CompletenessResolver completeness, Idempotency idempotency, DavCards cards)
 {
-    /// <summary>Commit staged events + the dedup ledger row in one transaction. False when the dedup race was
-    /// lost — the caller re-reads and returns the already-committed state (idempotent success).</summary>
-    private async Task<bool> SaveGuardedAsync(Guid? commandId, Guid aggregateId, int resultVersion, CancellationToken ct)
-    {
-        idempotency.Record(commandId, aggregateId, resultVersion);
-        try
-        {
-            await session.SaveChangesAsync(ct);
-        }
-        catch (Exception ex) when (Idempotency.IsDuplicate(ex))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
     /// <summary>Response for a mutation whose command id is already in the ledger: the current state, deleted or
     /// not — the original call succeeded, so the replay must too.</summary>
     private async Task<OpResult<ContactDto>> ReplayedAsync(Guid id, CancellationToken ct) =>
@@ -218,7 +204,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             r.Kind ?? c.Kind);
 
         stream.AppendOne(new ContactRevised(id, merged, r.OccurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         var updated = await session.LoadAsync<Contact>(id, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync(updated!, ct));
     }
@@ -266,7 +252,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactRevised(id, c.Fields() with { Channels = next }, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -288,7 +274,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
         var merged = apply(c, next);
         stream.AppendOne(new ContactRevised(id, merged, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -309,7 +295,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (await SelfContactRefusalAsync(c, ct) is { } refusal) return OpResult.Conflict(refusal);
         Stamp(principalId);
         stream.AppendOne(new ContactDeleted(id));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult.Ok();
     }
 
@@ -399,7 +385,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactMarkedDeceased(id, deathDate, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -414,7 +400,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactDeceasedCleared(id, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -433,7 +419,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactAvatarSet(id, next, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -451,7 +437,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var current = JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata)!.AsObject();
         foreach (var kv in patch) current[kv.Key] = kv.Value?.DeepClone();
         stream.AppendOne(new ContactMetadataAttached(id, current.ToJsonString(), occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 
@@ -499,7 +485,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactProfilesReplaced(id, next, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
+        await idempotency.CommitAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
 

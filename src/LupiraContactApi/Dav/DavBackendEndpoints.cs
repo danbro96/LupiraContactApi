@@ -1,3 +1,5 @@
+using Lupira.Contracts.Dav;
+
 namespace LupiraContactApi.Dav;
 
 /// <summary>

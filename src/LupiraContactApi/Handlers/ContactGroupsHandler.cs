@@ -1,14 +1,15 @@
 using Lupira.Hosting.Problems;
+using Lupira.Identity.Marten.AspNetCore;
 using Lupira.Results;
-using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Application;
+using LupiraContactApi.Core.Domain.Identity;
 using LupiraContactApi.Core.Dtos.Contacts;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
 /// <summary>Contact groups (personal groupings + organizations) and their membership.</summary>
-public sealed class ContactGroupsHandler(CurrentUser user, ContactGroupService groups)
+public sealed class ContactGroupsHandler(CurrentUser<Principal> user, ContactGroupService groups)
 {
     public async Task<Results<Ok<List<ContactGroupDto>>, ProblemHttpResult, UnauthorizedHttpResult>> ListAsync(Guid addressBookId, CancellationToken ct)
     {
