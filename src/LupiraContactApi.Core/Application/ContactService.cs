@@ -80,11 +80,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             return OpResult<List<ContactDto>>.Forbidden("No access to this address book.");
 
         IEnumerable<Contact> contacts = await readable.ToListAsync(ct);
-        if (!string.IsNullOrWhiteSpace(query))
-        {
-            var term = query.Trim();
-            contacts = contacts.Where(c => c.SearchText.Contains(term, StringComparison.OrdinalIgnoreCase));
-        }
+        if (!string.IsNullOrWhiteSpace(query)) contacts = ContactNameMatcher.Search(contacts, query);
 
         var ordered = contacts.OrderBy(c => c.SortName).ToList();
         var scores = await completeness.ScoreContactsAsync(ordered, ct);
@@ -128,9 +124,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return OpResult<List<ContactDto>>.Ok([.. ordered.Select(c => c.ToResponse(scores[c.Id]))]);
     }
 
-    /// <summary>Batch-match input names to accessible contacts for import disambiguation. Per name: exactly one
-    /// normalized-display-name equal (or lone substring hit) → Matched; several → Ambiguous; none → NotFound.
-    /// Substring + normalized-name only (not phonetic). Candidates are capped.</summary>
+    /// <summary>Batch-match input names to accessible contacts for import disambiguation, per
+    /// <see cref="ContactNameMatcher.Resolve"/>. Not phonetic. Candidates are capped.</summary>
     public async Task<OpResult<List<ContactNameMatch>>> ResolveByNameAsync(Guid principalId, IReadOnlyList<string> names, Guid? addressBookId, CancellationToken ct = default)
     {
         if (names.Count == 0) return OpResult<List<ContactNameMatch>>.Invalid("At least one name is required.");
@@ -140,52 +135,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             return OpResult<List<ContactNameMatch>>.Forbidden("No access to this address book.");
 
         var pool = await readable.ToListAsync(ct);
-
-        const int maxCandidates = 5;
-        var results = new List<ContactNameMatch>(names.Count);
-        foreach (var raw in names)
-        {
-            var query = (raw ?? string.Empty).Trim();
-            var norm = Norm(query);
-            if (norm.Length == 0)
-            {
-                results.Add(new ContactNameMatch { Name = raw ?? string.Empty, Outcome = NameMatchOutcome.NotFound, Candidates = [] });
-                continue;
-            }
-
-            var candidates = pool.Where(c => c.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
-            var exact = candidates.Where(c => Norm(c.DisplayName) == norm).ToList();
-
-            NameMatchOutcome outcome;
-            Guid? matchId = null;
-            List<Contact> refs;
-            if (exact.Count == 1)
-            {
-                outcome = NameMatchOutcome.Matched;
-                matchId = exact[0].Id;
-                refs = exact;
-            }
-            else if (candidates.Count == 0)
-            {
-                outcome = NameMatchOutcome.NotFound;
-                refs = [];
-            }
-            else
-            {
-                outcome = NameMatchOutcome.Ambiguous;
-                refs = exact.Count > 1 ? exact : candidates;
-            }
-
-            results.Add(new ContactNameMatch
-            {
-                Name = raw ?? string.Empty,
-                ContactId = matchId,
-                Outcome = outcome,
-                Candidates = [.. refs.OrderBy(c => c.SortName).Take(maxCandidates).Select(c => new ContactRef { ContactId = c.Id, DisplayName = c.DisplayName })],
-            });
-        }
-
-        return OpResult<List<ContactNameMatch>>.Ok(results);
+        return OpResult<List<ContactNameMatch>>.Ok(ContactNameMatcher.Resolve(names, pool));
     }
 
     /// <summary>Id → display name for the requested contacts the caller can read. Unknown, deleted and
@@ -231,9 +181,6 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     private IQueryable<Contact> LiveContactsIn(List<Guid> bookIds) =>
         session.Query<Contact>().Where(c => c.DeletedAt == null && bookIds.Contains(c.AddressBookId));
-
-    // Ported from LupiraAssistantApi ContactResolveStrategy.Norm: lowercase + collapse whitespace.
-    private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
 
     public async Task<OpResult<ContactDto>> GetAsync(Guid principalId, Guid id, CancellationToken ct = default)
     {

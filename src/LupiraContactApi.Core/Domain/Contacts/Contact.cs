@@ -292,10 +292,10 @@ public sealed class Contact
     private void SetFields(ContactFields f)
     {
         Kind = f.Kind;
-        GivenName = f.GivenName;
-        MiddleName = f.MiddleName;
-        FamilyName = f.FamilyName;
-        Nickname = f.Nickname;
+        GivenName = NamePart(f.GivenName);
+        MiddleName = NamePart(f.MiddleName);
+        FamilyName = NamePart(f.FamilyName);
+        Nickname = NamePart(f.Nickname);
         DisplayNameFormat = f.DisplayNameFormat;
         Channels = f.Channels is null ? [] : [.. f.Channels];   // channels are vCard-authoritative (wholesale, like the old Emails/Phones)
         Birthday = f.Birthday;
@@ -303,4 +303,6 @@ public sealed class Contact
         Pronouns = f.Pronouns;
         if (f.Tags is not null) Tags = f.Tags;   // tags are Lupira-only (not in the imported card) — preserve when unmentioned
     }
+
+    private static string? NamePart(string? part) => string.IsNullOrWhiteSpace(part) ? null : part.Trim();
 }

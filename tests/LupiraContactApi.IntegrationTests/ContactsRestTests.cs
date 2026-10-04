@@ -58,6 +58,21 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
     }
 
     [Fact]
+    public async Task Query_folds_diacritics_and_matches_tokens_in_any_order()
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+        var karin = await CreateContactAsync(api, abId, "Karin", "Rosén");
+        await CreateContactAsync(api, abId, "Per", "Lind");
+
+        foreach (var query in new[] { "Rosen", "rosé", "Rosen Karin", "kar" })
+        {
+            var hits = await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?query={Uri.EscapeDataString(query)}&addressBookId={abId}");
+            Assert.Equal(karin.Id, Assert.Single(hits!).Id);
+        }
+    }
+
+    [Fact]
     public async Task DisplayNameFormat_governs_the_label_is_hash_neutral_and_search_stays_by_real_name()
     {
         var api = Factory.ApiClient(Email);

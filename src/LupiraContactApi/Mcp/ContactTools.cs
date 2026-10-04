@@ -70,7 +70,7 @@ public sealed class ContactTools
     }
 
     [McpServerTool(Name = "resolve_contacts")]
-    [Description("Batch-match a list of names to existing contacts for import disambiguation. Per name: outcome Matched (one normalized-name/substring hit → contactId), Ambiguous (several → see candidates), or NotFound; candidates are id+displayName. Substring + normalized-name match, not phonetic. Optionally scope to one AddressBookId.")]
+    [Description("Batch-match a list of names to existing contacts for import disambiguation. Per name: outcome Matched (one contact whose full name/nickname equals it, or the only contact holding every word of a multi-word name → contactId), Ambiguous (several, or a lone hit on a single word → see candidates), or NotFound; candidates are id+displayName. Case/diacritic-insensitive, not phonetic. Optionally scope to one AddressBookId.")]
     public static async Task<IReadOnlyList<ContactNameMatch>> ResolveContacts(ContactService contacts, CurrentUser user, ResolveContactsByNameRequest request)
     {
         var u = await user.GetAsync();

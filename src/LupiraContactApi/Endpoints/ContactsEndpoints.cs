@@ -14,7 +14,7 @@ public static class ContactsEndpoints
         group.MapGet("/", (string? query, Guid? addressBookId, ContactsHandler h, CancellationToken ct) =>
                 h.QueryAsync(query, addressBookId, ct))
             .WithName("SearchContacts")
-            .WithSummary("Search contacts (full-text + fuzzy name match).")
+            .WithSummary("Search contacts by name: every query word is a name part, or the name text contains the query (case/diacritic-insensitive).")
             .Produces<List<ContactDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
@@ -41,7 +41,7 @@ public static class ContactsEndpoints
 
         group.MapPost("/resolve-names", (ResolveContactsByNameRequest body, ContactsHandler h, CancellationToken ct) => h.ResolveByNameAsync(body, ct))
             .WithName("ResolveContactsByName")
-            .WithSummary("Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Substring + normalized-name match, not phonetic.")
+            .WithSummary("Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Case/diacritic-insensitive full-name or all-tokens match, not phonetic.")
             .Produces<List<ContactNameMatch>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);

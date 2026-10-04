@@ -164,6 +164,18 @@ public class ContactTests
     }
 
     [Fact]
+    public void Name_parts_are_trimmed_and_blank_parts_become_null()
+    {
+        var c = Created(Guid.NewGuid(), Name(" Anna ", "  ", " Weideskog", ""));
+
+        Assert.Equal("Anna", c.GivenName);
+        Assert.Null(c.MiddleName);
+        Assert.Equal("Weideskog", c.FamilyName);
+        Assert.Null(c.Nickname);
+        Assert.Equal(Created(Guid.NewGuid(), Name("Anna", null, "Weideskog", null)).ContentHash, c.ContentHash);
+    }
+
+    [Fact]
     public void Addresses_replaced_is_wholesale_and_does_not_change_the_hash()
     {
         var id = Guid.NewGuid();

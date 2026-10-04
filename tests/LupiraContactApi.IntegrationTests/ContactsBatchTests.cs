@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using Xunit;
 
@@ -75,7 +76,7 @@ public sealed class ContactsBatchTests(ContactApiTestFactory factory) : Integrat
         Assert.Equal(NameMatchOutcome.Matched, r[0].Outcome);
         Assert.Equal(jane.Id, r[0].ContactId);
 
-        // "Jane" substring hits two, no exact display-name equality → Ambiguous.
+        // "Jane" is a name token of two contacts and a single-word query → Ambiguous.
         Assert.Equal(NameMatchOutcome.Ambiguous, r[1].Outcome);
         Assert.Null(r[1].ContactId);
         Assert.Equal(2, r[1].Candidates.Count);
@@ -90,6 +91,34 @@ public sealed class ContactsBatchTests(ContactApiTestFactory factory) : Integrat
     }
 
     [Fact]
+    public async Task Resolve_names_folds_diacritics_and_matches_past_middle_names_and_nicknames()
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+        var irene = await CreateContactAsync(api, abId, "Irène", "Modig");
+        var anton = await CreateAsync(api, new CreateContactRequest { AddressBookId = abId, GivenName = "Anton", MiddleName = "Karl Erik", FamilyName = "Alfonsson" });
+        var lisa = await CreateContactAsync(api, abId, "Lisa", "Winberg Nielsen");
+        var raen = await CreateAsync(api, new CreateContactRequest { AddressBookId = abId, Nickname = "Raen", DisplayNameFormat = DisplayNameFormat.NickName });
+        var padded = await CreateContactAsync(api, abId, "Maja", " Weideskog");
+        await CreateContactAsync(api, abId, "Anna", "Alfonsson");
+
+        var resp = await api.PostAsJsonAsync("/contacts/resolve-names", new ResolveContactsByNameRequest
+        {
+            Names = ["Irene Modig", "Anton Alfonsson", "Winberg-Nielsen Lisa", "raen", "Maja Weideskog", "Alfonsson"],
+            AddressBookId = abId,
+        });
+        resp.EnsureSuccessStatusCode();
+        var r = (await resp.Content.ReadFromJsonAsync<List<ContactNameMatch>>(Json))!;
+
+        Assert.Equal([irene.Id, anton.Id, lisa.Id, raen.Id, padded.Id], r.Take(5).Select(m => m.ContactId!.Value));
+        Assert.All(r.Take(5), m => Assert.Equal(NameMatchOutcome.Matched, m.Outcome));
+        Assert.Equal("Weideskog", padded.FamilyName);
+
+        Assert.Equal(NameMatchOutcome.Ambiguous, r[5].Outcome);
+        Assert.Equal(2, r[5].Candidates.Count);
+    }
+
+    [Fact]
     public async Task Batch_endpoints_require_authentication()
     {
         var anon = Factory.AnonymousClient();
@@ -100,5 +129,12 @@ public sealed class ContactsBatchTests(ContactApiTestFactory factory) : Integrat
         var resolve = await anon.PostAsJsonAsync("/contacts/resolve-names",
             new ResolveContactsByNameRequest { Names = ["X"] });
         Assert.Equal(HttpStatusCode.Unauthorized, resolve.StatusCode);
+    }
+
+    static async Task<ContactDto> CreateAsync(HttpClient api, CreateContactRequest request)
+    {
+        var resp = await api.PostAsJsonAsync("/contacts", request);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<ContactDto>(Json))!;
     }
 }

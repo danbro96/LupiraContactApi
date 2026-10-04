@@ -760,7 +760,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Search contacts (full-text + fuzzy name match).",
+        "summary": "Search contacts by name: every query word is a name part, or the name text contains the query (case/diacritic-insensitive).",
         "operationId": "SearchContacts",
         "parameters": [
           {
@@ -1074,7 +1074,7 @@
         "tags": [
           "Contacts"
         ],
-        "summary": "Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Substring + normalized-name match, not phonetic.",
+        "summary": "Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Case/diacritic-insensitive full-name or all-tokens match, not phonetic.",
         "operationId": "ResolveContactsByName",
         "requestBody": {
           "content": {
@@ -4832,7 +4832,7 @@
           "Ambiguous",
           "NotFound"
         ],
-        "description": "Per-name match outcome. `Matched` = exactly one contact whose normalized display name equals the\n            query (or the lone substring hit); `Ambiguous` = several candidates; `NotFound` = no substring hit."
+        "description": "Per-name match outcome, compared case-, diacritic- and punctuation-insensitively. `Matched` = exactly one\n            contact whose full name form (given+family, given+middle+family, nickname, nickname+family or display name) equals\n            the query, or else the lone contact holding every token of a multi-token query; `Ambiguous` = several such\n            contacts, or a lone token hit on a one-token query; `NotFound` = no contact holds every query token."
       },
       "OwnerGrantDto": {
         "required": [
