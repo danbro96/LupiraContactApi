@@ -1,7 +1,7 @@
 using System.ComponentModel;
+using Lupira.Mcp;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Application;
-using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
@@ -27,7 +27,7 @@ public sealed class ContactTools
         [Description("Free-text query over the contact's name.")] string? query = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.QueryAsync(u.Id, query, null));
+        return (await contacts.QueryAsync(u.Id, query, null)).Require();
     }
 
     [McpServerTool(Name = "list_thin_contacts")]
@@ -39,7 +39,7 @@ public sealed class ContactTools
         [Description("Max contacts returned (default 25).")] int? take = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.ThinContactsAsync(u.Id, addressBookId, maxScore, take));
+        return (await contacts.ThinContactsAsync(u.Id, addressBookId, maxScore, take)).Require();
     }
 
     [McpServerTool(Name = "attach_metadata")]
@@ -54,7 +54,7 @@ public sealed class ContactTools
         try { node = System.Text.Json.Nodes.JsonNode.Parse(metadataJson); }
         catch (System.Text.Json.JsonException) { node = null; }
         if (node is not System.Text.Json.Nodes.JsonObject patch) throw new McpException("`metadataJson` must be a JSON object.");
-        return Require(await contacts.AttachMetadataAsync(u.Id, contactId, patch));
+        return (await contacts.AttachMetadataAsync(u.Id, contactId, patch)).Require();
     }
 
     [McpServerTool(Name = "create_contact")]
@@ -62,7 +62,7 @@ public sealed class ContactTools
     public static async Task<ContactDto> CreateContact(ContactService contacts, CurrentUser user, CreateContactRequest request)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.CreateAsync(u.Id, request));
+        return (await contacts.CreateAsync(u.Id, request)).Require();
     }
 
     [McpServerTool(Name = "create_contacts_batch")]
@@ -70,7 +70,7 @@ public sealed class ContactTools
     public static async Task<IReadOnlyList<ContactDto>> CreateContactsBatch(ContactService contacts, CurrentUser user, CreateContactsBatchRequest request)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.CreateBatchAsync(u.Id, request.Contacts));
+        return (await contacts.CreateBatchAsync(u.Id, request.Contacts)).Require();
     }
 
     [McpServerTool(Name = "resolve_contacts")]
@@ -78,7 +78,7 @@ public sealed class ContactTools
     public static async Task<IReadOnlyList<ContactNameMatch>> ResolveContacts(ContactService contacts, CurrentUser user, ResolveContactsByNameRequest request)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.ResolveByNameAsync(u.Id, request.Names, request.AddressBookId));
+        return (await contacts.ResolveByNameAsync(u.Id, request.Names, request.AddressBookId)).Require();
     }
 
     [McpServerTool(Name = "get_contact")]
@@ -86,7 +86,7 @@ public sealed class ContactTools
     public static async Task<ContactDto> GetContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.GetAsync(u.Id, contactId));
+        return (await contacts.GetAsync(u.Id, contactId)).Require();
     }
 
     [McpServerTool(Name = "update_contact")]
@@ -94,7 +94,7 @@ public sealed class ContactTools
     public static async Task<ContactDto> UpdateContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId, ReviseContactRequest request)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.ReviseAsync(u.Id, contactId, request));
+        return (await contacts.ReviseAsync(u.Id, contactId, request)).Require();
     }
 
     [McpServerTool(Name = "delete_contact")]
@@ -102,7 +102,7 @@ public sealed class ContactTools
     public static async Task<string> DeleteContact(ContactService contacts, CurrentUser user, [Description("The contact id.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        Require(await contacts.DeleteAsync(u.Id, contactId));
+        (await contacts.DeleteAsync(u.Id, contactId)).Require();
         return $"Deleted contact {contactId}.";
     }
 
@@ -114,7 +114,7 @@ public sealed class ContactTools
         [Description("The target address book id.")] Guid addressBookId)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.MoveManyAsync(u.Id, contactIds, addressBookId));
+        return (await contacts.MoveManyAsync(u.Id, contactIds, addressBookId)).Require();
     }
 
     [McpServerTool(Name = "relate_contacts")]
@@ -127,7 +127,7 @@ public sealed class ContactTools
         [Description("Optional: contactId's own name for toContactId, e.g. 'dad'.")] string? label = null)
     {
         var u = await user.GetAsync();
-        return Require(await relationships.UpsertAsync(u.Id, contactId, new AddContactRelationRequest { ToContactId = toContactId, Kind = ParseRelationKind(kind), Label = label }));
+        return (await relationships.UpsertAsync(u.Id, contactId, new AddContactRelationRequest { ToContactId = toContactId, Kind = ParseRelationKind(kind), Label = label })).Require();
     }
 
     [McpServerTool(Name = "end_contact_relation")]
@@ -140,7 +140,7 @@ public sealed class ContactTools
         [Description("When the relationship ended (optional).")] DateOnly? until = null)
     {
         var u = await user.GetAsync();
-        return Require(await relationships.EndAsync(u.Id, contactId, toContactId, ParseRelationKind(kind), until));
+        return (await relationships.EndAsync(u.Id, contactId, toContactId, ParseRelationKind(kind), until)).Require();
     }
 
     [McpServerTool(Name = "unrelate_contacts")]
@@ -152,7 +152,7 @@ public sealed class ContactTools
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind)
     {
         var u = await user.GetAsync();
-        Require(await relationships.RemoveAsync(u.Id, contactId, toContactId, ParseRelationKind(kind)));
+        (await relationships.RemoveAsync(u.Id, contactId, toContactId, ParseRelationKind(kind))).Require();
         return $"Removed the {kind} relationship between {contactId} and {toContactId}.";
     }
 
@@ -164,7 +164,7 @@ public sealed class ContactTools
         [Description("Also return kin derived from the parent/child graph, tagged provenance=Inferred.")] bool includeInferred = false)
     {
         var u = await user.GetAsync();
-        return Require(await relationships.ListAsync(u.Id, contactId, includeInferred));
+        return (await relationships.ListAsync(u.Id, contactId, includeInferred)).Require();
     }
 
     [McpServerTool(Name = "list_contact_circles")]
@@ -174,7 +174,7 @@ public sealed class ContactTools
         [Description("Focus contact; defaults to the caller's linked self-contact.")] Guid? focusId = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.CirclesAsync(u.Id, focusId));
+        return (await contacts.CirclesAsync(u.Id, focusId)).Require();
     }
 
     [McpServerTool(Name = "mark_contact_deceased")]
@@ -185,7 +185,7 @@ public sealed class ContactTools
         [Description("Date of death, if known.")] DateOnly? deathDate = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetDeceasedAsync(u.Id, contactId, deathDate));
+        return (await contacts.SetDeceasedAsync(u.Id, contactId, deathDate)).Require();
     }
 
     [McpServerTool(Name = "clear_contact_deceased")]
@@ -195,7 +195,7 @@ public sealed class ContactTools
         [Description("The contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.ClearDeceasedAsync(u.Id, contactId));
+        return (await contacts.ClearDeceasedAsync(u.Id, contactId)).Require();
     }
 
     [McpServerTool(Name = "set_contact_profiles")]
@@ -206,7 +206,7 @@ public sealed class ContactTools
         [Description("The full new list — an empty list clears.")] List<ContactSocialProfileInput> profiles)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetProfilesAsync(u.Id, contactId, profiles));
+        return (await contacts.SetProfilesAsync(u.Id, contactId, profiles)).Require();
     }
 
     [McpServerTool(Name = "list_residencies")]
@@ -216,7 +216,7 @@ public sealed class ContactTools
         [Description("The contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        return Require(await residencies.ListAsync(u.Id, contactId));
+        return (await residencies.ListAsync(u.Id, contactId)).Require();
     }
 
     [McpServerTool(Name = "add_residency")]
@@ -231,7 +231,7 @@ public sealed class ContactTools
         [Description("When they moved out, if they have.")] FuzzyDate? movedOut = null)
     {
         var u = await user.GetAsync();
-        return Require(await residencies.AddAsync(u.Id, contactId, new ResidencyRequest { PlaceId = placeId, Type = type, Label = label, MovedIn = movedIn, MovedOut = movedOut }));
+        return (await residencies.AddAsync(u.Id, contactId, new ResidencyRequest { PlaceId = placeId, Type = type, Label = label, MovedIn = movedIn, MovedOut = movedOut })).Require();
     }
 
     [McpServerTool(Name = "move_out")]
@@ -242,7 +242,7 @@ public sealed class ContactTools
         [Description("When they moved out ({year, month?, day?}).")] FuzzyDate movedOut)
     {
         var u = await user.GetAsync();
-        return Require(await residencies.MoveOutAsync(u.Id, residencyId, movedOut));
+        return (await residencies.MoveOutAsync(u.Id, residencyId, movedOut)).Require();
     }
 
     [McpServerTool(Name = "move_contacts_home")]
@@ -256,7 +256,7 @@ public sealed class ContactTools
         [Description("home|vacation|work|other (default home).")] ContactAddressType type = ContactAddressType.Home)
     {
         var u = await user.GetAsync();
-        return Require(await residencies.MoveAsync(u.Id, new MoveRequest { ContactIds = contactIds, ToPlaceId = toPlaceId, Type = type, MovedIn = movedIn, FromPlaceId = fromPlaceId }));
+        return (await residencies.MoveAsync(u.Id, new MoveRequest { ContactIds = contactIds, ToPlaceId = toPlaceId, Type = type, MovedIn = movedIn, FromPlaceId = fromPlaceId })).Require();
     }
 
     [McpServerTool(Name = "set_contact_channels")]
@@ -267,7 +267,7 @@ public sealed class ContactTools
         [Description("The full new list — an empty list clears.")] List<ContactReachChannel> channels)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetChannelsAsync(u.Id, contactId, channels));
+        return (await contacts.SetChannelsAsync(u.Id, contactId, channels)).Require();
     }
 
     [McpServerTool(Name = "set_emergency_contacts")]
@@ -278,7 +278,7 @@ public sealed class ContactTools
         [Description("Emergency contact ids in priority order.")] List<Guid> contactIds)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetEmergencyContactsAsync(u.Id, contactId, contactIds));
+        return (await contacts.SetEmergencyContactsAsync(u.Id, contactId, contactIds)).Require();
     }
 
     [McpServerTool(Name = "set_contact_tags")]
@@ -289,7 +289,7 @@ public sealed class ContactTools
         [Description("The full new tag list — an empty list clears.")] string[] tags)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetTagsAsync(u.Id, contactId, tags));
+        return (await contacts.SetTagsAsync(u.Id, contactId, tags)).Require();
     }
 
     [McpServerTool(Name = "set_contact_avatar")]
@@ -300,7 +300,7 @@ public sealed class ContactTools
         [Description("Avatar URL/media id; empty clears.")] string? avatarRef = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetAvatarAsync(u.Id, contactId, avatarRef));
+        return (await contacts.SetAvatarAsync(u.Id, contactId, avatarRef)).Require();
     }
 
     [McpServerTool(Name = "set_my_contact")]
@@ -310,7 +310,7 @@ public sealed class ContactTools
         [Description("The caller's own contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        Require(await contacts.LinkSelfContactAsync(u.Id, contactId));
+        (await contacts.LinkSelfContactAsync(u.Id, contactId)).Require();
         return $"Linked contact {contactId} as your self-contact.";
     }
 
@@ -324,7 +324,7 @@ public sealed class ContactTools
     public static async Task<IReadOnlyList<AddressBookDto>> ListAddressBooks(AddressBookService books, CurrentUser user)
     {
         var u = await user.GetAsync();
-        return Require(await books.ListAsync(u.Id));
+        return (await books.ListAsync(u.Id)).Require();
     }
 
     [McpServerTool(Name = "create_address_book")]
@@ -335,7 +335,7 @@ public sealed class ContactTools
         [Description("Human-readable name.")] string? displayName = null)
     {
         var u = await user.GetAsync();
-        return Require(await books.CreateAsync(u.Id, new CreateAddressBookRequest { Slug = slug, DisplayName = displayName }));
+        return (await books.CreateAsync(u.Id, new CreateAddressBookRequest { Slug = slug, DisplayName = displayName })).Require();
     }
 
     [McpServerTool(Name = "bootstrap_me")]
@@ -343,7 +343,7 @@ public sealed class ContactTools
     public static async Task<IReadOnlyList<AddressBookDto>> BootstrapMe(AddressBookService books, CurrentUser user)
     {
         var u = await user.GetAsync();
-        return Require(await books.BootstrapPersonalAsync(u.Id));
+        return (await books.BootstrapPersonalAsync(u.Id)).Require();
     }
 
     // ---- Contact groups (personal groupings + organizations) ----
@@ -354,7 +354,7 @@ public sealed class ContactTools
         ContactGroupService groups, CurrentUser user, [Description("Address book id.")] Guid addressBookId)
     {
         var u = await user.GetAsync();
-        return Require(await groups.ListAsync(u.Id, addressBookId));
+        return (await groups.ListAsync(u.Id, addressBookId)).Require();
     }
 
     [McpServerTool(Name = "create_contact_group")]
@@ -366,7 +366,7 @@ public sealed class ContactTools
         [Description("group|organization (default group).")] string kind = "group")
     {
         var u = await user.GetAsync();
-        return Require(await groups.CreateAsync(u.Id, addressBookId, kind, name));
+        return (await groups.CreateAsync(u.Id, addressBookId, kind, name)).Require();
     }
 
     [McpServerTool(Name = "rename_contact_group")]
@@ -375,7 +375,7 @@ public sealed class ContactTools
         ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId, [Description("New name.")] string name)
     {
         var u = await user.GetAsync();
-        return Require(await groups.RenameAsync(u.Id, groupId, name));
+        return (await groups.RenameAsync(u.Id, groupId, name)).Require();
     }
 
     [McpServerTool(Name = "add_group_member")]
@@ -389,7 +389,7 @@ public sealed class ContactTools
         [Description("When the membership ended (optional).")] DateOnly? until = null)
     {
         var u = await user.GetAsync();
-        return Require(await groups.AddMemberAsync(u.Id, groupId, contactId, role, since, until));
+        return (await groups.AddMemberAsync(u.Id, groupId, contactId, role, since, until)).Require();
     }
 
     [McpServerTool(Name = "remove_group_member")]
@@ -398,7 +398,7 @@ public sealed class ContactTools
         ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId, [Description("Contact to remove.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        return Require(await groups.RemoveMemberAsync(u.Id, groupId, contactId));
+        return (await groups.RemoveMemberAsync(u.Id, groupId, contactId)).Require();
     }
 
     [McpServerTool(Name = "move_contact_group")]
@@ -410,7 +410,7 @@ public sealed class ContactTools
         [Description("Also move the members that live in the group's current book.")] bool includeMembers = false)
     {
         var u = await user.GetAsync();
-        return Require(await groups.MoveAsync(u.Id, groupId, addressBookId, includeMembers));
+        return (await groups.MoveAsync(u.Id, groupId, addressBookId, includeMembers)).Require();
     }
 
     [McpServerTool(Name = "delete_contact_group")]
@@ -419,7 +419,7 @@ public sealed class ContactTools
         ContactGroupService groups, CurrentUser user, [Description("Group id.")] Guid groupId)
     {
         var u = await user.GetAsync();
-        Require(await groups.DeleteAsync(u.Id, groupId));
+        (await groups.DeleteAsync(u.Id, groupId)).Require();
         return $"Deleted group {groupId}.";
     }
 
@@ -432,7 +432,7 @@ public sealed class ContactTools
         [Description("owner|read-write|read.")] string access = "owner")
     {
         var u = await user.GetAsync();
-        return Require(await books.GrantOwnerAsync(u.Id, addressBookId, new GrantOwnerRequest { Email = email, Access = access }));
+        return (await books.GrantOwnerAsync(u.Id, addressBookId, new GrantOwnerRequest { Email = email, Access = access })).Require();
     }
 
     [McpServerTool(Name = "revoke_addressbook_owner")]
@@ -443,32 +443,7 @@ public sealed class ContactTools
         [Description("The member's login email.")] string email)
     {
         var u = await user.GetAsync();
-        Require(await books.RevokeOwnerAsync(u.Id, addressBookId, email));
+        (await books.RevokeOwnerAsync(u.Id, addressBookId, email)).Require();
         return $"Revoked {email}'s access to address book {addressBookId}.";
-    }
-
-    /// <summary>Unwraps a service outcome to its value, surfacing non-Ok statuses as an MCP tool error.</summary>
-    private static T Require<T>(OpResult<T> r) => r.Status switch
-    {
-        OpStatus.Ok => r.Value!,
-        OpStatus.NotFound => throw new McpException("Not found."),
-        OpStatus.Forbidden => throw new McpException(r.Error ?? "Forbidden."),
-        OpStatus.Invalid => throw new McpException(r.Error ?? "Invalid request."),
-        OpStatus.Conflict => throw new McpException(r.Error ?? "Conflict."),
-        _ => throw new McpException("Unexpected result."),
-    };
-
-    /// <summary>Asserts a no-content outcome succeeded, surfacing non-Ok statuses as an MCP tool error.</summary>
-    private static void Require(OpResult r)
-    {
-        if (r.IsOk) return;
-        throw r.Status switch
-        {
-            OpStatus.NotFound => new McpException("Not found."),
-            OpStatus.Forbidden => new McpException(r.Error ?? "Forbidden."),
-            OpStatus.Invalid => new McpException(r.Error ?? "Invalid request."),
-            OpStatus.Conflict => new McpException(r.Error ?? "Conflict."),
-            _ => new McpException("Unexpected result."),
-        };
     }
 }

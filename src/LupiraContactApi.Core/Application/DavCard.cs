@@ -2,7 +2,7 @@ using System.Globalization;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Serialization;
-using static LupiraContactApi.Core.Domain.Shared.ContentHash;
+using static Lupira.Primitives.ContentHash;
 
 namespace LupiraContactApi.Core.Application;
 

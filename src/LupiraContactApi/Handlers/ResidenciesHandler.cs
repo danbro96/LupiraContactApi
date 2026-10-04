@@ -1,7 +1,7 @@
+using Lupira.Hosting.Problems;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Application;
 using LupiraContactApi.Core.Dtos.Residencies;
-using LupiraContactApi.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;

@@ -1,4 +1,5 @@
-using LupiraContactApi.Core.Application.Results;
+using Lupira.Primitives;
+using Lupira.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.AddressBooks;
 using LupiraContactApi.Core.Domain.ContactGroups;

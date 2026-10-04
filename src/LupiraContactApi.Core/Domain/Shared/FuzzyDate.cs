@@ -1,5 +1,3 @@
-using LupiraContactApi.Core.Domain.Contacts;
-
 namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>A date known to year, year-month, or full-day precision — the precision itself carries the certainty

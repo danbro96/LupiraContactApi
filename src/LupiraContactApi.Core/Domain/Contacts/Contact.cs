@@ -1,7 +1,7 @@
 using JasperFx.Events;
 using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Shared;
-using static LupiraContactApi.Core.Domain.Shared.ContentHash;   // Of(); the type name clashes with the ContentHash property
+using static Lupira.Primitives.ContentHash;   // Of(); the type name clashes with the ContentHash property
 
 namespace LupiraContactApi.Core.Domain.Contacts;
 

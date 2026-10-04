@@ -24,8 +24,8 @@ services:
 
       # /mcp, /internal, /dav-backend are LAN-only — keep them off the public internet.
 
-      # OTEL — optional OTLP export (http/protobuf; 5-min metric cadence). Unset endpoint = silent no-op.
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # OTEL — OTLP export (http/protobuf; 5-min metric cadence). Endpoint required outside Development.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:?required}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       OTEL_METRIC_EXPORT_INTERVAL: ${OTEL_METRIC_EXPORT_INTERVAL:-300000}

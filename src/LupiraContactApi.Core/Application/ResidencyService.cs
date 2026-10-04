@@ -1,5 +1,5 @@
 using JasperFx.Events;
-using LupiraContactApi.Core.Application.Results;
+using Lupira.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
 using LupiraContactApi.Core.Domain.Contacts;

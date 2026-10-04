@@ -1,3 +1,4 @@
+using Lupira.Primitives;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 

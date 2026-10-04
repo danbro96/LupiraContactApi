@@ -1,4 +1,5 @@
 using JasperFx.Events;
+using Lupira.Primitives;
 using LupiraContactApi.Core.Domain.PlaceEntries.Events;
 using LupiraContactApi.Core.Domain.Shared;
 

@@ -1,8 +1,8 @@
+using Lupira.Primitives;
+using Lupira.Results;
 using LupiraContactApi.Core.Application;
-using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.Contacts;
-using LupiraContactApi.Core.Domain.Shared;
 using Marten;
 
 namespace LupiraContactApi.Dav;
