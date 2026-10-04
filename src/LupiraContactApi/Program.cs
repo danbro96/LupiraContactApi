@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
-using LupiraContactApi.Core.Upgrades;
 using LupiraContactApi.Dav;
 using LupiraContactApi.Endpoints;
 using LupiraContactApi.Handlers;
@@ -294,26 +293,6 @@ if (args.Contains("--rebuild-contacts"))
     using var daemon = await store.BuildProjectionDaemonAsync();
     await daemon.RebuildProjectionAsync<Contact>(CancellationToken.None);
     Console.WriteLine("Contact projection rebuilt.");
-    return;
-}
-
-// One-shot move of the legacy per-contact relation copies onto Relationship streams (deploy step, before
-// --rebuild-contacts drops the copies from the contact snapshots). Idempotent.
-if (args.Contains("--migrate-relationships"))
-{
-    using var scope = app.Services.CreateScope();
-    var started = await scope.ServiceProvider.GetRequiredService<RelationshipMigration>().RunAsync();
-    Console.WriteLine($"Relationships migrated: {started} started.");
-    return;
-}
-
-// One-shot move of the legacy per-contact address lists onto Residency streams (deploy step; reads the events, so it
-// may run before or after --rebuild-contacts). Idempotent.
-if (args.Contains("--migrate-residencies"))
-{
-    using var scope = app.Services.CreateScope();
-    var started = await scope.ServiceProvider.GetRequiredService<ResidencyMigration>().RunAsync();
-    Console.WriteLine($"Residencies migrated: {started} started.");
     return;
 }
 

@@ -72,13 +72,5 @@ classDiagram
 
 ## Legacy
 
-Relations used to be per-contact copies on the `Contact` stream (`ContactRelation*` events). Those
-events stay registered so old streams still replay, and `Contact` no longer applies them.
-
-`dotnet LupiraContactApi.dll --migrate-relationships` folds them into relationship streams
-(`Upgrades/LegacyRelationFold`):
-- Each side's label comes from its own copy.
-- The shared fields come from the low contact's copy first.
-- A relationship is ended only when every copy was.
-
-The command is idempotent. Run it once per environment, before `--rebuild-contacts`.
+`ContactRelation*` events on `Contact` streams are the old per-contact relation copies. They stay
+registered so old streams still replay; `Contact` does not apply them.

@@ -3,7 +3,7 @@ using LupiraContactApi.Core.Domain.Contacts;
 namespace LupiraContactApi.Core.Domain.Shared;
 
 /// <summary>A date known to year, year-month, or full-day precision — the precision itself carries the certainty
-/// ("2015" means "sometime in 2015"). Used for residency boundaries on <see cref="ContactPostalAddress"/>.
+/// ("2015" means "sometime in 2015"). Used for residency boundaries.
 /// <see cref="Year"/> is always present; <see cref="Day"/> requires <see cref="Month"/>. Distinct from
 /// <see cref="PartialDate"/>, which models the opposite case (year unknown, month-day known).</summary>
 public sealed record FuzzyDate(int Year, int? Month = null, int? Day = null)

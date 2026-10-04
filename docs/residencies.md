@@ -76,12 +76,5 @@ classDiagram
 
 ## Legacy
 
-Addresses used to be a list on the contact (`ContactAddressesReplaced`). Those events stay registered
-so old streams replay, and `Contact` no longer applies them.
-
-`--migrate-residencies` folds them into residencies (`Upgrades/LegacyAddressFold`):
-- It applies the old rules: last writer wins, and a deleted contact ignores address writes.
-- Each surviving entry starts one residency, with an id derived from the contact and the entry's
-  position.
-
-The command is idempotent.
+`ContactAddressesReplaced` events on `Contact` streams are the old per-contact address lists. They stay
+registered so old streams still replay; `Contact` does not apply them.

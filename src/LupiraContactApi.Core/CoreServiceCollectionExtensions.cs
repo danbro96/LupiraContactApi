@@ -1,7 +1,6 @@
 using LupiraContactApi.Core.Application;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
-using LupiraContactApi.Core.Upgrades;
 using Marten;
 using Microsoft.Extensions.Configuration;
 
@@ -38,12 +37,10 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<DavCards>();
         services.AddScoped<DavChangeFeed>();
         services.AddScoped<SyncFeed>();
-        services.AddScoped<RelationshipMigration>();
         services.AddScoped<ResidencyService>();
         services.AddScoped<ResidencyFeed>();
         services.AddScoped<PlaceEntryService>();
         services.AddScoped<PlaceEntryFeed>();
-        services.AddScoped<ResidencyMigration>();
         return services;
     }
 }
