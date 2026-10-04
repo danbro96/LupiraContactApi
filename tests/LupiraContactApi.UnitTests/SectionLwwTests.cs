@@ -61,15 +61,15 @@ public class SectionLwwTests
         var id = Guid.NewGuid();
         var c = Created(id);
         var baseTs = c.UpdatedAt;
-        var place = Guid.NewGuid();
+        var profile = new ContactSocialProfile { Service = "telegram", Handle = "jane" };
 
-        c.Apply(Ev(new ContactAddressesReplaced(id, [new ContactPostalAddress { PlaceId = place, Type = ContactAddressType.Home }], baseTs.AddHours(2), Guid.NewGuid())));
-        // A newer core edit must not let a stale addresses replace through.
+        c.Apply(Ev(new ContactProfilesReplaced(id, [profile], baseTs.AddHours(2), Guid.NewGuid())));
+        // A newer core edit must not let a stale profiles replace through.
         c.Apply(Ev(new ContactRevised(id, Fields("Newer core"), baseTs.AddHours(3), Guid.NewGuid())));
-        c.Apply(Ev(new ContactAddressesReplaced(id, [], baseTs.AddHours(1), Guid.NewGuid())));
+        c.Apply(Ev(new ContactProfilesReplaced(id, [], baseTs.AddHours(1), Guid.NewGuid())));
 
         Assert.Equal("Newer core", c.GivenName);
-        Assert.Equal(place, Assert.Single(c.Addresses).PlaceId);
+        Assert.Equal("jane", Assert.Single(c.Profiles).Handle);
     }
 
     [Fact]

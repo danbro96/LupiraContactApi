@@ -6,8 +6,8 @@ LAN-only [`/dav-backend` seam](docs/dav-backend-contract.md).
 
 - **REST at root** (`https://contact-api.lupira.com`) — contacts CRUD + query, contact-to-contact
   relationships that read the same from both sides ([semantics](docs/relationships.md)) with inferred
-  kinship, contact groups (personal + organization), address books with
-  multi-owner grants, `/me` + `/me/bootstrap`.
+  kinship, residencies with batch moves and per-place door codes ([semantics](docs/residencies.md)),
+  contact groups (personal + organization), address books with multi-owner grants, `/me` + `/me/bootstrap`.
 - **MCP at `/mcp`** (LAN/WireGuard-only) — agent tools: `search_contacts`, `create_contact`,
   `relate_contacts`, `unrelate_contacts`, `list_contact_relations`, `list_address_books`,
   `create_address_book`, `bootstrap_me`, `grant_addressbook_owner`, `revoke_addressbook_owner`.

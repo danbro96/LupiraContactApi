@@ -6,6 +6,7 @@ using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
+using LupiraContactApi.Core.Dtos.Residencies;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
@@ -205,15 +206,54 @@ public sealed class ContactTools
         return Require(await contacts.SetProfilesAsync(u.Id, contactId, profiles));
     }
 
-    [McpServerTool(Name = "set_contact_addresses")]
-    [Description("Replace a contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text). Empty clears. Optional movedIn/movedOut fuzzy dates ({year, month?, day?}); active = today inside the period, so a past movedOut is former and future dates are planned.")]
-    public static async Task<ContactDto> SetContactAddresses(
-        ContactService contacts, CurrentUser user,
-        [Description("The contact.")] Guid contactId,
-        [Description("The full new list — an empty list clears. Past movedOut = former; future dates = planned.")] List<ContactPostalAddress> addresses)
+    [McpServerTool(Name = "list_residencies")]
+    [Description("Where a contact lives, holidays and works: residencies at LupiraGeoApi places, current first. type = home|vacation|work|other; movedIn/movedOut are fuzzy dates ({year, month?, day?}); a past movedOut = former, future dates = planned.")]
+    public static async Task<List<ResidencyDto>> ListResidencies(
+        ResidencyService residencies, CurrentUser user,
+        [Description("The contact.")] Guid contactId)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.SetAddressesAsync(u.Id, contactId, addresses));
+        return Require(await residencies.ListAsync(u.Id, contactId));
+    }
+
+    [McpServerTool(Name = "add_residency")]
+    [Description("Start a residency for a contact at a LupiraGeoApi place (resolve the address there first — no free text). Refused when it overlaps another residency of the contact at the same place.")]
+    public static async Task<ResidencyDto> AddResidency(
+        ResidencyService residencies, CurrentUser user,
+        [Description("The contact.")] Guid contactId,
+        [Description("The LupiraGeoApi place id.")] Guid placeId,
+        [Description("home|vacation|work|other.")] ContactAddressType type,
+        [Description("Optional refinement, e.g. 'Summer house, Gotland'.")] string? label = null,
+        [Description("When they moved in, as precise as known ({year, month?, day?}).")] FuzzyDate? movedIn = null,
+        [Description("When they moved out, if they have.")] FuzzyDate? movedOut = null)
+    {
+        var u = await user.GetAsync();
+        return Require(await residencies.AddAsync(u.Id, contactId, new ResidencyRequest { PlaceId = placeId, Type = type, Label = label, MovedIn = movedIn, MovedOut = movedOut }));
+    }
+
+    [McpServerTool(Name = "move_out")]
+    [Description("End a residency: the contact moved out on the given date. To record a move to a new place, use move_contacts_home instead.")]
+    public static async Task<ResidencyDto> MoveOut(
+        ResidencyService residencies, CurrentUser user,
+        [Description("The residency id (from list_residencies).")] Guid residencyId,
+        [Description("When they moved out ({year, month?, day?}).")] FuzzyDate movedOut)
+    {
+        var u = await user.GetAsync();
+        return Require(await residencies.MoveOutAsync(u.Id, residencyId, movedOut));
+    }
+
+    [McpServerTool(Name = "move_contacts_home")]
+    [Description("Record that one or more contacts (a family, say) moved together: each one's current residencies at fromPlaceId end on movedIn, and a residency at toPlaceId starts then. All or nothing.")]
+    public static async Task<List<ResidencyDto>> MoveContactsHome(
+        ResidencyService residencies, CurrentUser user,
+        [Description("The contacts who move.")] List<Guid> contactIds,
+        [Description("The LupiraGeoApi place they move to.")] Guid toPlaceId,
+        [Description("When they moved in ({year, month?, day?}).")] FuzzyDate movedIn,
+        [Description("The place they leave; omit when they leave nowhere.")] Guid? fromPlaceId = null,
+        [Description("home|vacation|work|other (default home).")] ContactAddressType type = ContactAddressType.Home)
+    {
+        var u = await user.GetAsync();
+        return Require(await residencies.MoveAsync(u.Id, new MoveRequest { ContactIds = contactIds, ToPlaceId = toPlaceId, Type = type, MovedIn = movedIn, FromPlaceId = fromPlaceId }));
     }
 
     [McpServerTool(Name = "set_contact_channels")]

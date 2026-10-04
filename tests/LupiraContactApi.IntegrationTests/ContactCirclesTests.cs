@@ -46,10 +46,7 @@ public sealed class ContactCirclesTests(ContactApiTestFactory factory) : Integra
 
         var home = Guid.NewGuid();
         foreach (var id in new[] { me.Id, roomie.Id })
-            (await api.PutAsJsonAsync($"/contacts/{id}/addresses", new SetContactAddressesRequest
-            {
-                Addresses = [new ContactPostalAddress { PlaceId = home, Type = ContactAddressType.Home }],
-            })).EnsureSuccessStatusCode();
+            await AddResidencyAsync(api, id, home);
 
         var circles = (await api.GetFromJsonAsync<ContactCirclesDto>($"/contacts/circles?focusId={me.Id}"))!;
 

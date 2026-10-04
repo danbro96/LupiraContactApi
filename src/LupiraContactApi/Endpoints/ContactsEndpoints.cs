@@ -128,14 +128,6 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
-        group.MapPut("/{id:guid}/addresses", (Guid id, SetContactAddressesRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ContactsHandler h, CancellationToken ct) => h.SetAddressesAsync(id, body, idempotencyKey, ct))
-            .WithName("SetContactAddresses")
-            .WithSummary("Replace the contact's postal addresses wholesale; each entry needs a LupiraGeoApi place id (resolve the address there first — no free-text).")
-            .Produces<ContactDto>(StatusCodes.Status200OK)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden);
-
         group.MapPut("/{id:guid}/emergency-contacts", (Guid id, SetEmergencyContactsRequest body, ContactsHandler h, CancellationToken ct) => h.SetEmergencyContactsAsync(id, body, ct))
             .WithName("SetEmergencyContacts")
             .WithSummary("Replace the contact's emergency-contact designation wholesale (order = priority, empty clears). A designation, not a relation kind — your emergency contact is usually also a spouse or friend.")

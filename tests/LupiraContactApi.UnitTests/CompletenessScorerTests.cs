@@ -94,30 +94,11 @@ public class CompletenessScorerTests
     }
 
     [Fact]
-    public void Former_only_address_scores_postal_zero()
+    public void Postal_address_counts_only_a_current_residency()
     {
         var c = Person();
-        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home, MovedOut = new FuzzyDate(2015) }];
         Assert.Equal(GapSeverity.Absent, CompletenessScorer.ScoreContact(c, false)!.Gaps.Single(g => g.Field == "postalAddress").Severity);
-    }
-
-    [Fact]
-    public void Current_address_scores_postal_full()
-    {
-        var c = Person();
-        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home }];
-        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "postalAddress");
-    }
-
-    [Fact]
-    public void Future_move_out_is_still_an_address_future_move_in_is_not()
-    {
-        var c = Person();
-        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home, MovedOut = new FuzzyDate(9999) }];
-        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "postalAddress");
-
-        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home, MovedIn = new FuzzyDate(9999) }];
-        Assert.Contains(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "postalAddress");
+        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false, hasCurrentAddress: true)!.Gaps, g => g.Field == "postalAddress");
     }
 
     [Fact]
@@ -144,12 +125,11 @@ public class CompletenessScorerTests
     {
         var c = Person();
         c.Channels = [new ContactReachChannel(ReachMedium.Phone, "+46123", null, false)];
-        c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home }];
-        var before = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true)!;
+        var before = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true, hasCurrentAddress: true)!;
         Assert.Contains(before.Gaps, g => g.Field is "organisation" or "secondaryReach");
 
         c.Metadata = """{"completeness":{"na":["organisation","secondaryReach"]}}""";
-        var after = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true)!;
+        var after = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true, hasCurrentAddress: true)!;
         Assert.Equal(1, after.Score);
         Assert.Empty(after.Gaps);
     }

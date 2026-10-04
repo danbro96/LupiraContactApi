@@ -5,6 +5,8 @@ using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Me;
+using LupiraContactApi.Core.Dtos.Residencies;
+using LupiraContactApi.Core.Domain.Shared;
 using Marten;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -44,6 +46,19 @@ public abstract class IntegrationTest(ContactApiTestFactory factory) : IAsyncLif
         var resp = await api.PostAsJsonAsync("/contacts", req);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+    }
+
+    /// <summary>POST a residency; the response is returned as-is so refusals can be asserted.</summary>
+    protected static Task<HttpResponseMessage> PostResidencyAsync(
+        HttpClient api, Guid contactId, Guid placeId, ContactAddressType type = ContactAddressType.Home, FuzzyDate? movedIn = null, FuzzyDate? movedOut = null, string? label = null) =>
+        api.PostAsJsonAsync($"/contacts/{contactId}/residencies", new ResidencyRequest { PlaceId = placeId, Type = type, Label = label, MovedIn = movedIn, MovedOut = movedOut });
+
+    protected static async Task<ResidencyDto> AddResidencyAsync(
+        HttpClient api, Guid contactId, Guid placeId, ContactAddressType type = ContactAddressType.Home, FuzzyDate? movedIn = null, FuzzyDate? movedOut = null)
+    {
+        var resp = await PostResidencyAsync(api, contactId, placeId, type, movedIn, movedOut);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<ResidencyDto>())!;
     }
 
     protected static async Task GrantAsync(HttpClient owner, Guid addressBookId, string email, string access) =>

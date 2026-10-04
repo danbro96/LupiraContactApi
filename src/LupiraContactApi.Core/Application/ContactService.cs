@@ -479,7 +479,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         return OpResult<List<ContactDto>>.Ok([.. thin.Select(x => x.Contact.ToResponse(x.Score))]);
     }
 
-    // ---- Profiles + addresses (wholesale replace) ----
+    // ---- Profiles (wholesale replace) ----
 
     public async Task<OpResult<ContactDto>> SetProfilesAsync(Guid principalId, Guid id, IReadOnlyList<ContactSocialProfileInput> profiles, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
@@ -497,28 +497,6 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         stream.AppendOne(new ContactProfilesReplaced(id, next, occurredAt, commandId));
-        await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
-        return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
-    }
-
-    public async Task<OpResult<ContactDto>> SetAddressesAsync(Guid principalId, Guid id, IReadOnlyList<ContactPostalAddress> addresses, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
-    {
-        if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
-        var stream = await session.Events.FetchForWriting<Contact>(id, ct);
-        var c = stream.Aggregate;
-        if (c is null || c.DeletedAt is not null) return OpResult<ContactDto>.NotFound();
-        if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
-
-        var next = addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type, MovedIn = a.MovedIn, MovedOut = a.MovedOut }).ToList();
-        if (next.Any(a => a.PlaceId == Guid.Empty)) return OpResult<ContactDto>.Invalid("Each address must reference a geo place id.");
-        if (next.Any(a => (a.MovedIn is { } mi && !mi.IsValid()) || (a.MovedOut is { } mo && !mo.IsValid())))
-            return OpResult<ContactDto>.Invalid("Residency dates must be a valid year, year-month, or year-month-day.");
-        if (next.Any(a => a is { MovedIn: { } mi, MovedOut: { } mo } && FuzzyDate.DefinitelyAfter(mi, mo)))
-            return OpResult<ContactDto>.Invalid("Moved-in must not be after moved-out.");
-        if (AddressesEqual(c.Addresses, next)) return OpResult<ContactDto>.Ok(await ToDtoAsync(c, ct));
-        Stamp(principalId);
-
-        stream.AppendOne(new ContactAddressesReplaced(id, next, occurredAt, commandId));   // addresses are outside the canonical content — ETag unchanged
         await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));
     }
@@ -567,10 +545,11 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             .Where(x => books.Contains(x.AddressBookId)).ToList();
         var byId = all.ToDictionary(x => x.Id);
         var relationships = (await session.LiveRelationshipsAsync(ct)).Where(r => byId.ContainsKey(r.Low) && byId.ContainsKey(r.High)).ToList();
+        var residencies = await session.ResidenciesOfAsync(byId.Keys, ct);
         var organizations = await session.Query<ContactGroup>()
             .Where(g => g.Kind == ContactGroupKind.Organization && g.DeletedAt == null).ToListAsync(ct);
 
-        var memberships = CircleInference.Infer(fid, all, relationships, organizations);
+        var memberships = CircleInference.Infer(fid, all, relationships, residencies, organizations);
         var circles = Enum.GetValues<CircleKind>().Select(kind => new ContactCircleDto
         {
             Kind = kind,
@@ -675,9 +654,6 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
     // Order-sensitive equality: order is part of the canonical content, so a reorder is a real change.
     private static bool ProfilesEqual(IReadOnlyList<ContactSocialProfile>? a, IReadOnlyList<ContactSocialProfile> b) =>
         (a ?? []).Select(p => (p.Service, p.Handle, p.Url, p.Preferred)).SequenceEqual(b.Select(p => (p.Service, p.Handle, p.Url, p.Preferred)));
-
-    private static bool AddressesEqual(IReadOnlyList<ContactPostalAddress>? a, IReadOnlyList<ContactPostalAddress> b) =>
-        (a ?? []).Select(x => (x.PlaceId, x.Type, x.MovedIn, x.MovedOut)).SequenceEqual(b.Select(x => (x.PlaceId, x.Type, x.MovedIn, x.MovedOut)));
 
     private static bool ChannelsEqual(IReadOnlyList<ContactReachChannel> a, IReadOnlyList<ContactReachChannel> b) =>
         a.SequenceEqual(b);   // records — structural equality, order-sensitive

@@ -123,12 +123,6 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts, R
         return OpResultMap.OkNotFoundProblem(await contacts.SetProfilesAsync(u.Id, id, body.Profiles, body.OccurredAt, idempotencyKey, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAddressesAsync(Guid id, SetContactAddressesRequest body, Guid? idempotencyKey, CancellationToken ct)
-    {
-        var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.SetAddressesAsync(u.Id, id, body.Addresses, body.OccurredAt, idempotencyKey, ct));
-    }
-
     public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetAvatarAsync(Guid id, SetContactAvatarRequest body, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);

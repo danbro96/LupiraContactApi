@@ -44,8 +44,6 @@ public sealed class ContactDto
     /// <summary>Pointer to an avatar image (URL/media id), never bytes.</summary>
     public string? AvatarRef { get; set; }
 
-    public required IReadOnlyList<ContactPostalAddress> Addresses { get; set; }
-
     public required IReadOnlyList<ContactSocialProfileDto> Profiles { get; set; }
 
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>

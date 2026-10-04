@@ -30,7 +30,6 @@ internal static class ContactMapper
         Notes = c.Notes,
         Pronouns = c.Pronouns,
         AvatarRef = c.AvatarRef,
-        Addresses = c.Addresses,
         Profiles = [.. c.Profiles.Select(ToResponse)],
         EmergencyContactIds = c.EmergencyContactIds,
         Metadata = JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata),

@@ -2,6 +2,7 @@ using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Inference;
 using LupiraContactApi.Core.Domain.Relationships;
+using LupiraContactApi.Core.Domain.Residencies;
 using LupiraContactApi.Core.Domain.Shared;
 using Xunit;
 
@@ -32,19 +33,19 @@ public class CircleInferenceTests
 
     private static Relationship Rel(Guid self, Guid other, ContactRelationKind kind, bool ended = false) => TestRelationships.Of(self, other, kind, ended);
 
-    private static ContactPostalAddress At(Guid place, ContactAddressType type, FuzzyDate? movedOut = null) =>
-        new() { PlaceId = place, Type = type, MovedOut = movedOut };
+    private static Residency At(Guid contact, Guid place, ContactAddressType type, FuzzyDate? movedIn = null, FuzzyDate? movedOut = null) =>
+        new() { Id = Guid.NewGuid(), ContactId = contact, PlaceId = place, Type = type, MovedIn = movedIn, MovedOut = movedOut };
 
-    private static List<Contact> World()
-    {
-        var f = Person(F);
-        f.Addresses = [At(HomePlace, ContactAddressType.Home), At(WorkPlace, ContactAddressType.Work)];
-        var h = Person(H);
-        h.Addresses = [At(HomePlace, ContactAddressType.Home)];
-        var w = Person(W);
-        w.Addresses = [At(WorkPlace, ContactAddressType.Home)];   // shares only F's WORK place — must not match
-        return [f, Person(S), Person(EX), Person(P), Person(G), Person(B), Person(FR), Person(CO), Person(N), h, w];
-    }
+    private static List<Contact> World() =>
+        [Person(F), Person(S), Person(EX), Person(P), Person(G), Person(B), Person(FR), Person(CO), Person(N), Person(H), Person(W)];
+
+    private static List<Residency> Residencies() =>
+    [
+        At(F, HomePlace, ContactAddressType.Home),
+        At(F, WorkPlace, ContactAddressType.Work),
+        At(H, HomePlace, ContactAddressType.Home),
+        At(W, WorkPlace, ContactAddressType.Home),   // shares only F's WORK place — must not match
+    ];
 
     private static List<Relationship> Relationships() =>
     [
@@ -67,7 +68,7 @@ public class CircleInferenceTests
     };
 
     private static ILookup<CircleKind, CircleMembership> Infer(IReadOnlyCollection<ContactGroup>? orgs = null) =>
-        CircleInference.Infer(F, World(), Relationships(), orgs ?? []).ToLookup(m => m.Circle);
+        CircleInference.Infer(F, World(), Relationships(), Residencies(), orgs ?? []).ToLookup(m => m.Circle);
 
     [Fact]
     public void Close_family_holds_spouse_parent_and_inferred_sibling_but_not_the_ex()
@@ -128,13 +129,19 @@ public class CircleInferenceTests
     }
 
     [Fact]
+    public void A_shared_vacation_home_is_not_a_household()
+    {
+        List<Residency> residencies = [.. Residencies(), At(F, WorkPlace, ContactAddressType.Vacation), At(N, WorkPlace, ContactAddressType.Vacation)];
+        var household = CircleInference.Infer(F, World(), Relationships(), residencies, []).ToLookup(m => m.Circle)[CircleKind.Household];
+        Assert.Equal([H], household.Select(m => m.ContactId));
+    }
+
+    [Fact]
     public void Former_home_address_does_not_infer_household()
     {
         // EX used to live at F's home place but moved out — a former residency asserts no current cohabitation.
-        var world = World();
-        world.Single(c => c.Id == EX).Addresses =
-            [At(HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2015))];
-        var household = CircleInference.Infer(F, world, Relationships(), [], today: new DateOnly(2026, 8, 16)).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
+        List<Residency> residencies = [.. Residencies(), At(EX, HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2015))];
+        var household = CircleInference.Infer(F, World(), Relationships(), residencies, [], today: new DateOnly(2026, 8, 16)).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
         var member = Assert.Single(household);
         Assert.Equal(H, member.ContactId);
     }
@@ -143,16 +150,14 @@ public class CircleInferenceTests
     public void Future_move_out_still_cohabits_future_move_in_does_not()
     {
         var today = new DateOnly(2026, 8, 16);
-        var world = World();
-        // H's shared home now carries a planned move-out — still a household member today.
-        world.Single(c => c.Id == H).Addresses =
-            [At(HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2027, 3))];
-        // EX plans to move in next year — not a household member yet.
-        var ex = world.Single(c => c.Id == EX);
-        ex.Addresses = [At(HomePlace, ContactAddressType.Home)];
-        ex.Addresses[0].MovedIn = new FuzzyDate(2027);
+        List<Residency> residencies =
+        [
+            .. Residencies().Where(r => r.ContactId != H),
+            At(H, HomePlace, ContactAddressType.Home, movedOut: new FuzzyDate(2027, 3)),   // a planned move-out: still home today
+            At(EX, HomePlace, ContactAddressType.Home, movedIn: new FuzzyDate(2027)),      // moves in next year: not yet
+        ];
 
-        var household = CircleInference.Infer(F, world, Relationships(), [], today).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
+        var household = CircleInference.Infer(F, World(), Relationships(), residencies, [], today).ToLookup(m => m.Circle)[CircleKind.Household].ToList();
         var member = Assert.Single(household);
         Assert.Equal(H, member.ContactId);
     }
@@ -164,7 +169,7 @@ public class CircleInferenceTests
         var focus = Guid.NewGuid();
         var grandpa = Guid.NewGuid();
         var member = Assert.Single(
-            CircleInference.Infer(focus, [Person(focus), Person(grandpa)], [Rel(focus, grandpa, ContactRelationKind.Grandparent)], []),
+            CircleInference.Infer(focus, [Person(focus), Person(grandpa)], [Rel(focus, grandpa, ContactRelationKind.Grandparent)], [], []),
             m => m.Circle == CircleKind.ExtendedFamily);
         Assert.Equal(grandpa, member.ContactId);
         Assert.Equal(ContactRelationKind.Grandparent, member.Kind);
@@ -175,12 +180,12 @@ public class CircleInferenceTests
     [Fact]
     public void Neighbors_and_the_focus_itself_join_no_circle()
     {
-        var all = CircleInference.Infer(F, World(), Relationships(), []);
+        var all = CircleInference.Infer(F, World(), Relationships(), Residencies(), []);
         Assert.DoesNotContain(all, m => m.ContactId == N);
         Assert.DoesNotContain(all, m => m.ContactId == F);
     }
 
     [Fact]
     public void Unknown_focus_yields_nothing() =>
-        Assert.Empty(CircleInference.Infer(Guid.NewGuid(), World(), Relationships(), []));
+        Assert.Empty(CircleInference.Infer(Guid.NewGuid(), World(), Relationships(), Residencies(), []));
 }

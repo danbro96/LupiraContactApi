@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
 using LupiraContactApi.Core.Dtos.Internal;
@@ -13,9 +12,6 @@ public sealed class InternalPlaceReferencesTests(ContactApiTestFactory factory) 
 {
     private const string Email = "alice@x.test";
 
-    private static Task<HttpResponseMessage> SetAddressesAsync(HttpClient api, Guid contactId, params ContactPostalAddress[] addresses) =>
-        api.PutAsJsonAsync($"/contacts/{contactId}/addresses", new SetContactAddressesRequest { Addresses = [.. addresses] });
-
     private static async Task<ContactPlaceReferencesResponse> CheckAsync(HttpClient svc, params Guid[] placeIds)
     {
         var resp = await svc.PostAsJsonAsync("/internal/contacts/place-references:check",
@@ -25,7 +21,7 @@ public sealed class InternalPlaceReferencesTests(ContactApiTestFactory factory) 
     }
 
     [Fact]
-    public async Task Counts_current_and_moved_out_addresses_for_requested_ids_only()
+    public async Task Counts_current_and_moved_out_residencies_for_requested_ids_only()
     {
         var api = Factory.ApiClient(Email);
         var book = await CreateAddressBookAsync(api);
@@ -34,16 +30,12 @@ public sealed class InternalPlaceReferencesTests(ContactApiTestFactory factory) 
         var unrequested = Guid.NewGuid();
 
         var jane = await CreateContactAsync(api, book, "Jane", "Doe");
-        (await SetAddressesAsync(api, jane.Id,
-            new ContactPostalAddress { PlaceId = home, Type = ContactAddressType.Home },
-            new ContactPostalAddress { PlaceId = former, Type = ContactAddressType.Home, MovedOut = new FuzzyDate(2020, null, null) }))
-            .EnsureSuccessStatusCode();
+        await AddResidencyAsync(api, jane.Id, home);
+        await AddResidencyAsync(api, jane.Id, former, movedOut: new FuzzyDate(2020));
 
         var john = await CreateContactAsync(api, book, "John", "Doe");
-        (await SetAddressesAsync(api, john.Id,
-            new ContactPostalAddress { PlaceId = home, Type = ContactAddressType.Home },
-            new ContactPostalAddress { PlaceId = unrequested, Type = ContactAddressType.Work }))
-            .EnsureSuccessStatusCode();
+        await AddResidencyAsync(api, john.Id, home);
+        await AddResidencyAsync(api, john.Id, unrequested, ContactAddressType.Work);
 
         var result = await CheckAsync(Factory.ServiceClient(), home, former, Guid.NewGuid());
 
@@ -62,14 +54,12 @@ public sealed class InternalPlaceReferencesTests(ContactApiTestFactory factory) 
         var lostPlace = Guid.NewGuid();
 
         var deceased = await CreateContactAsync(api, book, "Alan", "Turing");
-        (await SetAddressesAsync(api, deceased.Id, new ContactPostalAddress { PlaceId = keptPlace, Type = ContactAddressType.Home }))
-            .EnsureSuccessStatusCode();
+        await AddResidencyAsync(api, deceased.Id, keptPlace);
         (await api.PutAsJsonAsync($"/contacts/{deceased.Id}/deceased", new SetDeceasedRequest { DeathDate = null }))
             .EnsureSuccessStatusCode();
 
         var deleted = await CreateContactAsync(api, book, "Gone", "Soon");
-        (await SetAddressesAsync(api, deleted.Id, new ContactPostalAddress { PlaceId = lostPlace, Type = ContactAddressType.Home }))
-            .EnsureSuccessStatusCode();
+        await AddResidencyAsync(api, deleted.Id, lostPlace);
         (await api.DeleteAsync($"/contacts/{deleted.Id}")).EnsureSuccessStatusCode();
 
         var result = await CheckAsync(Factory.ServiceClient(), keptPlace, lostPlace);

@@ -8,8 +8,6 @@ public sealed class SectionGuardsDto
 {
     public required SectionGuardDto Core { get; set; }
 
-    public required SectionGuardDto Addresses { get; set; }
-
     public required SectionGuardDto Profiles { get; set; }
 
     public required SectionGuardDto Avatar { get; set; }
@@ -21,7 +19,6 @@ public sealed class SectionGuardsDto
     internal static SectionGuardsDto From(Contact c) => new()
     {
         Core = SectionGuardDto.From(c.CoreTs, c.CoreCmd),
-        Addresses = SectionGuardDto.From(c.AddressesTs, c.AddressesCmd),
         Profiles = SectionGuardDto.From(c.ProfilesTs, c.ProfilesCmd),
         Avatar = SectionGuardDto.From(c.AvatarTs, c.AvatarCmd),
         Metadata = SectionGuardDto.From(c.MetadataTs, c.MetadataCmd),

@@ -44,14 +44,12 @@ public sealed class Contact
 
     public string? Pronouns { get; set; }
 
-    /// <summary>A pointer to an avatar image (URL/media id) — never bytes. Outside the canonical content, like <see cref="Addresses"/>.</summary>
+    /// <summary>A pointer to an avatar image (URL/media id) — never bytes. Outside the canonical content.</summary>
     public string? AvatarRef { get; set; }
 
     public string ContentHash { get; set; } = string.Empty;
 
     public string Metadata { get; set; } = "{}";
-
-    public List<ContactPostalAddress> Addresses { get; set; } = new();
 
     public List<ContactSocialProfile> Profiles { get; set; } = new();
 
@@ -85,10 +83,6 @@ public sealed class Contact
     public DateTimeOffset CoreTs { get; set; }
 
     public Guid CoreCmd { get; set; }
-
-    public DateTimeOffset AddressesTs { get; set; }
-
-    public Guid AddressesCmd { get; set; }
 
     public DateTimeOffset ProfilesTs { get; set; }
 
@@ -189,16 +183,6 @@ public sealed class Contact
     {
         MoveTo(e.Data.AddressBookId);
         Touch(e);
-    }
-
-    public void Apply(IEvent<ContactAddressesReplaced> e)
-    {
-        Touch(e);
-        var (ts, cmd) = SectionLww.Stamp(e, e.Data.OccurredAt, e.Data.CommandId);
-        if (DeletedAt is not null || !SectionLww.Wins(ts, cmd, AddressesTs, AddressesCmd)) return;
-        Addresses = e.Data.Addresses.Select(a => new ContactPostalAddress { PlaceId = a.PlaceId, Type = a.Type, MovedIn = a.MovedIn, MovedOut = a.MovedOut }).ToList();
-        (AddressesTs, AddressesCmd) = (ts, cmd);
-        // addresses are outside the canonical content — no RecomputeHash, ETag unchanged
     }
 
     public void Apply(IEvent<ContactProfilesReplaced> e)

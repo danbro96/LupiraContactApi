@@ -8,15 +8,16 @@ namespace LupiraContactApi.Core.Domain.Completeness;
 
 /// <summary>
 /// Pure, kind-aware completeness rubric for contacts. Scores <em>presence</em>, not quality — crude on purpose,
-/// enough to rank thin-vs-rich. Organisation membership lives on a separate <see cref="ContactGroup"/> and relationships
-/// on their own aggregate, so both are decided by the caller and passed in. A field acknowledged
+/// enough to rank thin-vs-rich. Organisation membership lives on a separate <see cref="ContactGroup"/>, relationships and
+/// residencies on their own aggregates, so all three are decided by the caller and passed in (only a residency current
+/// today addresses a contact). A field acknowledged
 /// as inapplicable via metadata <c>completeness.na</c> (grandma has no employer) is dropped from the rubric entirely.
 /// </summary>
 public static class CompletenessScorer
 {
     public const int Version = 4;
 
-    public static CompletenessScore? ScoreContact(Contact c, bool hasOrganisation, bool hasRelationships = false)
+    public static CompletenessScore? ScoreContact(Contact c, bool hasOrganisation, bool hasRelationships = false, bool hasCurrentAddress = false)
     {
         // An organisation/venue card (a booking provider, say) carries no person facts — name, reach, and address are the record.
         var fields = c.Kind == ContactKind.Organization
@@ -24,7 +25,7 @@ public static class CompletenessScorer
             {
                 ("name", 1, Name(c)),
                 ("primaryReach", 3, PrimaryReach(c)),
-                ("postalAddress", 2, PostalAddress(c)),
+                ("postalAddress", 2, hasCurrentAddress ? 1 : 0),
             }
 
             // A deceased contact needs no reach, address, or employer — remembrance data is what's worth asking for.
@@ -42,7 +43,7 @@ public static class CompletenessScorer
                     ("primaryReach", 3, PrimaryReach(c)),
                     ("secondaryReach", 1, DistinctMediums(c) >= 2 ? 1 : 0),
                     ("birthday", 1, Birthday(c)),
-                    ("postalAddress", 1, PostalAddress(c)),
+                    ("postalAddress", 1, hasCurrentAddress ? 1 : 0),
                     ("organisation", 1, hasOrganisation ? 1 : 0),
                     ("relations", 1, hasRelationships ? 1 : 0),   // ended ones still document the connection
                 };
@@ -93,9 +94,6 @@ public static class CompletenessScorer
 
     private static double PrimaryReach(Contact c) =>
         c.Channels.Count > 0 ? 1 : c.Profiles.Count > 0 ? 0.5 : 0;   // a direct channel reaches; a social handle only might
-
-    private static double PostalAddress(Contact c) => // only an address active today addresses a contact
-        c.Addresses.Any(a => a.IsActiveOn(DateOnly.FromDateTime(DateTime.UtcNow))) ? 1 : 0;
 
     // Redundancy across mediums, not entries: two emails are one medium; all social profiles count as one.
     private static int DistinctMediums(Contact c) =>

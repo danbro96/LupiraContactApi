@@ -24,5 +24,16 @@ public readonly record struct SyncCursor(long Sequence, string Scope)
         return true;
     }
 
+    /// <summary>Where an unpaged feed resumes for <paramref name="scope"/>: 0 = a full sync (no cursor, a cursor from another
+    /// scope, or one at the start). False when <paramref name="since"/> is not a cursor at all.</summary>
+    public static bool TryResume(string? since, string scope, out long sequence)
+    {
+        sequence = 0;
+        if (string.IsNullOrWhiteSpace(since)) return true;
+        if (!TryParse(since, out var given)) return false;
+        if (given.Scope == scope) sequence = given.Sequence;
+        return true;
+    }
+
     public override string ToString() => $"{Sequence}.{Scope}";
 }

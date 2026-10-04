@@ -1,6 +1,7 @@
 using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Relationships;
+using LupiraContactApi.Core.Domain.Residencies;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.Inference;
@@ -12,7 +13,7 @@ public static class CircleInference
 {
     public static IReadOnlyList<CircleMembership> Infer(
         Guid focusId, IReadOnlyCollection<Contact> contacts, IReadOnlyCollection<Relationship> relationships,
-        IReadOnlyCollection<ContactGroup> organizations, DateOnly? today = null)
+        IReadOnlyCollection<Residency> residencies, IReadOnlyCollection<ContactGroup> organizations, DateOnly? today = null)
     {
         var day = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var known = contacts.Select(c => c.Id).ToHashSet();
@@ -47,19 +48,12 @@ public static class CircleInference
                 Add(CircleKind.Colleagues, member.ContactId, ContactRelationKind.Colleague, 1, RelationProvenance.Inferred);
         }
 
-        // Household: a shared geo place on an ACTIVE Home address — past/future residencies assert no current
-        // cohabitation, same rule as ended relation edges above.
-        var focus = contacts.First(c => c.Id == focusId);
-        var homePlaces = focus.Addresses.Where(a => a.Type == ContactAddressType.Home && a.IsActiveOn(day))
-            .Select(a => a.PlaceId).ToHashSet();
-        if (homePlaces.Count > 0)
-        {
-            foreach (var c in contacts)
-            {
-                if (c.Addresses.Any(a => a.Type == ContactAddressType.Home && a.IsActiveOn(day) && homePlaces.Contains(a.PlaceId)))
-                    Add(CircleKind.Household, c.Id, null, 1, RelationProvenance.Inferred);
-            }
-        }
+        // Household: a shared geo place on a CURRENT Home residency — past/future residencies assert no current cohabitation,
+        // same rule as ended relationships above, and a shared vacation home makes no household.
+        var homes = residencies.Where(r => r.IsLive && r.Type == ContactAddressType.Home && r.IsActiveOn(day)).ToList();
+        var focusHomes = homes.Where(r => r.ContactId == focusId).Select(r => r.PlaceId).ToHashSet();
+        foreach (var r in homes.Where(r => focusHomes.Contains(r.PlaceId)))
+            Add(CircleKind.Household, r.ContactId, null, 1, RelationProvenance.Inferred);
 
         return result;
     }

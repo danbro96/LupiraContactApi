@@ -58,19 +58,20 @@ public sealed class InternalContactsHandler(IQuerySession session)
         });
     }
 
-    /// <summary>How many address entries reference each of the requested geo place ids — geo's orphan sweep asks
-    /// this before pruning. Deceased contacts and moved-out addresses still count (residency history anchors
-    /// places); only deleted contacts don't. Zero-count ids are omitted.</summary>
+    /// <summary>How many residencies reference each of the requested geo place ids — geo's orphan sweep asks this
+    /// before pruning. Deceased contacts and moved-out residencies still count (residency history anchors places);
+    /// only deleted contacts' don't. Zero-count ids are omitted.</summary>
     public async Task<Results<Ok<ContactPlaceReferencesResponse>, BadRequest<string>>> CheckPlaceReferencesAsync(
         CheckPlaceReferencesRequest body, CancellationToken ct)
     {
         if (body.PlaceIds.Count == 0 || body.PlaceIds.Count > MaxPlaceIds)
             return TypedResults.BadRequest($"Between 1 and {MaxPlaceIds} ids per request.");
-        var requested = body.PlaceIds.ToHashSet();
-        var live = await session.Query<Contact>().Where(c => c.DeletedAt == null).ToListAsync(ct);
-        var counts = live.SelectMany(c => c.Addresses)
-            .Where(a => requested.Contains(a.PlaceId))
-            .GroupBy(a => a.PlaceId)
+        var residencies = await session.ResidenciesAtAsync([.. body.PlaceIds.Distinct()], ct);
+        var contactIds = residencies.Select(r => r.ContactId).Distinct().ToArray();
+        var deleted = (await session.LoadManyAsync<Contact>(ct, contactIds)).Where(c => c.DeletedAt is not null).Select(c => c.Id).ToHashSet();
+        var counts = residencies
+            .Where(r => !deleted.Contains(r.ContactId))
+            .GroupBy(r => r.PlaceId)
             .Select(g => new ContactPlaceRefDto { PlaceId = g.Key, Count = g.Count() });
         return TypedResults.Ok(new ContactPlaceReferencesResponse { Places = [.. counts] });
     }

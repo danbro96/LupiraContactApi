@@ -176,34 +176,6 @@ public class ContactTests
     }
 
     [Fact]
-    public void Addresses_replaced_is_wholesale_and_does_not_change_the_hash()
-    {
-        var id = Guid.NewGuid();
-        var c = Created(id);
-        var h0 = c.ContentHash;
-
-        c.Apply(Ev(new ContactAddressesReplaced(id, [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home }])));
-        Assert.Single(c.Addresses);
-
-        var work = Guid.NewGuid();
-        c.Apply(Ev(new ContactAddressesReplaced(id, [new ContactPostalAddress { PlaceId = work, Type = ContactAddressType.Work }])));
-        var only = Assert.Single(c.Addresses);            // replaced, not appended
-        Assert.Equal(work, only.PlaceId);
-
-        // Residency boundaries survive the field-by-field re-projection, and stay outside the hash.
-        c.Apply(Ev(new ContactAddressesReplaced(id, [new ContactPostalAddress
-        {
-            PlaceId = work, Type = ContactAddressType.Home,
-            MovedIn = new FuzzyDate(2010), MovedOut = new FuzzyDate(2015, 6),
-        }
-        ])));
-        var former = Assert.Single(c.Addresses);
-        Assert.Equal(new FuzzyDate(2010), former.MovedIn);
-        Assert.Equal(new FuzzyDate(2015, 6), former.MovedOut);
-        Assert.Equal(h0, c.ContentHash);                  // addresses are outside the canonical content
-    }
-
-    [Fact]
     public void Profiles_replaced_is_wholesale_and_content_bearing()
     {
         var id = Guid.NewGuid();

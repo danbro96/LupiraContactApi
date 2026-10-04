@@ -5,8 +5,12 @@ using LupiraContactApi.Core.Domain.ContactGroups.Events;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Core.Domain.PlaceEntries;
+using LupiraContactApi.Core.Domain.PlaceEntries.Events;
 using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Relationships.Events;
+using LupiraContactApi.Core.Domain.Residencies;
+using LupiraContactApi.Core.Domain.Residencies.Events;
 using LupiraContactApi.Core.Domain.Shared;
 using Marten;
 using Weasel.Core;
@@ -64,15 +68,26 @@ public static class MartenRegistrations
         opts.Events.MapEventType<RelationshipEnded>("relationship_ended");
         opts.Events.MapEventType<RelationshipRevived>("relationship_revived");
         opts.Events.MapEventType<RelationshipRemoved>("relationship_removed");
+        opts.Events.MapEventType<ResidencyStarted>("residency_started");
+        opts.Events.MapEventType<ResidencyRevised>("residency_revised");
+        opts.Events.MapEventType<ResidencyMovedOut>("residency_moved_out");
+        opts.Events.MapEventType<ResidencyRemoved>("residency_removed");
+        opts.Events.MapEventType<EntryCodeSet>("entry_code_set");
+        opts.Events.MapEventType<EntryCodeRemoved>("entry_code_removed");
 
         // Event-sourced aggregates (resource read models) — inline for read-your-write.
         opts.Projections.Snapshot<Contact>(SnapshotLifecycle.Inline);
         opts.Projections.Snapshot<ContactGroup>(SnapshotLifecycle.Inline);
         opts.Projections.Snapshot<Relationship>(SnapshotLifecycle.Inline);
+        opts.Projections.Snapshot<Residency>(SnapshotLifecycle.Inline);
+        opts.Projections.Snapshot<PlaceEntry>(SnapshotLifecycle.Inline);
         // The sync changes feed pages contacts by "touched since cursor" — indexed so the delta query never scans.
         opts.Schema.For<Contact>().Index(x => x.UpdatedSequence);
         // A contact's relationships are found from either end; the relationships feed pages by watermark like contacts.
         opts.Schema.For<Relationship>().Index(x => x.Low).Index(x => x.High).Index(x => x.UpdatedSequence);
+        // Residents of a place and a contact's residencies are both looked up; the feeds page by watermark.
+        opts.Schema.For<Residency>().Index(x => x.ContactId).Index(x => x.PlaceId).Index(x => x.UpdatedSequence);
+        opts.Schema.For<PlaceEntry>().Index(x => x.PlaceId).Index(x => x.UpdatedSequence);
 
         // Idempotency ledger (Idempotency-Key on mutations); identity = the client's command id, so a duplicate
         // key is a PK violation that rolls back the whole transaction (see Data/Idempotency).

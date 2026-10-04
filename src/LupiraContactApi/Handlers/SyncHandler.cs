@@ -8,9 +8,11 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-/// <summary>The offline-client sync surface: the paged contact changes feed, the relationship changes feed, and the
-/// containers snapshot.</summary>
-public sealed class SyncHandler(CurrentUser user, SyncFeed feed, RelationshipFeed relationships, AddressBookService books, ContactGroupService groups)
+/// <summary>The offline-client sync surface: the paged contact changes feed, the relationship, residency and entry-code
+/// changes feeds, and the containers snapshot.</summary>
+public sealed class SyncHandler(
+    CurrentUser user, SyncFeed feed, RelationshipFeed relationships, ResidencyFeed residencies, PlaceEntryFeed placeEntries,
+    AddressBookService books, ContactGroupService groups)
 {
     public async Task<Results<Ok<SyncChangesResponse>, ProblemHttpResult, UnauthorizedHttpResult>> ChangesAsync(string? since, int? limit, CancellationToken ct)
     {
@@ -22,6 +24,18 @@ public sealed class SyncHandler(CurrentUser user, SyncFeed feed, RelationshipFee
     {
         var u = await user.GetAsync(ct);
         return OpResultMap.OkProblem(await relationships.ChangesAsync(u.Id, since, ct));
+    }
+
+    public async Task<Results<Ok<ResidencyChangesResponse>, ProblemHttpResult, UnauthorizedHttpResult>> ResidenciesAsync(string? since, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkProblem(await residencies.ChangesAsync(u.Id, since, ct));
+    }
+
+    public async Task<Results<Ok<PlaceEntryChangesResponse>, ProblemHttpResult, UnauthorizedHttpResult>> PlaceEntriesAsync(string? since, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkProblem(await placeEntries.ChangesAsync(u.Id, since, ct));
     }
 
     public async Task<Results<Ok<SyncContainersResponse>, ProblemHttpResult, UnauthorizedHttpResult>> ContainersAsync(CancellationToken ct)

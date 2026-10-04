@@ -39,6 +39,8 @@ builder.Services.AddScoped<ContactGroupsHandler>();
 builder.Services.AddScoped<InternalContactsHandler>();
 builder.Services.AddScoped<SyncHandler>();
 builder.Services.AddScoped<RelationshipsHandler>();
+builder.Services.AddScoped<ResidenciesHandler>();
+builder.Services.AddScoped<PlaceEntriesHandler>();
 builder.Services.AddScoped<DavBackendHandler>();
 
 // --- Auth: OIDC JWT for the REST/MCP surface; the /dav-backend seam additionally requires the DAV
@@ -305,6 +307,16 @@ if (args.Contains("--migrate-relationships"))
     return;
 }
 
+// One-shot move of the legacy per-contact address lists onto Residency streams (deploy step; reads the events, so it
+// may run before or after --rebuild-contacts). Idempotent.
+if (args.Contains("--migrate-residencies"))
+{
+    using var scope = app.Services.CreateScope();
+    var started = await scope.ServiceProvider.GetRequiredService<ResidencyMigration>().RunAsync();
+    Console.WriteLine($"Residencies migrated: {started} started.");
+    return;
+}
+
 // Behind the Cloudflare Tunnel the public host differs from the container, so honor forwarded headers.
 var forwarded = new ForwardedHeadersOptions
 {
@@ -344,6 +356,8 @@ app.MapAddressBooks();
 app.MapContacts();
 app.MapContactGroups();
 app.MapRelationships();
+app.MapResidencies();
+app.MapPlaceEntries();
 app.MapSync();
 
 // Service-to-service seams (LAN-only).

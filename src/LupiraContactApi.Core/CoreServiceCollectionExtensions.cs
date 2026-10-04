@@ -39,6 +39,11 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<DavChangeFeed>();
         services.AddScoped<SyncFeed>();
         services.AddScoped<RelationshipMigration>();
+        services.AddScoped<ResidencyService>();
+        services.AddScoped<ResidencyFeed>();
+        services.AddScoped<PlaceEntryService>();
+        services.AddScoped<PlaceEntryFeed>();
+        services.AddScoped<ResidencyMigration>();
         return services;
     }
 }
