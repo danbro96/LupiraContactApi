@@ -21,7 +21,7 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts, R
         return OpResultMap.OkProblem(await contacts.ThinContactsAsync(u.Id, addressBookId, maxScore, take, ct));
     }
 
-    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AttachMetadataAsync(Guid id, System.Text.Json.Nodes.JsonNode patch, DateTimeOffset? occurredAt, Guid? idempotencyKey, CancellationToken ct)
+    public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AttachMetadataAsync(Guid id, System.Text.Json.Nodes.JsonObject patch, DateTimeOffset? occurredAt, Guid? idempotencyKey, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
         return OpResultMap.OkNotFoundProblem(await contacts.AttachMetadataAsync(u.Id, id, patch, occurredAt, idempotencyKey, ct));

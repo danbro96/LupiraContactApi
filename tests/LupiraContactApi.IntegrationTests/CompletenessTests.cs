@@ -1,7 +1,10 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
+using ModelContextProtocol.Protocol;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -62,6 +65,37 @@ public sealed class CompletenessTests(ContactApiTestFactory factory) : Integrati
 
         Assert.Equal(1, updated.Completeness!.Score);
         Assert.Empty(updated.Completeness.Gaps);
+    }
+
+    [Fact]
+    public async Task Non_object_metadata_is_rejected_with_problem_details()
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+        var contact = await CreateContactAsync(api, abId);
+
+        var resp = await api.PostAsync($"/contacts/{contact.Id}/metadata", new StringContent("[1]", Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Equal("application/problem+json", resp.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Theory]
+    [InlineData("[1]")]
+    [InlineData("null")]
+    [InlineData("not json {")]
+    public async Task Mcp_attach_metadata_rejects_non_object_json(string metadataJson)
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+        var contact = await CreateContactAsync(api, abId);
+        await using var mcp = await McpAsync(Email);
+
+        var result = await mcp.CallToolAsync("attach_metadata",
+            new Dictionary<string, object?> { ["contactId"] = contact.Id, ["metadataJson"] = metadataJson });
+
+        Assert.True(result.IsError);
+        Assert.Contains("`metadataJson` must be a JSON object.", Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text);
     }
 
     [Fact]

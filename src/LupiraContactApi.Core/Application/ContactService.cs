@@ -439,7 +439,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     /// <summary>Shallow-merge a JSON object into the contact's annotation metadata (top-level keys overwrite).
     /// The channel for completeness N/A acknowledgments: <c>{"completeness":{"na":["organisation"]}}</c>.</summary>
-    public async Task<OpResult<ContactDto>> AttachMetadataAsync(Guid principalId, Guid id, JsonNode patch, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
+    public async Task<OpResult<ContactDto>> AttachMetadataAsync(Guid principalId, Guid id, JsonObject patch, DateTimeOffset? occurredAt = null, Guid? commandId = null, CancellationToken ct = default)
     {
         if (await idempotency.SeenAsync(commandId, ct) is not null) return await ReplayedAsync(id, ct);
         var stream = await session.Events.FetchForWriting<Contact>(id, ct);
@@ -448,9 +448,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this contact.");
         Stamp(principalId);
 
-        var current = (JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata) as JsonObject) ?? new JsonObject();
-        if (patch is JsonObject obj)
-            foreach (var kv in obj) current[kv.Key] = kv.Value?.DeepClone();
+        var current = JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata)!.AsObject();
+        foreach (var kv in patch) current[kv.Key] = kv.Value?.DeepClone();
         stream.AppendOne(new ContactMetadataAttached(id, current.ToJsonString(), occurredAt, commandId));
         await SaveGuardedAsync(commandId, id, (int) (stream.CurrentVersion ?? 0) + 1, ct);
         return OpResult<ContactDto>.Ok(await ToDtoAsync((await session.LoadAsync<Contact>(id, ct))!, ct));

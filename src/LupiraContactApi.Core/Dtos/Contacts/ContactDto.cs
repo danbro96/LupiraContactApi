@@ -49,7 +49,7 @@ public sealed class ContactDto
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
     public required IReadOnlyList<Guid> EmergencyContactIds { get; set; }
 
-    public JsonNode? Metadata { get; set; }
+    public required JsonObject Metadata { get; set; }
 
     /// <summary>How well-documented this contact is. Drives contact-enrichment ranking (completeness × relevance).</summary>
     public CompletenessScore? Completeness { get; set; }

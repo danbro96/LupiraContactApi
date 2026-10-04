@@ -50,8 +50,11 @@ public sealed class ContactTools
         [Description("A JSON object of metadata keys to merge.")] string metadataJson)
     {
         var u = await user.GetAsync();
-        var node = System.Text.Json.Nodes.JsonNode.Parse(metadataJson) ?? new System.Text.Json.Nodes.JsonObject();
-        return Require(await contacts.AttachMetadataAsync(u.Id, contactId, node));
+        System.Text.Json.Nodes.JsonNode? node;
+        try { node = System.Text.Json.Nodes.JsonNode.Parse(metadataJson); }
+        catch (System.Text.Json.JsonException) { node = null; }
+        if (node is not System.Text.Json.Nodes.JsonObject patch) throw new McpException("`metadataJson` must be a JSON object.");
+        return Require(await contacts.AttachMetadataAsync(u.Id, contactId, patch));
     }
 
     [McpServerTool(Name = "create_contact")]
