@@ -4421,8 +4421,7 @@
           "Grandchild",
           "AuntUncle",
           "NieceNephew",
-          "Cousin",
-          null
+          "Cousin"
         ]
       },
       "ContactSocialProfileDto": {
