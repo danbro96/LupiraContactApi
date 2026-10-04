@@ -60,6 +60,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var uid = hasKey ? r.SourceKey!.Trim() : $"{Guid.NewGuid():N}@cal.lupira.com";
         var id = DeterministicGuid.From(uid);
         var stream = hasKey ? await session.Events.FetchForWriting<Contact>(id, ct) : null;
+        if (stream?.Aggregate is { } prior && prior.AddressBookId != r.AddressBookId && !await access.CanWriteAddressBookAsync(principalId, prior.AddressBookId, ct))
+            return OpResult<ContactDto>.Forbidden("This source key belongs to a contact in another address book.");
         if (stream?.Aggregate is { DeletedAt: null } existing)
             return OpResult<ContactDto>.Ok(await ToDtoAsync(existing, ct));   // idempotent hit — no new events
         Stamp(principalId);
@@ -67,7 +69,8 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         var fields = new ContactFields(r.GivenName, r.MiddleName, r.FamilyName, r.Nickname, channels, r.Birthday, r.Tags, r.Notes, r.Pronouns, r.DisplayNameFormat ?? DisplayNameFormat.FirstLast, r.Kind ?? ContactKind.Individual);
 
         var created = new ContactCreated(id, r.AddressBookId, uid, fields);
-        if (stream is not null) stream.AppendOne(created);   // keyed create over a soft-deleted stream resurrects it
+        if (stream?.Aggregate is { DeletedAt: not null }) stream.AppendOne(new ContactPurged(id));
+        if (stream is not null) stream.AppendOne(created);
         else session.Events.StartStream<Contact>(id, created);
         await session.SaveChangesAsync(ct);
         var c = await session.LoadAsync<Contact>(id, ct);
@@ -679,26 +682,28 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
         Stamp(principalId);
 
         var p = VCardSerializer.ParseVCard(rawVcard);
+        var basis = live ? existing : null;
         // Every section below is preserve-if-absent: clients drop what they don't model, so wholesale replace would
-        // clear it on every sync. This surface can therefore set but never clear; the REST endpoints clear.
+        // clear it on every sync. This surface can therefore set but never clear (except an explicitly empty nickname); the REST endpoints clear.
         // DisplayNameFormat isn't a vCard field at all — always preserve.
-        var fields = new ContactFields(p.GivenName, null, p.FamilyName, null,
+        var fields = new ContactFields(p.GivenName, p.MiddleName, p.FamilyName, p.Nickname ?? basis?.Nickname,
             p.Channels is null ? null : ReachChannelNormalizer.Normalize(p.Channels), p.Birthday, null,
-            p.Notes ?? existing?.Notes, p.Pronouns ?? existing?.Pronouns, existing?.DisplayNameFormat ?? DisplayNameFormat.FirstLast,
-            p.Kind ?? existing?.Kind ?? ContactKind.Individual);
+            p.Notes ?? basis?.Notes, p.Pronouns ?? basis?.Pronouns, basis?.DisplayNameFormat ?? DisplayNameFormat.FirstLast,
+            p.Kind ?? basis?.Kind ?? ContactKind.Individual);
         var emergency = p.EmergencyContactIds is not null
             ? p.EmergencyContactIds.Where(x => x != id).Distinct().ToList()
-            : existing?.EmergencyContactIds ?? [];
-        var deceased = p.Deceased ?? existing?.Deceased ?? false;
-        var deathDate = p.Deceased is not null ? p.DeathDate : existing?.DeathDate;
+            : basis?.EmergencyContactIds ?? [];
+        var deceased = p.Deceased ?? basis?.Deceased ?? false;
+        var deathDate = p.Deceased is not null ? p.DeathDate : basis?.DeathDate;
         var profiles = p.Profiles is not null
             ? p.Profiles.Select(SocialProfileNormalizer.Normalize).Where(x => x.Service.Length > 0 && x.Handle.Length > 0).DistinctBy(x => (x.Service, Handle: x.Handle.ToLowerInvariant())).ToList()
-            : existing?.Profiles ?? [];
+            : basis?.Profiles ?? [];
 
+        if (existing is { DeletedAt: not null }) stream.AppendOne(new ContactPurged(id));
         stream.AppendOne(new ContactImported(id, addressBookId, externalId, fields));   // also clears soft-delete
-        if (!(existing?.EmergencyContactIds ?? []).SequenceEqual(emergency)) stream.AppendOne(new ContactEmergencyContactsReplaced(id, emergency));
-        if (!ProfilesEqual(existing?.Profiles, profiles)) stream.AppendOne(new ContactProfilesReplaced(id, profiles));
-        if (deceased && (existing is null || !existing.Deceased || existing.DeathDate != deathDate)) stream.AppendOne(new ContactMarkedDeceased(id, deathDate));
+        if (!(basis?.EmergencyContactIds ?? []).SequenceEqual(emergency)) stream.AppendOne(new ContactEmergencyContactsReplaced(id, emergency));
+        if (!ProfilesEqual(basis?.Profiles, profiles)) stream.AppendOne(new ContactProfilesReplaced(id, profiles));
+        if (deceased && (basis is null || !basis.Deceased || basis.DeathDate != deathDate)) stream.AppendOne(new ContactMarkedDeceased(id, deathDate));
         if (p.Relations is not null) await ReplaceShownRelationshipsAsync(id, card?.Relations ?? [], p.Relations, ct);
         await session.SaveChangesAsync(ct);
         // The ETag is derived from the final state (incl. preserved values), so it matches a subsequent GET.

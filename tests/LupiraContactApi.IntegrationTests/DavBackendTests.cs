@@ -198,6 +198,72 @@ public sealed class DavBackendTests(ContactApiTestFactory factory) : Integration
         Assert.Equal(HttpStatusCode.Unauthorized, (await anon.GetAsync($"{Base()}/collections")).StatusCode);
     }
 
+    [Fact]
+    public async Task Phone_sync_writes_keep_middle_name_and_nickname()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await BookAsync(api);
+        var created = await api.PostAsJsonAsync("/contacts", new CreateContactRequest
+        {
+            AddressBookId = book, GivenName = "Jane", MiddleName = "Q", FamilyName = "Doe", Nickname = "Janie",
+        });
+        var contact = (await created.Content.ReadFromJsonAsync<ContactDto>())!;
+
+        var get = await api.GetAsync($"{Base()}/collections/{book}/resources/{contact.ExternalId}");
+        var card = await get.Content.ReadAsStringAsync();
+        Assert.Contains("N:Doe;Jane;Q;;\r\n", card);
+        Assert.Contains("NICKNAME:Janie\r\n", card);
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await PutVcfAsync(api, Email, book, contact.ExternalId, card, ifMatch: get.Headers.ETag!.Tag.Trim('"'))).StatusCode);
+        var kept = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{contact.Id}"))!;
+        Assert.Equal(("Q", "Janie"), (kept.MiddleName, kept.Nickname));
+
+        // A card without NICKNAME leaves the nickname alone; N stays authoritative for the middle name.
+        await PutVcfAsync(api, Email, book, contact.ExternalId, card.Replace("NICKNAME:Janie\r\n", "").Replace(";Q;;", ";;;"));
+        var unmentioned = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{contact.Id}"))!;
+        Assert.Equal((null, "Janie"), (unmentioned.MiddleName, unmentioned.Nickname));
+
+        await PutVcfAsync(api, Email, book, contact.ExternalId, card.Replace("NICKNAME:Janie", "NICKNAME:"));
+        Assert.Null((await api.GetFromJsonAsync<ContactDto>($"/contacts/{contact.Id}"))!.Nickname);
+    }
+
+    [Fact]
+    public async Task Recreating_a_deleted_resource_starts_from_the_card_alone()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await BookAsync(api);
+        var full = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:r@x\r\nFN:Old Name\r\nN:Name;Old;Mid;;\r\nNICKNAME:Oldie\r\n"
+            + "EMAIL:old@x.test\r\nNOTE:old note\r\nX-SOCIALPROFILE;TYPE=telegram:oldhandle\r\nEND:VCARD\r\n";
+        await PutVcfAsync(api, Email, book, "r@x", full);
+        var id = (await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?addressBookId={book}"))!.Single(c => c.ExternalId == "r@x").Id;
+        (await api.PutAsJsonAsync($"/contacts/{id}/tags", new SetContactTagsRequest { Tags = ["old"] })).EnsureSuccessStatusCode();
+        (await api.DeleteAsync($"{Base()}/collections/{book}/resources/r@x")).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.Created, (await PutVcfAsync(api, Email, book, "r@x", MinimalVcf("r@x", "Fresh"))).StatusCode);
+
+        var fresh = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{id}"))!;
+        Assert.Equal("Fresh", fresh.FamilyName);
+        Assert.Null(fresh.MiddleName);
+        Assert.Null(fresh.Nickname);
+        Assert.Null(fresh.Notes);
+        Assert.Null(fresh.Tags);
+        Assert.Empty(fresh.Channels);
+        Assert.Empty(fresh.Profiles);
+    }
+
+    [Fact]
+    public async Task Recreating_a_deleted_resource_needs_write_access_to_its_former_collection()
+    {
+        const string bob = "bob@x.test";
+        var alice = Factory.ApiClient(Email);
+        await PutVcfAsync(alice, Email, await BookAsync(alice), "shared@x", MinimalVcf("shared@x", "Alice Card"));
+        (await alice.DeleteAsync($"{Base()}/collections/{await BookAsync(alice)}/resources/shared@x")).EnsureSuccessStatusCode();
+
+        var bobApi = Factory.ApiClient(bob);
+        var bobBook = (await (await bobApi.GetAsync($"{Base(bob)}/collections")).Content.ReadFromJsonAsync<DavCollectionsDto>())!.Collections.Single().Id;
+        Assert.Equal(HttpStatusCode.Forbidden, (await PutVcfAsync(bobApi, bob, bobBook, "shared@x", MinimalVcf("shared@x", "Bob Card"))).StatusCode);
+    }
+
     private static async Task<Guid> BookAsync(HttpClient api)
     {
         // The gateway's first act for a principal is the collections listing — which bootstraps.

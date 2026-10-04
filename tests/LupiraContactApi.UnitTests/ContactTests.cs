@@ -152,6 +152,56 @@ public class ContactTests
     }
 
     [Fact]
+    public void Purge_discards_everything_the_deleted_contact_held()
+    {
+        var id = Guid.NewGuid();
+        var book = Guid.NewGuid();
+        var c = new Contact();
+        c.Apply(Ev(new ContactCreated(id, book, "u@x",
+            new ContactFields("Old", "Mid", "Name", "Nick", [new ContactReachChannel(ReachMedium.Email, "old@x", null, false)], new PartialDate(1990, 1, 1), ["family"], "note", "she/her", DisplayNameFormat.NickName, ContactKind.Organization)), at: T0.AddDays(-1), actor: "creator"));
+        c.Apply(Ev(new ContactProfilesReplaced(id, [new ContactSocialProfile { Service = "telegram", Handle = "old" }])));
+        c.Apply(Ev(new ContactEmergencyContactsReplaced(id, [Guid.NewGuid()])));
+        c.Apply(Ev(new ContactMarkedDeceased(id, new DateOnly(2020, 1, 1))));
+        c.Apply(Ev(new ContactAvatarSet(id, "https://cdn/x.jpg")));
+        c.Apply(Ev(new ContactMetadataAttached(id, "{\"k\":1}")));
+        c.Apply(Ev(new ContactDeleted(id)));
+
+        c.Apply(Ev(new ContactPurged(id), at: T0.AddHours(1)));
+        c.Apply(Ev(new ContactImported(id, book, "u@x", Name("New", null, "Person", null, DisplayNameFormat.FirstLast)), at: T0.AddHours(1)));
+
+        var fresh = Created(id, Name("New", null, "Person", null, DisplayNameFormat.FirstLast));
+        Assert.Null(c.DeletedAt);
+        Assert.Equal(("New", (string?) null, "Person", (string?) null), (c.GivenName, c.MiddleName, c.FamilyName, c.Nickname));
+        Assert.Empty(c.Channels);
+        Assert.Null(c.Birthday);
+        Assert.Null(c.Tags);
+        Assert.Null(c.Notes);
+        Assert.Null(c.Pronouns);
+        Assert.Equal(ContactKind.Individual, c.Kind);
+        Assert.Empty(c.Profiles);
+        Assert.Empty(c.EmergencyContactIds);
+        Assert.False(c.Deceased);
+        Assert.Null(c.DeathDate);
+        Assert.Null(c.AvatarRef);
+        Assert.Equal("{}", c.Metadata);
+        Assert.Equal(T0.AddHours(1), c.CreatedAt);
+        Assert.Equal(fresh.ContentHash, c.ContentHash);
+    }
+
+    [Fact]
+    public void An_edit_stamped_before_the_purge_loses()
+    {
+        var id = Guid.NewGuid();
+        var c = Created(id);
+        c.Apply(Ev(new ContactDeleted(id)));
+        c.Apply(Ev(new ContactPurged(id), at: T0.AddHours(2)));
+        c.Apply(Ev(new ContactImported(id, c.AddressBookId, c.ExternalId, Name("New", null, null, null)), at: T0.AddHours(2)));
+
+        c.Apply(Ev(new ContactProfilesReplaced(id, [new ContactSocialProfile { Service = "telegram", Handle = "stale" }], T0.AddHours(1), Guid.NewGuid())));
+        Assert.Empty(c.Profiles);
+    }
+
+    [Fact]
     public void Revised_updates_the_name_and_the_hash()
     {
         var id = Guid.NewGuid();

@@ -179,6 +179,29 @@ public sealed class Contact
         RecomputeHash();
     }
 
+    public void Apply(IEvent<ContactPurged> e)
+    {
+        SetFields(new ContactFields(null, null, null, null, null, null, null));
+        Tags = null;
+        AvatarRef = null;
+        Metadata = "{}";
+        Profiles = [];
+        EmergencyContactIds = [];
+        Deceased = false;
+        DeathDate = null;
+        CreatedAt = default;
+        CreatedBy = null;
+        ContentHash = string.Empty;
+        Touch(e);
+        // Edits stamped before the purge belong to the discarded contact, so every section guard starts here.
+        var stamp = SectionLww.Stamp(e, null, null);
+        (CoreTs, CoreCmd) = stamp;
+        (ProfilesTs, ProfilesCmd) = stamp;
+        (AvatarTs, AvatarCmd) = stamp;
+        (MetadataTs, MetadataCmd) = stamp;
+        (DeceasedTs, DeceasedCmd) = stamp;
+    }
+
     public void Apply(IEvent<ContactMoved> e)
     {
         MoveTo(e.Data.AddressBookId);

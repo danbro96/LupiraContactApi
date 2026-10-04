@@ -78,6 +78,40 @@ public class VCardSerializerTests
     }
 
     [Fact]
+    public void Middle_name_and_nickname_round_trip_through_N_and_NICKNAME()
+    {
+        var vcf = VCardSerializer.Build("uid@x", "Jane Q Smith", "Jane", "Smith", null, null, null, middle: "Q", nickname: "Janie");
+        Assert.Contains("N:Smith;Jane;Q;;\r\n", vcf);
+        Assert.Contains("NICKNAME:Janie\r\n", vcf);
+
+        var p = VCardSerializer.ParseVCard(vcf);
+        Assert.Equal("Q", p.MiddleName);
+        Assert.Equal("Janie", p.Nickname);
+    }
+
+    [Fact]
+    public void Middle_name_and_nickname_parse_trimmed()
+    {
+        var p = VCardSerializer.ParseVCard("BEGIN:VCARD\r\nN:Smith;Jane; Quinn ;;\r\nNICKNAME: Janie \r\nEND:VCARD\r\n");
+        Assert.Equal("Quinn", p.MiddleName);
+        Assert.Equal("Janie", p.Nickname);
+    }
+
+    [Fact]
+    public void Absent_NICKNAME_parses_as_null_and_an_empty_one_as_empty()
+    {
+        Assert.Null(VCardSerializer.ParseVCard("BEGIN:VCARD\r\nN:Smith;Jane;;;\r\nEND:VCARD\r\n").Nickname);
+        Assert.Equal(string.Empty, VCardSerializer.ParseVCard("BEGIN:VCARD\r\nN:Smith;Jane;;;\r\nNICKNAME:\r\nEND:VCARD\r\n").Nickname);
+    }
+
+    [Fact]
+    public void Blank_or_missing_N_middle_parses_as_null()
+    {
+        Assert.Null(VCardSerializer.ParseVCard("BEGIN:VCARD\r\nN:Smith;Jane; ;;\r\nEND:VCARD\r\n").MiddleName);
+        Assert.Null(VCardSerializer.ParseVCard("BEGIN:VCARD\r\nN:Smith;Jane\r\nEND:VCARD\r\n").MiddleName);
+    }
+
+    [Fact]
     public void Missing_FN_is_composed_from_the_name_parts()
     {
         var p = VCardSerializer.ParseVCard("BEGIN:VCARD\r\nVERSION:3.0\r\nN:Smith;Jane;;;\r\nEND:VCARD\r\n");

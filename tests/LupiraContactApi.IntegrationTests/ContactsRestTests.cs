@@ -153,4 +153,47 @@ public sealed class ContactsRestTests(ContactApiTestFactory factory) : Integrati
         Assert.Equal(HttpStatusCode.NoContent, (await api.DeleteAsync($"/contacts/{contact.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await api.GetAsync($"/contacts/{contact.Id}")).StatusCode);
     }
+
+    [Fact]
+    public async Task Keyed_create_over_a_deleted_contact_starts_afresh()
+    {
+        var api = Factory.ApiClient(Email);
+        var abId = await CreateAddressBookAsync(api);
+        var old = await CreateKeyedAsync(api, new CreateContactRequest
+        {
+            AddressBookId = abId, SourceKey = "key-1", GivenName = "Old", MiddleName = "Mid", Nickname = "Oldie", Tags = ["old"], Notes = "old note",
+        });
+        (await api.DeleteAsync($"/contacts/{old.Id}")).EnsureSuccessStatusCode();
+
+        var fresh = await CreateKeyedAsync(api, new CreateContactRequest { AddressBookId = abId, SourceKey = "key-1", GivenName = "New" });
+
+        Assert.Equal(old.Id, fresh.Id);
+        Assert.Equal("New", fresh.GivenName);
+        Assert.Null(fresh.MiddleName);
+        Assert.Null(fresh.Nickname);
+        Assert.Null(fresh.Tags);
+        Assert.Null(fresh.Notes);
+    }
+
+    [Fact]
+    public async Task Keyed_create_reusing_a_key_from_an_unwritable_book_is_forbidden()
+    {
+        var alice = Factory.ApiClient(Email);
+        var aliceBook = await CreateAddressBookAsync(alice);
+        var live = await CreateKeyedAsync(alice, new CreateContactRequest { AddressBookId = aliceBook, SourceKey = "key-2", GivenName = "Alice's" });
+        var bob = Factory.ApiClient("bob@x.test");
+        var bobBook = await CreateAddressBookAsync(bob, "bobs");
+        var reuse = new CreateContactRequest { AddressBookId = bobBook, SourceKey = "key-2", GivenName = "Bob's" };
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await bob.PostAsJsonAsync("/contacts", reuse)).StatusCode);
+        (await alice.DeleteAsync($"/contacts/{live.Id}")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await bob.PostAsJsonAsync("/contacts", reuse)).StatusCode);
+    }
+
+    private static async Task<ContactDto> CreateKeyedAsync(HttpClient api, CreateContactRequest request)
+    {
+        var resp = await api.PostAsJsonAsync("/contacts", request);
+        resp.EnsureSuccessStatusCode();
+        return (await resp.Content.ReadFromJsonAsync<ContactDto>())!;
+    }
 }

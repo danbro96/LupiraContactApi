@@ -44,6 +44,7 @@ public static class MartenRegistrations
         opts.Events.MapEventType<ContactRevised>("contact_revised");
         opts.Events.MapEventType<ContactDeleted>("contact_deleted");
         opts.Events.MapEventType<ContactRestored>("contact_restored");
+        opts.Events.MapEventType<ContactPurged>("contact_purged");
         opts.Events.MapEventType<ContactMoved>("contact_moved");
         opts.Events.MapEventType<ContactAddressesReplaced>("contact_addresses_replaced");
         opts.Events.MapEventType<ContactProfilesReplaced>("contact_profiles_replaced");
