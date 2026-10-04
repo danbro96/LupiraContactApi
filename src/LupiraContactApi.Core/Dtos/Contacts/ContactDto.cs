@@ -51,9 +51,6 @@ public sealed class ContactDto
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
     public required IReadOnlyList<Guid> EmergencyContactIds { get; set; }
 
-    /// <summary>Raw outgoing edges (unfiltered; targets may be deleted or unreadable). The <c>/relations</c> sub-resource is the resolved two-way view.</summary>
-    public required IReadOnlyList<ContactRelationDto> Relations { get; set; }
-
     public JsonNode? Metadata { get; set; }
 
     /// <summary>How well-documented this contact is. Drives contact-enrichment ranking (completeness × relevance).</summary>

@@ -13,11 +13,10 @@ public class ContactContentTests
 
     private static string Canonical(
         ContactFields? f = null,
-        IReadOnlyList<ContactRelation>? relations = null,
         IReadOnlyList<Guid>? emergency = null,
         IReadOnlyList<ContactSocialProfile>? profiles = null,
         bool deceased = false, DateOnly? deathDate = null) =>
-        ContactContent.Canonical("uid@x", f ?? Fields, relations ?? [], emergency ?? [], profiles ?? [], deceased, deathDate);
+        ContactContent.Canonical("uid@x", f ?? Fields, emergency ?? [], profiles ?? [], deceased, deathDate);
 
     [Fact]
     public void Identical_input_yields_identical_text() =>
@@ -33,7 +32,6 @@ public class ContactContentTests
         Assert.NotEqual(baseline, Canonical(f: Fields with { Channels = [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, false), new ContactReachChannel(ReachMedium.Email, "extra@x.com", null, false)] }));
         Assert.NotEqual(baseline, Canonical(f: Fields with { Channels = [new ContactReachChannel(ReachMedium.Email, "j@x.com", "work", false)] }));   // type is content-bearing
         Assert.NotEqual(baseline, Canonical(f: Fields with { Channels = [new ContactReachChannel(ReachMedium.Email, "j@x.com", null, true)] }));     // preferred is content-bearing
-        Assert.NotEqual(baseline, Canonical(relations: [new ContactRelation { ToContactId = other, Kind = ContactRelationKind.Friend }]));
         Assert.NotEqual(baseline, Canonical(emergency: [other]));
         Assert.NotEqual(baseline, Canonical(profiles: [new ContactSocialProfile { Service = "telegram", Handle = "j" }]));
         Assert.NotEqual(baseline, Canonical(deceased: true));
@@ -49,28 +47,6 @@ public class ContactContentTests
         var baseline = Canonical();
         Assert.Equal(baseline, Canonical(f: Fields with { DisplayNameFormat = DisplayNameFormat.FirstLast }));
         Assert.Equal(baseline, Canonical(f: Fields with { DisplayNameFormat = DisplayNameFormat.NickName }));
-    }
-
-    [Fact]
-    public void Relation_since_and_note_are_content_bearing()
-    {
-        var other = Guid.NewGuid();
-        ContactRelation Edge(DateOnly? since = null, string? note = null) => new() { ToContactId = other, Kind = ContactRelationKind.Friend, Since = since, Note = note };
-        var bare = Canonical(relations: [Edge()]);
-        Assert.NotEqual(bare, Canonical(relations: [Edge(since: new DateOnly(2016, 1, 1))]));
-        Assert.NotEqual(bare, Canonical(relations: [Edge(note: "sailing")]));
-    }
-
-    [Fact]
-    public void Ended_and_until_are_content_bearing()
-    {
-        var other = Guid.NewGuid();
-        ContactRelation Edge(bool ended, DateOnly? until = null) => new() { ToContactId = other, Kind = ContactRelationKind.Spouse, Ended = ended, Until = until };
-        var live = Canonical(relations: [Edge(false)]);
-        var ended = Canonical(relations: [Edge(true)]);
-        var dated = Canonical(relations: [Edge(true, new DateOnly(2024, 6, 1))]);
-        Assert.NotEqual(live, ended);
-        Assert.NotEqual(ended, dated);
     }
 
     [Fact]
@@ -90,7 +66,7 @@ public class ContactContentTests
     public void Separator_characters_in_values_cannot_forge_another_line()
     {
         var sneaky = Canonical(f: Fields with { GivenName = "Jane|Smith\nemail|x@y" });
-        var honest = ContactContent.Canonical("uid@x", Fields with { GivenName = "Jane" }, [], [], [], false, null);
+        var honest = ContactContent.Canonical("uid@x", Fields with { GivenName = "Jane" }, [], [], false, null);
         Assert.NotEqual(honest, sneaky);
     }
 }

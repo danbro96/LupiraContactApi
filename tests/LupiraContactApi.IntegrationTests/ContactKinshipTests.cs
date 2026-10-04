@@ -16,8 +16,6 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
     static async Task AddRelationAsync(HttpClient api, Guid contactId, Guid toContactId, ContactRelationKind kind) =>
         (await api.PostAsJsonAsync($"/contacts/{contactId}/relations", new AddContactRelationRequest { ToContactId = toContactId, Kind = kind })).EnsureSuccessStatusCode();
 
-    static async Task<ContactDto> RawAsync(HttpClient api, Guid id) => (await api.GetFromJsonAsync<ContactDto>($"/contacts/{id}"))!;
-
     static async Task<List<ContactRelationEntryDto>> RelationsAsync(HttpClient api, Guid id, bool inferred = false) =>
         (await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{id}/relations?includeInferred={inferred}"))!;
 
@@ -33,13 +31,11 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
         await AddRelationAsync(api, child.Id, parent.Id, ContactRelationKind.Parent);   // child's parent is known
         await AddRelationAsync(api, child.Id, sib.Id, ContactRelationKind.Sibling);
 
-        // The explicit Sibling edge is stored as-is; the sibling is NOT given a fabricated parent.
-        Assert.Contains((await RawAsync(api, child.Id)).Relations, r => r.ToContactId == sib.Id && r.Kind == ContactRelationKind.Sibling);
-        Assert.DoesNotContain((await RawAsync(api, sib.Id)).Relations, r => r.ToContactId == parent.Id);   // no invented parentage
-
-        // The explicit edge resolves as a Sibling relation (surfaced explicitly, not inferred).
+        // The explicit Sibling relationship is stored as-is (listed explicitly, not inferred) and the sibling is NOT
+        // given a fabricated parent.
         Assert.Contains(await RelationsAsync(api, child.Id),
             e => e.ContactId == sib.Id && e.Kind == ContactRelationKind.Sibling && e.Provenance == RelationProvenance.Explicit);
+        Assert.DoesNotContain(await RelationsAsync(api, sib.Id), e => e.ContactId == parent.Id);
     }
 
     [Fact]
@@ -54,9 +50,9 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
         await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Sibling);
         await AddRelationAsync(api, a.Id, parent.Id, ContactRelationKind.Parent);
 
-        // The explicit Sibling edge survives; B does not inherit A's parent.
-        Assert.Contains((await RawAsync(api, a.Id)).Relations, r => r.ToContactId == b.Id && r.Kind == ContactRelationKind.Sibling);
-        Assert.DoesNotContain((await RawAsync(api, b.Id)).Relations, r => r.ToContactId == parent.Id);
+        // The explicit Sibling relationship survives; B does not inherit A's parent.
+        Assert.Contains(await RelationsAsync(api, a.Id), e => e.ContactId == b.Id && e.Kind == ContactRelationKind.Sibling);
+        Assert.DoesNotContain(await RelationsAsync(api, b.Id), e => e.ContactId == parent.Id);
     }
 
     [Fact]
@@ -89,12 +85,11 @@ public sealed class ContactKinshipTests(ContactApiTestFactory factory) : Integra
         Assert.Contains(await RelationsAsync(api, focus.Id), e => e.ContactId == grandma.Id && e.Kind == ContactRelationKind.Grandparent);
         Assert.Contains(await RelationsAsync(api, grandma.Id), e => e.ContactId == focus.Id && e.Kind == ContactRelationKind.Grandchild);
 
-        // And it survives a CardDAV GET → PUT round-trip (TYPE=grandparent).
+        // And it survives a sync-adapter GET → PUT round-trip.
         var vcf = await api.GetStringAsync($"/dav-backend/u/{Uri.EscapeDataString(Email)}/collections/{ab}/resources/{focus.ExternalId}");
         Assert.Contains($"RELATED;TYPE=grandparent:urn:uuid:{grandma.Id:D}", vcf);
         (await PutVcfAsync(api, Email, ab, focus.ExternalId, vcf)).EnsureSuccessStatusCode();
-        Assert.Contains((await RawAsync(api, focus.Id)).Relations,
-            r => r.ToContactId == grandma.Id && r.Kind == ContactRelationKind.Grandparent);
+        Assert.Contains(await RelationsAsync(api, focus.Id), e => e.ContactId == grandma.Id && e.Kind == ContactRelationKind.Grandparent);
     }
 
     [Fact]

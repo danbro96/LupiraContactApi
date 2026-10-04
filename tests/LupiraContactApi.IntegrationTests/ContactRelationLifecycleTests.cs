@@ -37,12 +37,10 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         Assert.Contains(inferred!, e => e.ContactId == sib.Id && e.Kind == ContactRelationKind.Sibling);
 
         // Ended from the parent's side, though the copy is held on the child's.
-        var before = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{focus.Id}"))!.Etag;
         var end = await EndRelationAsync(api, parent.Id, focus.Id, ContactRelationKind.Child, new DateOnly(2024, 6, 1));
         end.EnsureSuccessStatusCode();
         var ended = (await end.Content.ReadFromJsonAsync<ContactRelationEntryDto>())!;
         Assert.Equal((focus.Id, true, new DateOnly(2024, 6, 1)), (ended.ContactId, ended.Ended, ended.Until));
-        Assert.NotEqual(before, (await api.GetFromJsonAsync<ContactDto>($"/contacts/{focus.Id}"))!.Etag);
 
         // Still listed (flagged), but no longer feeding inference.
         var listed = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{focus.Id}/relations?includeInferred=true");
@@ -64,8 +62,7 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         var revived = await AddRelationAsync(api, b.Id, a.Id, ContactRelationKind.Spouse);   // remarried, told from the other side
         Assert.False(revived.Ended);
         Assert.Null(revived.Until);
-        var edge = Assert.Single((await api.GetFromJsonAsync<ContactDto>($"/contacts/{a.Id}"))!.Relations);
-        Assert.False(edge.Ended);
+        Assert.False(Assert.Single((await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{a.Id}/relations"))!).Ended);
     }
 
     [Fact]
@@ -150,10 +147,8 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
 
         (await PutVcfAsync(api, Email, ab, husband.ExternalId, MinimalVcf(husband.ExternalId, "Albin Spouse"))).EnsureSuccessStatusCode();
 
-        var after = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{husband.Id}"))!;
-        var edge = Assert.Single(after.Relations);
-        Assert.Equal(wife.Id, edge.ToContactId);
-        Assert.Equal(ContactRelationKind.Partner, edge.Kind);
+        var edge = Assert.Single((await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{husband.Id}/relations"))!);
+        Assert.Equal((wife.Id, ContactRelationKind.Partner), (edge.ContactId, edge.Kind));
 
         var inverse = await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{wife.Id}/relations");
         Assert.Contains(inverse!, e => e.ContactId == husband.Id && e.Kind == ContactRelationKind.Partner);
@@ -172,7 +167,7 @@ public sealed class ContactRelationLifecycleTests(ContactApiTestFactory factory)
         var vcf = $"BEGIN:VCARD\r\nVERSION:4.0\r\nUID:{c.ExternalId}\r\nFN:Jane Doe\r\nRELATED;TYPE=friend:urn:uuid:{other.Id:D}\r\nEND:VCARD\r\n";
         (await PutVcfAsync(api, Email, ab, c.ExternalId, vcf)).EnsureSuccessStatusCode();
 
-        var after = (await api.GetFromJsonAsync<ContactDto>($"/contacts/{c.Id}"))!;
-        Assert.Equal(other.Id, Assert.Single(after.Relations).ToContactId);
+        var after = (await api.GetFromJsonAsync<List<ContactRelationEntryDto>>($"/contacts/{c.Id}/relations"))!;
+        Assert.Equal(other.Id, Assert.Single(after).ContactId);
     }
 }

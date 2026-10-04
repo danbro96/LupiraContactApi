@@ -1,55 +1,25 @@
 # Contact relationships
 
-A relationship between two contacts reads the same from both sides. No surface (REST, MCP, the
-describe seam) shows which contact stores it.
-
-## Contract
-
-- `GET /contacts/{id}/relations` returns one entry per (other contact, kind). `kind` is the other
-  contact's role relative to `{id}`: X is Y's `Parent` ⇔ Y is X's `Child`.
-- **Per side:** `label` is `{id}`'s own name for the other ("dad" on the child's card, "son" on the
-  parent's).
-- **Shared:** `since`, `note`, `ended`, `until` belong to the relationship and read the same from both
-  sides.
-- `POST /contacts/{id}/relations`, `POST …/{toContactId}/end` and `DELETE …/{toContactId}?kind=` accept
-  either contact as `{id}`. Upsert and end return the entry as `{id}` sees it; delete returns 204.
-- **Access:** read on both contacts, plus write on each stored copy the call changes.
-
-## Storage
-
-Each side may hold a copy: a `ContactRelation` on its own `Contact` stream, "the To contact is my
-Kind". `Domain/Relationships/RelationResolver` merges the copies. `RelationshipKey` gives a relationship
-the same identity whichever side holds a copy and whichever side is viewing.
-
-| Field | Where it is written | How a read resolves it |
-|---|---|---|
-| label | the writer's own copy, created on demand | the viewer's own copy |
-| since, note | every copy | the Low contact's copy, falling back to the other |
-| ended, until | every copy | ended only when every copy is |
-
-- **First write, unlabelled:** the relationship goes on the side the caller can write.
-- **Upsert from the other side, no label:** revises the existing copy in place. It adds no second copy.
-- **The sync adapter** still exports and replaces one contact's own copies. Inference
-  (`KinshipInference`, `CircleInference`) reads copies from either side.
-- **`ContactDto.relations`** is storage, the copies this contact holds. Clients render the merged
-  listing, never this field.
-
-## Follow-up: `Relationship` aggregate
-
-Move relationships out of contact streams, so ownership stops existing in storage as well as on the
-API. The contract above does not change.
+A relationship between two contacts is its own record, the `Relationship` aggregate. It belongs to
+neither contact, so no surface (REST, MCP, the describe seam, the sync adapter) can show which side
+"holds" it.
 
 ```mermaid
 classDiagram
   class Relationship {
     <<AggregateRoot>>
-    RelationshipKey key
+    Guid id
+    Guid low
+    Guid high
+    ContactRelationKind kind
     string? labelFromLow
     string? labelFromHigh
     DateOnly? since
     string? note
     bool ended
     DateOnly? until
+    bool removed
+    ViewFrom(contactId) ResolvedRelation
   }
   class RelationshipKey {
     <<ValueObject>>
@@ -61,18 +31,54 @@ classDiagram
   Relationship --> "2" Contact : by id
 ```
 
-1. **Stream:** `Relationship` stream id = `DeterministicGuid.From(key)`. Events go in
-   `Domain/Relationships/Events/`. Add a projection indexed on both contact ids; it replaces the
-   `Relations.Any(r => r.ToContactId == id)` scan.
-2. **Migration:** replay each contact's `ContactRelation*` events. Group the copies by `RelationshipKey`.
-   `labelFromX` = the label on X's copy. The other fields follow the resolver's merge rules in the table
-   above.
-3. **Service:** `ContactService` relation methods address the stream by key. The `own` / `theirs`
-   placement logic and the copy-level idempotency go away.
-4. **Sync adapter:** each contact's exported relations are derived from its relationships. An import
-   diffs against them and issues commands. Both contacts' content hashes include the derived relations.
-5. **Removals:**
-   - `ContactDto.relations`, `ContactRelationsReplaced`, and `Contact.Relations` (keep them for replay
-     only).
-   - LupiraCal mobile's `relationCopiesOf` mirror query. It switches to a relationships feed and keeps
-     `resolveRelations`' output shape.
+- **Identity:** `RelationshipKey` reads "high is low's kind", with low and high in the ids' ordinal
+  string order. The stream id is derived from the key, so "X is Y's Parent" and "Y is X's Child" are
+  the same stream.
+- **Per side:** each contact has its own label, its word for the other ("dad" on the child's side,
+  "son" on the parent's).
+- **Shared:** since, note, ended and until belong to the relationship.
+- **Removal:** a removed relationship stays as a tombstone (`removed`) for the sync feeds. Stating it
+  again starts it afresh on the same stream.
+- **Integrity:** there is no foreign key to the contacts. A relationship whose other contact is deleted
+  or unreadable is filtered out on read.
+
+## Contract
+
+- **Listing:** `GET /contacts/{id}/relations` returns `Relationship.ViewFrom(id)` for each relationship
+  whose other contact is live and readable. The `kind` is the other contact's role relative to `{id}`,
+  and the `label` is `{id}`'s own word for them.
+- **Changes:** `POST /contacts/{id}/relations`, `POST …/{toContactId}/end` and
+  `DELETE …/{toContactId}?kind=` accept either contact as `{id}`. Upsert and end return the view from
+  `{id}`; delete returns 204.
+- **Access:**
+  - Read on both contacts.
+  - Write on at least one of their books.
+  - A label needs write on the labelling contact's book.
+- **`GET /relationships`:** every relationship whose two contacts the caller can read.
+- **`GET /sync/relationships?since=`:** the mirror feed, unpaged.
+  - The cursor works like `/sync/changes`: a readable-books scope, which resets when access changes.
+  - It also re-sends the relationships of every contact touched past the cursor, because deleting or
+    moving a contact changes what is visible.
+  - Tombstones come only in deltas.
+
+## Sync adapter
+
+- **Export:** a contact's card lists its relationships as seen from it.
+- **ETag:** the card's ETag covers the contact's `ContentHash` and those relationships. A relationship
+  edit therefore moves the ETag of each card it shows on, and the change feed lists both contacts.
+- **Import:** an imported card restates the relationships it lists from its own side. Its label is that
+  contact's word; the note is not on the card and is kept. A relationship the card no longer lists is
+  removed. A card without relation lines leaves them all alone.
+
+## Legacy
+
+Relations used to be per-contact copies on the `Contact` stream (`ContactRelation*` events). Those
+events stay registered so old streams still replay, and `Contact` no longer applies them.
+
+`dotnet LupiraContactApi.dll --migrate-relationships` folds them into relationship streams
+(`Upgrades/LegacyRelationFold`):
+- Each side's label comes from its own copy.
+- The shared fields come from the low contact's copy first.
+- A relationship is ended only when every copy was.
+
+The command is idempotent. Run it once per environment, before `--rebuild-contacts`.

@@ -3,7 +3,6 @@ using LupiraContactApi.Core.Application.Results;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
-using LupiraContactApi.Core.Serialization;
 using Marten;
 
 namespace LupiraContactApi.Dav;
@@ -20,6 +19,7 @@ public sealed class DavBackendHandler(
     PrincipalDirectory principals,
     AddressBookService books,
     ContactService contacts,
+    DavCards cards,
     DavChangeFeed feed)
 {
     public async Task<IResult> CollectionsAsync(string email, CancellationToken ct)
@@ -48,22 +48,22 @@ public sealed class DavBackendHandler(
 
         var live = await session.Query<Contact>()
             .Where(c => c.AddressBookId == collectionId && c.DeletedAt == null).ToListAsync(ct);
-        IEnumerable<Contact> selected = live;
+        IReadOnlyCollection<Contact> selected = live;
         if (body.Uids is { Count: > 0 } uids)
         {
             var set = uids.ToHashSet(StringComparer.Ordinal);
-            selected = live.Where(c => set.Contains(c.ExternalId));
+            selected = [.. live.Where(c => set.Contains(c.ExternalId))];
         }
 
         // Start/End: time-range does not apply to address books — ignored by design.
 
         return TypedResults.Ok(new DavResourcesDto
         {
-            Resources = [.. selected.Select(c => new DavResourceDto
+            Resources = [.. (await cards.ForAsync(principal.Id, selected, ct)).Select(card => new DavResourceDto
             {
-                Uid = c.ExternalId,
-                Etag = c.ContentHash,
-                Content = body.IncludeContent ? VCardSerializer.From(c) : null,
+                Uid = card.Contact.ExternalId,
+                Etag = card.Etag,
+                Content = body.IncludeContent ? card.Vcard : null,
             })],
         });
     }
@@ -76,8 +76,9 @@ public sealed class DavBackendHandler(
         var c = await session.LoadAsync<Contact>(DeterministicGuid.From(uid), ct);
         if (c is null || c.DeletedAt is not null || c.AddressBookId != collectionId) return TypedResults.NotFound();
 
-        ctx.Response.Headers.ETag = $"\"{c.ContentHash}\"";
-        return TypedResults.Text(VCardSerializer.From(c), "text/vcard; charset=utf-8");
+        var card = await cards.ForAsync(principal.Id, c, ct);
+        ctx.Response.Headers.ETag = $"\"{card.Etag}\"";
+        return TypedResults.Text(card.Vcard, "text/vcard; charset=utf-8");
     }
 
     public async Task<IResult> PutResourceAsync(string email, Guid collectionId, string uid, HttpContext ctx, CancellationToken ct)
@@ -112,7 +113,7 @@ public sealed class DavBackendHandler(
 
         // An unparsable/absent token degrades to the full live listing — self-healing resync.
         long? parsed = long.TryParse(since, out var t) ? t : null;
-        var (token, changes) = await feed.ChangesSinceAsync(collectionId, parsed, ct);
+        var (token, changes) = await feed.ChangesSinceAsync(principal.Id, collectionId, parsed, ct);
         return TypedResults.Ok(new DavChangesDto
         {
             SyncToken = token.ToString(),

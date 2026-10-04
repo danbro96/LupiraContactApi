@@ -7,13 +7,13 @@ namespace LupiraContactApi.Core.Domain.Contacts;
 
 /// <summary>Deterministic canonical text of a contact's content-bearing state; <c>ContentHash = ContentHash.Of(Canonical(...))</c>.
 /// Wire formats are serialization concerns and play no part in identity or hashing; sync surfaces consume the hash as an
-/// opaque version tag. Order-sensitive throughout: reordering profiles, relations, or emergency contacts is a real change.
-/// Addresses are deliberately excluded (see <see cref="ContactAddressesReplaced"/>).</summary>
+/// opaque version tag. Order-sensitive throughout: reordering profiles or emergency contacts is a real change.
+/// Addresses are deliberately excluded (see <see cref="ContactAddressesReplaced"/>), and relationships are their own aggregate.</summary>
 public static class ContactContent
 {
     public static string Canonical(
         string externalId, ContactFields f,
-        IReadOnlyList<ContactRelation> relations, IReadOnlyList<Guid> emergencyContactIds,
+        IReadOnlyList<Guid> emergencyContactIds,
         IReadOnlyList<ContactSocialProfile> profiles, bool deceased, DateOnly? deathDate)
     {
         var sb = new StringBuilder();
@@ -26,7 +26,6 @@ public static class ContactContent
         Line(sb, "pronouns", f.Pronouns);
         Line(sb, "deceased", deceased ? "1" : "0", Date(deathDate));
         foreach (var p in profiles) Line(sb, "profile", p.Service, p.Handle, p.Url, p.Preferred ? "1" : "0");
-        foreach (var r in relations) Line(sb, "relation", r.ToContactId.ToString("D"), r.Kind.ToString(), r.Label, r.Ended ? "1" : "0", Date(r.Until), Date(r.Since), r.Note);
         foreach (var id in emergencyContactIds) Line(sb, "emergency", id.ToString("D"));
         // Kind is emitted only when non-default so every pre-existing (person) contact keeps its hash/ETag.
         if (f.Kind != ContactKind.Individual) Line(sb, "kind", f.Kind.ToString());

@@ -55,8 +55,6 @@ public sealed class Contact
 
     public List<ContactSocialProfile> Profiles { get; set; } = new();
 
-    public List<ContactRelation> Relations { get; set; } = new();
-
     /// <summary>Ordered designation (first = highest priority) — who to call about this person, not a kinship.</summary>
     public List<Guid> EmergencyContactIds { get; set; } = new();
 
@@ -261,44 +259,6 @@ public sealed class Contact
         (AvatarTs, AvatarCmd) = (ts, cmd);   // avatar is a mutable pointer outside the canonical content — ETag unchanged
     }
 
-    public void Apply(IEvent<ContactRelationAdded> e)
-    {
-        var d = e.Data;
-        Relations.RemoveAll(r => r.ToContactId == d.ToContactId && r.Kind == d.Kind);   // upsert on the natural key; also revives an ended edge
-        Relations.Add(new ContactRelation { ToContactId = d.ToContactId, Kind = d.Kind, Label = d.Label, Since = d.Since, Note = d.Note });
-        Touch(e);
-        RecomputeHash();
-    }
-
-    public void Apply(IEvent<ContactRelationEnded> e)
-    {
-        var d = e.Data;
-        var edge = Relations.FirstOrDefault(r => r.ToContactId == d.ToContactId && r.Kind == d.Kind);
-        if (edge is not null)
-        {
-            edge.Ended = true;
-            edge.Until = d.Until;
-        }
-
-        Touch(e);
-        RecomputeHash();
-    }
-
-    public void Apply(IEvent<ContactRelationRemoved> e)
-    {
-        var d = e.Data;
-        Relations.RemoveAll(r => r.ToContactId == d.ToContactId && r.Kind == d.Kind);
-        Touch(e);
-        RecomputeHash();
-    }
-
-    public void Apply(IEvent<ContactRelationsReplaced> e)
-    {
-        Relations = e.Data.Relations.Select(r => new ContactRelation { ToContactId = r.ToContactId, Kind = r.Kind, Label = r.Label, Since = r.Since, Note = r.Note, Ended = r.Ended, Until = r.Until }).ToList();
-        Touch(e);
-        RecomputeHash();
-    }
-
     private void MoveTo(Guid addressBookId)
     {
         if (AddressBookId != Guid.Empty && AddressBookId != addressBookId && !FormerAddressBookIds.Contains(AddressBookId))
@@ -323,7 +283,7 @@ public sealed class Contact
     /// <summary>Derives <see cref="ContentHash"/> from the current content-bearing state. Called after every content change;
     /// the single caller of <see cref="ContactContent"/>, so a canonicalization fix heals every snapshot on rebuild.</summary>
     private void RecomputeHash() =>
-        ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), Relations, EmergencyContactIds, Profiles, Deceased, DeathDate));
+        ContentHash = Of(ContactContent.Canonical(ExternalId, Fields(), EmergencyContactIds, Profiles, Deceased, DeathDate));
 
     /// <summary>The current structured fields — the base a section edit rebuilds from, so it carries every field the event does.</summary>
     internal ContactFields Fields() =>

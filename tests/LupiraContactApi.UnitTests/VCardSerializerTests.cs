@@ -1,4 +1,5 @@
 using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Serialization;
 using Xunit;
@@ -9,6 +10,9 @@ namespace LupiraContactApi.UnitTests;
 /// the two BDAY formats, typed EMAIL/TEL reach channels, extension props, ORG segmentation, and folded-line skipping.</summary>
 public class VCardSerializerTests
 {
+    private static ResolvedRelation Rel(Guid other, ContactRelationKind kind, string? label = null, DateOnly? since = null, bool ended = false, DateOnly? until = null) =>
+        new(other, kind, label, since, null, ended, until);
+
     private static ContactReachChannel Chan(ReachMedium medium, string value, string? type = null, bool preferred = false) =>
         new(medium, value, type, preferred);
 
@@ -114,7 +118,7 @@ public class VCardSerializerTests
     {
         var friend = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
-            [new ContactRelation { ToContactId = friend, Kind = ContactRelationKind.Friend, Since = new DateOnly(2016, 8, 1) }]);
+            [Rel(friend, ContactRelationKind.Friend, since: new DateOnly(2016, 8, 1))]);
         Assert.Contains($"RELATED;TYPE=friend;X-LUPIRA-SINCE=20160801:urn:uuid:{friend:D}\r\n", vcf);
         Assert.Equal(new DateOnly(2016, 8, 1), Assert.Single(VCardSerializer.ParseVCard(vcf).Relations!).Since);
     }
@@ -153,7 +157,7 @@ public class VCardSerializerTests
     {
         var dad = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
-            [new ContactRelation { ToContactId = dad, Kind = ContactRelationKind.Parent, Label = "dad" }]);
+            [Rel(dad, ContactRelationKind.Parent, label: "dad")]);
 
         Assert.Contains($"RELATED;TYPE=parent;X-LUPIRA-LABEL=dad:urn:uuid:{dad:D}\r\n", vcf);
     }
@@ -165,15 +169,15 @@ public class VCardSerializerTests
         var friend = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
         [
-            new ContactRelation { ToContactId = dad, Kind = ContactRelationKind.Parent, Label = "dad" },
-            new ContactRelation { ToContactId = friend, Kind = ContactRelationKind.Friend },
+            Rel(dad, ContactRelationKind.Parent, label: "dad"),
+            Rel(friend, ContactRelationKind.Friend),
         ]);
 
         var p = VCardSerializer.ParseVCard(vcf);
 
         Assert.Equal(2, p.Relations!.Length);
-        Assert.Equal((dad, ContactRelationKind.Parent, "dad"), (p.Relations[0].ToContactId, p.Relations[0].Kind, p.Relations[0].Label));
-        Assert.Equal((friend, ContactRelationKind.Friend, null), (p.Relations[1].ToContactId, p.Relations[1].Kind, p.Relations[1].Label));
+        Assert.Equal((dad, ContactRelationKind.Parent, "dad"), (p.Relations[0].OtherId, p.Relations[0].Kind, p.Relations[0].Label));
+        Assert.Equal((friend, ContactRelationKind.Friend, null), (p.Relations[1].OtherId, p.Relations[1].Kind, p.Relations[1].Label));
     }
 
     [Theory]
@@ -207,7 +211,7 @@ public class VCardSerializerTests
     {
         var target = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
-            [new ContactRelation { ToContactId = target, Kind = kind }]);
+            [Rel(target, kind)]);
         Assert.Equal(kind, Assert.Single(VCardSerializer.ParseVCard(vcf).Relations!).Kind);
     }
 
@@ -223,7 +227,7 @@ public class VCardSerializerTests
     {
         var target = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
-            [new ContactRelation { ToContactId = target, Kind = ContactRelationKind.Friend, Label = "a;b:c" }]);
+            [Rel(target, ContactRelationKind.Friend, label: "a;b:c")]);
 
         Assert.Contains($"RELATED;TYPE=friend:urn:uuid:{target:D}\r\n", vcf);
         Assert.DoesNotContain("X-LUPIRA-LABEL", vcf);
@@ -314,13 +318,13 @@ public class VCardSerializerTests
         var second = Guid.NewGuid();
         var friend = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
-            [new ContactRelation { ToContactId = friend, Kind = ContactRelationKind.Friend }],
+            [Rel(friend, ContactRelationKind.Friend)],
             emergencyContacts: [first, second]);
         Assert.Contains($"RELATED;TYPE=emergency:urn:uuid:{first:D}\r\n", vcf);
 
         var p = VCardSerializer.ParseVCard(vcf);
         Assert.Equal([first, second], p.EmergencyContactIds!);
-        Assert.Equal(friend, Assert.Single(p.Relations!).ToContactId);
+        Assert.Equal(friend, Assert.Single(p.Relations!).OtherId);
     }
 
     [Fact]
@@ -330,17 +334,17 @@ public class VCardSerializerTests
         var old = Guid.NewGuid();
         var vcf = VCardSerializer.Build("uid@x", "x", null, null, null, null, null,
         [
-            new ContactRelation { ToContactId = ex, Kind = ContactRelationKind.Spouse, Ended = true, Until = new DateOnly(2024, 6, 1) },
-            new ContactRelation { ToContactId = old, Kind = ContactRelationKind.Friend, Ended = true },
+            Rel(ex, ContactRelationKind.Spouse, ended: true, until: new DateOnly(2024, 6, 1)),
+            Rel(old, ContactRelationKind.Friend, ended: true),
         ]);
         Assert.Contains($"RELATED;TYPE=spouse;X-LUPIRA-UNTIL=20240601:urn:uuid:{ex:D}\r\n", vcf);
         Assert.Contains($"RELATED;TYPE=friend;X-LUPIRA-ENDED=1:urn:uuid:{old:D}\r\n", vcf);
 
         var p = VCardSerializer.ParseVCard(vcf);
-        var exEdge = p.Relations!.Single(r => r.ToContactId == ex);
+        var exEdge = p.Relations!.Single(r => r.OtherId == ex);
         Assert.True(exEdge.Ended);
         Assert.Equal(new DateOnly(2024, 6, 1), exEdge.Until);
-        var oldEdge = p.Relations!.Single(r => r.ToContactId == old);
+        var oldEdge = p.Relations!.Single(r => r.OtherId == old);
         Assert.True(oldEdge.Ended);
         Assert.Null(oldEdge.Until);
     }
@@ -350,7 +354,7 @@ public class VCardSerializerTests
     {
         string Make() => VCardSerializer.Build("uid@x", "x", "a", "b", null,
             [Chan(ReachMedium.Email, "e@x"), Chan(ReachMedium.Phone, "1")], new PartialDate(1990, 1, 1),
-            [new ContactRelation { ToContactId = Guid.Empty, Kind = ContactRelationKind.Friend }],
+            [Rel(Guid.Empty, ContactRelationKind.Friend)],
             [Guid.Empty], [new ContactSocialProfile { Service = "telegram", Handle = "h" }], true, new DateOnly(2020, 1, 1));
         Assert.Equal(Make(), Make());
     }

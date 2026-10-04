@@ -1,5 +1,5 @@
+using LupiraContactApi.Core.Data;
 using LupiraContactApi.Core.Domain.Contacts;
-using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Dtos.Internal;
 using Marten;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -26,26 +26,20 @@ public sealed class InternalContactsHandler(IQuerySession session)
     }
 
     /// <summary>Descriptor material (name, nickname, pronouns, tags, notes, rendered relation lines) for
-    /// comms' contact directory — same ACL-free posture as resolve. Relation lines merge both sides' copies, so a
-    /// relationship reads the same whichever contact stores it; ended relationships and unresolvable others are omitted.</summary>
+    /// comms' contact directory — same ACL-free posture as resolve. Each relation line is the relationship as seen from the
+    /// described contact (its own label, else the kind); ended relationships and unresolvable others are omitted.</summary>
     public async Task<Results<Ok<DescribeContactsResponse>, BadRequest<string>>> DescribeAsync(DescribeContactsRequest body, CancellationToken ct)
     {
         if (body.ContactIds.Count > MaxIds) return TypedResults.BadRequest($"At most {MaxIds} ids per request.");
         var ids = body.ContactIds.Distinct().ToList();
         var found = await session.Query<Contact>().Where(c => ids.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct);
-        var holders = await session.Query<Contact>()
-            .Where(c => c.DeletedAt == null && c.Relations.Any(r => ids.Contains(r.ToContactId))).ToListAsync(ct);
-
-        var copies = found.Concat(holders).DistinctBy(c => c.Id)
-            .SelectMany(c => c.Relations.Select(e => new RelationCopy(c.Id, e))).ToList();
-        var resolved = found.ToDictionary(c => c.Id, c => RelationResolver.Resolve(c.Id, copies).Where(v => !v.Ended).ToList());
-        var names = holders.ToDictionary(c => c.Id, c => c.DisplayName);
-        var targetIds = resolved.Values.SelectMany(vs => vs.Select(v => v.OtherId)).Where(x => !names.ContainsKey(x)).Distinct().ToList();
-        if (targetIds.Count > 0)
-        {
-            foreach (var t in await session.Query<Contact>().Where(c => targetIds.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct))
-                names[t.Id] = t.DisplayName;
-        }
+        var relationships = (await session.RelationshipsOfAsync([.. found.Select(c => c.Id)], ct)).Where(r => !r.Ended).ToList();
+        var resolved = found.ToDictionary(c => c.Id, c => relationships.Where(r => r.Involves(c.Id)).Select(r => r.ViewFrom(c.Id)).ToList());
+        var otherIds = resolved.Values.SelectMany(vs => vs.Select(v => v.OtherId)).Distinct().ToList();
+        var names = otherIds.Count == 0
+            ? []
+            : (await session.Query<Contact>().Where(c => otherIds.Contains(c.Id) && c.DeletedAt == null).ToListAsync(ct))
+                .ToDictionary(c => c.Id, c => c.DisplayName);
 
         return TypedResults.Ok(new DescribeContactsResponse
         {

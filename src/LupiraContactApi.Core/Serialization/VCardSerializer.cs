@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Serialization;
@@ -10,10 +11,11 @@ namespace LupiraContactApi.Core.Serialization;
 /// (computed from domain state, not from these bytes) serves as the ETag. Full FolkerKinzel.VCards round-trip is a later step.</summary>
 public static class VCardSerializer
 {
-    /// <summary>Regenerate the vCard for a contact from its structured fields (organisation lives on a ContactGroup, so it's omitted).</summary>
-    public static string From(Contact c) =>
+    /// <summary>Regenerate the vCard for a contact from its structured fields and its relationships as seen from it
+    /// (organisation lives on a ContactGroup, so it's omitted).</summary>
+    public static string From(Contact c, IReadOnlyList<ResolvedRelation> relations) =>
         Build(c.ExternalId, ComposeFullName(c.GivenName, c.MiddleName, c.FamilyName, c.Nickname),
-            c.GivenName, c.FamilyName, null, c.Channels, c.Birthday, c.Relations,
+            c.GivenName, c.FamilyName, null, c.Channels, c.Birthday, relations,
             c.EmergencyContactIds, c.Profiles, c.Deceased, c.DeathDate, c.Notes, c.Pronouns, c.AvatarRef, c.Kind);
 
     /// <summary>The vCard <c>FN</c>: the name parts joined, else the nickname, else empty.</summary>
@@ -26,7 +28,7 @@ public static class VCardSerializer
     public static string Build(
         string uid, string fullName, string? given, string? family, string? organization,
         IReadOnlyList<ContactReachChannel>? channels, PartialDate? birthday,
-        IReadOnlyList<ContactRelation>? relations = null,
+        IReadOnlyList<ResolvedRelation>? relations = null,
         IReadOnlyList<Guid>? emergencyContacts = null,
         IReadOnlyList<ContactSocialProfile>? profiles = null,
         bool deceased = false, DateOnly? deathDate = null,
@@ -69,12 +71,12 @@ public static class VCardSerializer
         foreach (var r in relations ?? [])
         {
             sb.Append("RELATED;TYPE=").Append(r.Kind.ToString().ToLowerInvariant());
-            // Params are never quoted in this writer, so a label with param-breaking chars is dropped (survives in the snapshot, lost on this surface only).
+            // Params are never quoted in this writer, so a label with param-breaking chars is dropped (kept in the store, lost on this surface only).
             if (r.Label is { Length: > 0 } label && IsSafeParamValue(label)) sb.Append(";X-LUPIRA-LABEL=").Append(label);
             if (r.Since is { } since) sb.Append(";X-LUPIRA-SINCE=").Append(since.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
             if (r.Until is { } until) sb.Append(";X-LUPIRA-UNTIL=").Append(until.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
             else if (r.Ended) sb.Append(";X-LUPIRA-ENDED=1");
-            sb.Append(":urn:uuid:").Append(r.ToContactId.ToString("D")).Append("\r\n");
+            sb.Append(":urn:uuid:").Append(r.OtherId.ToString("D")).Append("\r\n");
         }
 
         foreach (var id in emergencyContacts ?? [])
@@ -93,7 +95,7 @@ public static class VCardSerializer
         bool? deceased = null;
         ContactKind? kind = null;
         var channels = new List<ContactReachChannel>();
-        var relations = new List<ContactRelation>();
+        var relations = new List<ResolvedRelation>();
         List<Guid>? emergency = null;
         List<ContactSocialProfile>? profiles = null;
 
@@ -180,21 +182,15 @@ public static class VCardSerializer
             ? target : null;
     }
 
-    private static ContactRelation? ParseRelated(Dictionary<string, string> p, string val)
+    // The card's view of a relationship; the note is not carried on this surface.
+    private static ResolvedRelation? ParseRelated(Dictionary<string, string> p, string val)
     {
         if (ParseUuidTarget(val) is not { } target) return null;
         var label = p.GetValueOrDefault("X-LUPIRA-LABEL");
         var since = p.TryGetValue("X-LUPIRA-SINCE", out var s) ? ParseDate(s) : null;
         var until = p.TryGetValue("X-LUPIRA-UNTIL", out var u) ? ParseDate(u) : null;
-        return new ContactRelation
-        {
-            ToContactId = target,
-            Kind = ParseRelationKind(p.GetValueOrDefault("TYPE")),
-            Label = string.IsNullOrEmpty(label) ? null : label,
-            Since = since,
-            Ended = until is not null || p.ContainsKey("X-LUPIRA-ENDED"),
-            Until = until,
-        };
+        return new ResolvedRelation(target, ParseRelationKind(p.GetValueOrDefault("TYPE")), string.IsNullOrEmpty(label) ? null : label,
+            since, Note: null, Ended: until is not null || p.ContainsKey("X-LUPIRA-ENDED"), until);
     }
 
     private static ContactSocialProfile? ParseSocialProfile(string nameAndParams, string val)

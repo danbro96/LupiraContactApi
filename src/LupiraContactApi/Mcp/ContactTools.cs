@@ -116,51 +116,51 @@ public sealed class ContactTools
     [McpServerTool(Name = "relate_contacts")]
     [Description("Relate two contacts, from either side: kind is toContactId's role relative to contactId — 'toContactId is contactId's <kind>'. Example: 'X is Y's dad' → relate_contacts(contactId: Y, toContactId: X, kind: 'parent', label: 'dad'), or equally relate_contacts(contactId: X, toContactId: Y, kind: 'child'). Re-adding the same pair+kind updates it.")]
     public static async Task<ContactRelationEntryDto> RelateContacts(
-        ContactService contacts, CurrentUser user,
+        RelationshipService relationships, CurrentUser user,
         [Description("Either contact of the relationship.")] Guid contactId,
         [Description("The other contact.")] Guid toContactId,
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind,
         [Description("Optional: contactId's own name for toContactId, e.g. 'dad'.")] string? label = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.AddRelationAsync(u.Id, contactId, new AddContactRelationRequest { ToContactId = toContactId, Kind = ParseRelationKind(kind), Label = label }));
+        return Require(await relationships.UpsertAsync(u.Id, contactId, new AddContactRelationRequest { ToContactId = toContactId, Kind = ParseRelationKind(kind), Label = label }));
     }
 
     [McpServerTool(Name = "end_contact_relation")]
     [Description("End a relationship, from either side (ex-spouse, falling-out): it stays, flagged with an optional end date, and no longer asserts current kinship. Use unrelate_contacts only for relationships entered by mistake.")]
     public static async Task<ContactRelationEntryDto> EndContactRelation(
-        ContactService contacts, CurrentUser user,
+        RelationshipService relationships, CurrentUser user,
         [Description("Either contact of the relationship.")] Guid contactId,
         [Description("The other contact; kind is its role relative to contactId.")] Guid toContactId,
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind,
         [Description("When the relationship ended (optional).")] DateOnly? until = null)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.EndRelationAsync(u.Id, contactId, toContactId, ParseRelationKind(kind), until));
+        return Require(await relationships.EndAsync(u.Id, contactId, toContactId, ParseRelationKind(kind), until));
     }
 
     [McpServerTool(Name = "unrelate_contacts")]
     [Description("Remove a relationship entered by mistake, from either side. A relationship that ran its course should be ended via end_contact_relation instead.")]
     public static async Task<string> UnrelateContacts(
-        ContactService contacts, CurrentUser user,
+        RelationshipService relationships, CurrentUser user,
         [Description("Either contact of the relationship.")] Guid contactId,
         [Description("The other contact; kind is its role relative to contactId.")] Guid toContactId,
         [Description("parent|child|sibling|spouse|partner|friend|colleague|neighbor|other|grandparent|grandchild|auntuncle|niecenephew|cousin.")] string kind)
     {
         var u = await user.GetAsync();
-        Require(await contacts.RemoveRelationAsync(u.Id, contactId, toContactId, ParseRelationKind(kind)));
+        Require(await relationships.RemoveAsync(u.Id, contactId, toContactId, ParseRelationKind(kind)));
         return $"Removed the {kind} relationship between {contactId} and {toContactId}.";
     }
 
     [McpServerTool(Name = "list_contact_relations")]
     [Description("List a contact's relationships, identical whichever side stores them: each entry's kind is the other contact's role relative to this one (X is Y's parent ⇔ Y is X's child) and its label this contact's own name for them. Set includeInferred=true to also return kin derived from the parent/child graph (siblings, grandparents/-children, aunts/uncles, cousins, nieces/nephews), each tagged provenance=Inferred.")]
     public static async Task<IReadOnlyList<ContactRelationEntryDto>> ListContactRelations(
-        ContactService contacts, CurrentUser user,
+        RelationshipService relationships, CurrentUser user,
         [Description("The contact whose relations to list.")] Guid contactId,
         [Description("Also return kin derived from the parent/child graph, tagged provenance=Inferred.")] bool includeInferred = false)
     {
         var u = await user.GetAsync();
-        return Require(await contacts.ListRelationsAsync(u.Id, contactId, includeInferred));
+        return Require(await relationships.ListAsync(u.Id, contactId, includeInferred));
     }
 
     [McpServerTool(Name = "list_contact_circles")]

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
+public sealed class ContactsHandler(CurrentUser user, ContactService contacts, RelationshipService relationships)
 {
     public async Task<Results<Ok<List<ContactDto>>, ProblemHttpResult, UnauthorizedHttpResult>> QueryAsync(string? query, Guid? addressBookId, CancellationToken ct)
     {
@@ -84,25 +84,25 @@ public sealed class ContactsHandler(CurrentUser user, ContactService contacts)
     public async Task<Results<Ok<List<ContactRelationEntryDto>>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> ListRelationsAsync(Guid id, bool includeInferred, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.ListRelationsAsync(u.Id, id, includeInferred, ct));
+        return OpResultMap.OkNotFoundProblem(await relationships.ListAsync(u.Id, id, includeInferred, ct));
     }
 
     public async Task<Results<Ok<ContactRelationEntryDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> AddRelationAsync(Guid id, AddContactRelationRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.AddRelationAsync(u.Id, id, body, ct));
+        return OpResultMap.OkNotFoundProblem(await relationships.UpsertAsync(u.Id, id, body, ct));
     }
 
     public async Task<Results<NoContent, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> RemoveRelationAsync(Guid id, Guid toContactId, ContactRelationKind kind, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.NoContentNotFoundProblem(await contacts.RemoveRelationAsync(u.Id, id, toContactId, kind, ct));
+        return OpResultMap.NoContentNotFoundProblem(await relationships.RemoveAsync(u.Id, id, toContactId, kind, ct));
     }
 
     public async Task<Results<Ok<ContactRelationEntryDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> EndRelationAsync(Guid id, Guid toContactId, EndContactRelationRequest body, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
-        return OpResultMap.OkNotFoundProblem(await contacts.EndRelationAsync(u.Id, id, toContactId, body.Kind, body.Until, ct));
+        return OpResultMap.OkNotFoundProblem(await relationships.EndAsync(u.Id, id, toContactId, body.Kind, body.Until, ct));
     }
 
     public async Task<Results<Ok<ContactDto>, NotFound, ProblemHttpResult, UnauthorizedHttpResult>> SetDeceasedAsync(Guid id, SetDeceasedRequest body, Guid? idempotencyKey, CancellationToken ct)

@@ -1,4 +1,5 @@
 using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Serialization;
@@ -8,6 +9,6 @@ namespace LupiraContactApi.Core.Serialization;
 /// the existing value then, instead of clearing it.</summary>
 public sealed record ParsedContact(
     string FullName, string? GivenName, string? FamilyName, string? Organization,
-    ContactReachChannel[]? Channels, PartialDate? Birthday, ContactRelation[]? Relations,
+    ContactReachChannel[]? Channels, PartialDate? Birthday, ResolvedRelation[]? Relations,
     Guid[]? EmergencyContactIds, ContactSocialProfile[]? Profiles, bool? Deceased, DateOnly? DeathDate,
     string? Notes = null, string? Pronouns = null, ContactKind? Kind = null);

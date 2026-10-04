@@ -33,7 +33,6 @@ internal static class ContactMapper
         Addresses = c.Addresses,
         Profiles = [.. c.Profiles.Select(ToResponse)],
         EmergencyContactIds = c.EmergencyContactIds,
-        Relations = [.. c.Relations.Select(ToResponse)],
         Metadata = JsonNode.Parse(string.IsNullOrWhiteSpace(c.Metadata) ? "{}" : c.Metadata),
         Completeness = completeness,
         CreatedAt = c.CreatedAt,
@@ -50,17 +49,6 @@ internal static class ContactMapper
         Handle = p.Handle,
         Url = p.Url,
         Preferred = p.Preferred,
-    };
-
-    public static ContactRelationDto ToResponse(this ContactRelation r) => new()
-    {
-        ToContactId = r.ToContactId,
-        Kind = r.Kind,
-        Label = r.Label,
-        Since = r.Since,
-        Note = r.Note,
-        Ended = r.Ended,
-        Until = r.Until,
     };
 
     public static ContactRelationEntryDto ToEntry(this ResolvedRelation v, Contact other) => new()

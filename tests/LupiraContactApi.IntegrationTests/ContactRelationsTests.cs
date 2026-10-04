@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
+using LupiraContactApi.Core.Dtos.Sync;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -28,6 +29,9 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
 
     static async Task<ContactDto> RawAsync(HttpClient api, Guid id) => (await api.GetFromJsonAsync<ContactDto>($"/contacts/{id}"))!;
 
+    static async Task<string> RelationshipCursorAsync(HttpClient api) =>
+        (await api.GetFromJsonAsync<RelationshipChangesResponse>("/sync/relationships"))!.Cursor;
+
     [Fact]
     public async Task A_relationship_reads_the_same_from_both_sides()
     {
@@ -38,7 +42,7 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
 
         var added = await AddRelationAsync(api, y.Id, x.Id, ContactRelationKind.Parent, "dad", new DateOnly(1990, 1, 1));
         Assert.Equal((x.Id, ContactRelationKind.Parent, "dad"), (added.ContactId, added.Kind, added.Label));
-        Assert.NotEqual(y.Etag, (await RawAsync(api, y.Id)).Etag);   // stored copies are part of the canonical vCard
+        Assert.Equal(y.Etag, (await RawAsync(api, y.Id)).Etag);   // a relationship is its own record, not contact content
 
         var fromY = Assert.Single(await RelationsAsync(api, y.Id));
         Assert.Equal((x.Id, ContactRelationKind.Parent, "dad", new DateOnly(1990, 1, 1)), (fromY.ContactId, fromY.Kind, fromY.Label, fromY.Since));
@@ -65,7 +69,7 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
     }
 
     [Fact]
-    public async Task An_unlabelled_edit_from_the_other_side_revises_the_held_copy_in_place()
+    public async Task An_edit_from_the_other_side_keeps_each_sides_label()
     {
         var api = Factory.ApiClient(Email);
         var abId = await CreateAddressBookAsync(api);
@@ -76,9 +80,9 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
         var revised = await AddRelationAsync(api, b.Id, a.Id, ContactRelationKind.Friend, since: new DateOnly(2001, 9, 1));
         Assert.Equal(new DateOnly(2001, 9, 1), revised.Since);
 
-        Assert.Empty((await RawAsync(api, b.Id)).Relations);   // no second copy for data that isn't B's own
-        var held = Assert.Single((await RawAsync(api, a.Id)).Relations);
-        Assert.Equal(("bestie", new DateOnly(2001, 9, 1)), (held.Label, held.Since));
+        Assert.Null(revised.Label);
+        var fromA = Assert.Single(await RelationsAsync(api, a.Id));
+        Assert.Equal(("bestie", new DateOnly(2001, 9, 1)), (fromA.Label, fromA.Since));
     }
 
     [Fact]
@@ -90,13 +94,13 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
         var b = await CreateContactAsync(api, abId, "B", "Two");
 
         await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Parent, "dad");
-        var first = (await RawAsync(api, a.Id)).Etag;
+        var cursor = await RelationshipCursorAsync(api);
         await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Parent, "dad");
-        Assert.Equal(first, (await RawAsync(api, a.Id)).Etag);   // no event appended, no ETag churn
+        Assert.Equal(cursor, await RelationshipCursorAsync(api));   // no event appended
 
         var relabeled = await AddRelationAsync(api, a.Id, b.Id, ContactRelationKind.Parent, "father");
         Assert.Equal("father", relabeled.Label);
-        Assert.NotEqual(first, (await RawAsync(api, a.Id)).Etag);
+        Assert.NotEqual(cursor, await RelationshipCursorAsync(api));
     }
 
     [Fact]
@@ -145,13 +149,11 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
         // Alice has no access to Bob's book: she can't relate to his contact.
         Assert.Equal(HttpStatusCode.Forbidden, (await PostRelationAsync(alice, x.Id, y.Id, ContactRelationKind.Friend)).StatusCode);
 
-        // Bob can read (not write) Alice's book. Relating from her contact lands on his side, which he can write...
+        // Bob can read (not write) Alice's book. Write on his own contact's book is enough to relate the two, from either card...
         await alice.PostAsJsonAsync($"/address-books/{aliceBook}/owners", new GrantOwnerRequest { Email = "bob@x.test", Access = "read" });
-        var fromHers = await AddRelationAsync(bob, x.Id, y.Id, ContactRelationKind.Friend);
-        Assert.Equal(y.Id, fromHers.ContactId);
-        Assert.Empty((await RawAsync(bob, x.Id)).Relations);
+        Assert.Equal(y.Id, (await AddRelationAsync(bob, x.Id, y.Id, ContactRelationKind.Friend)).ContactId);
 
-        // ...but a label is her contact's own name for his, so it would have to be written on her side.
+        // ...but a label is her contact's own word for his, so it needs write on her book.
         Assert.Equal(HttpStatusCode.Forbidden, (await PostRelationAsync(bob, x.Id, y.Id, ContactRelationKind.Friend, "pal")).StatusCode);
     }
 
@@ -173,7 +175,7 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
     }
 
     [Fact]
-    public async Task Deleted_target_is_filtered_from_the_listing_but_the_stored_copy_stays()
+    public async Task Deleted_contact_hides_the_relationship_until_it_is_restored()
     {
         var api = Factory.ApiClient(Email);
         var abId = await CreateAddressBookAsync(api);
@@ -184,6 +186,9 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
         await api.DeleteAsync($"/contacts/{b.Id}");
 
         Assert.Empty(await RelationsAsync(api, a.Id));
-        Assert.Equal(b.Id, Assert.Single((await RawAsync(api, a.Id)).Relations).ToContactId);   // no-FK convention: kept, filtered on read
+
+        // No-FK convention: the relationship was kept, only filtered — a re-import of the same uid brings it back.
+        (await PutVcfAsync(api, Email, abId, b.ExternalId, MinimalVcf(b.ExternalId, "B Two"))).EnsureSuccessStatusCode();
+        Assert.Equal(b.Id, Assert.Single(await RelationsAsync(api, a.Id)).ContactId);
     }
 }

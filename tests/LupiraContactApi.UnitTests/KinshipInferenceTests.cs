@@ -1,15 +1,15 @@
-using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Inference;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 using Xunit;
 
 namespace LupiraContactApi.UnitTests;
 
-/// <summary>Pure kinship derivation over an in-memory contact set — parent/child edges read from either storage side,
-/// two-generation closure, explicit-edge precedence.</summary>
+/// <summary>Pure kinship derivation over in-memory relationships — parent/child stated from either side,
+/// two-generation closure, explicit-relationship precedence.</summary>
 public class KinshipInferenceTests
 {
-    // A three-generation family with parentage stored on mixed sides:
+    // A three-generation family with parentage stated from mixed sides:
     //   A --Parent--> P,  P --Child--> B,  P --Parent--> G,  G --Child--> U,  U --Child--> C
     // So: G is grandparent of A/B; P & U are G's children (siblings); A & B are P's children; C is U's child.
     private static readonly Guid G = new("11111111-1111-1111-1111-111111111111");
@@ -19,21 +19,21 @@ public class KinshipInferenceTests
     private static readonly Guid B = new("55555555-5555-5555-5555-555555555555");
     private static readonly Guid C = new("66666666-6666-6666-6666-666666666666");
 
-    private static Contact Person(Guid id, params (Guid to, ContactRelationKind kind)[] rels) =>
-        new() { Id = id, Relations = [.. rels.Select(r => new ContactRelation { ToContactId = r.to, Kind = r.kind })] };
+    private static Relationship Rel(Guid self, Guid other, ContactRelationKind kind, bool ended = false) => TestRelationships.Of(self, other, kind, ended);
 
-    private static List<Contact> Family() =>
+    private static List<Relationship> Family() =>
     [
-        Person(G, (U, ContactRelationKind.Child)),
-        Person(P, (G, ContactRelationKind.Parent), (B, ContactRelationKind.Child)),
-        Person(U, (C, ContactRelationKind.Child)),
-        Person(A, (P, ContactRelationKind.Parent)),
-        Person(B),
-        Person(C),
+        Rel(G, U, ContactRelationKind.Child),
+        Rel(P, G, ContactRelationKind.Parent),
+        Rel(P, B, ContactRelationKind.Child),
+        Rel(U, C, ContactRelationKind.Child),
+        Rel(A, P, ContactRelationKind.Parent),
     ];
 
-    private static Dictionary<Guid, ContactRelationKind> Infer(Guid focus, IReadOnlyCollection<Contact> contacts) =>
-        KinshipInference.Infer(focus, contacts).ToDictionary(k => k.ContactId, k => k.Kind);
+    // Everyone named in the relationships is known (readable).
+    private static Dictionary<Guid, ContactRelationKind> Infer(Guid focus, IReadOnlyCollection<Relationship> relationships) =>
+        KinshipInference.Infer(focus, relationships.SelectMany(r => new[] { r.Low, r.High }).ToHashSet(), relationships)
+            .ToDictionary(k => k.ContactId, k => k.Kind);
 
     [Fact]
     public void Infers_the_two_generation_closure_around_a_child()
@@ -54,8 +54,8 @@ public class KinshipInferenceTests
         Assert.Equal(ContactRelationKind.Grandchild, kin[A]);
         Assert.Equal(ContactRelationKind.Grandchild, kin[B]);
         Assert.Equal(ContactRelationKind.Grandchild, kin[C]);
-        Assert.False(kin.ContainsKey(P));   // explicit child (incoming Parent edge)
-        Assert.False(kin.ContainsKey(U));   // explicit child (outgoing Child edge)
+        Assert.False(kin.ContainsKey(P));   // explicit child, stated from P
+        Assert.False(kin.ContainsKey(U));   // explicit child, stated from G
     }
 
     [Fact]
@@ -68,60 +68,45 @@ public class KinshipInferenceTests
     }
 
     [Fact]
-    public void Derives_siblings_from_a_shared_parent_regardless_of_storage_side()
+    public void Derives_siblings_from_a_shared_parent_whichever_side_stated_it()
     {
-        // X stores its parent; Y's parentage is stored on the parent as a Child edge. Still siblings.
+        // X's parentage was stated from X; Y's from the parent, as Child. Still siblings.
         var parent = Guid.NewGuid();
         var x = Guid.NewGuid();
         var y = Guid.NewGuid();
-        var contacts = new List<Contact>
-        {
-            Person(x, (parent, ContactRelationKind.Parent)),
-            Person(parent, (y, ContactRelationKind.Child)),
-            Person(y),
-        };
-        Assert.Equal(ContactRelationKind.Sibling, Infer(x, contacts)[y]);
-        Assert.Equal(ContactRelationKind.Sibling, Infer(y, contacts)[x]);
+        List<Relationship> relationships = [Rel(x, parent, ContactRelationKind.Parent), Rel(parent, y, ContactRelationKind.Child)];
+        Assert.Equal(ContactRelationKind.Sibling, Infer(x, relationships)[y]);
+        Assert.Equal(ContactRelationKind.Sibling, Infer(y, relationships)[x]);
     }
 
     [Fact]
     public void Explicit_edges_win_over_inferred_kinship()
     {
         var family = Family();
-        // Pin an explicit Friend edge A→C; C must not also surface as an inferred cousin.
-        family.Single(c => c.Id == A).Relations.Add(new ContactRelation { ToContactId = C, Kind = ContactRelationKind.Friend });
+        // Pin an explicit Friend relationship A–C; C must not also surface as an inferred cousin.
+        family.Add(Rel(A, C, ContactRelationKind.Friend));
         Assert.False(Infer(A, family).ContainsKey(C));
     }
 
     [Fact]
     public void Explicit_sibling_partner_is_excluded_from_inferred_results()
     {
-        // An explicit Sibling edge is surfaced as an explicit relation (ListRelationsAsync), so inference omits it —
-        // that exclusion is what lets explicit edges and shared-parent inference coexist without double-listing.
+        // An explicit Sibling relationship is listed as explicit, so inference omits it — that exclusion is what lets
+        // explicit relationships and shared-parent inference coexist without double-listing.
         var x = Guid.NewGuid();
         var y = Guid.NewGuid();
-        var contacts = new List<Contact>
-        {
-            Person(x, (y, ContactRelationKind.Sibling)),
-            Person(y),
-        };
-        Assert.False(Infer(x, contacts).ContainsKey(y));
+        Assert.False(Infer(x, [Rel(x, y, ContactRelationKind.Sibling)]).ContainsKey(y));
     }
 
     [Fact]
     public void Ended_edges_are_excluded_from_the_kinship_graph()
     {
-        // X's parent edge is ended (estrangement modeling aside, the graph must not assert it) — no sibling inference via it.
+        // X's parent relationship is ended (estrangement modeling aside, the graph must not assert it) — no sibling inference via it.
         var parent = Guid.NewGuid();
         var x = Guid.NewGuid();
         var y = Guid.NewGuid();
-        var contacts = new List<Contact>
-        {
-            new() { Id = x, Relations = [new ContactRelation { ToContactId = parent, Kind = ContactRelationKind.Parent, Ended = true }] },
-            Person(parent, (y, ContactRelationKind.Child)),
-            Person(y),
-        };
-        Assert.False(Infer(x, contacts).ContainsKey(y));
+        List<Relationship> relationships = [Rel(x, parent, ContactRelationKind.Parent, ended: true), Rel(parent, y, ContactRelationKind.Child)];
+        Assert.False(Infer(x, relationships).ContainsKey(y));
     }
 
     [Fact]
@@ -130,16 +115,15 @@ public class KinshipInferenceTests
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
         var c = Guid.NewGuid();
-        var contacts = new List<Contact>
-        {
-            Person(a, (b, ContactRelationKind.Parent)),   // b is a's parent
-            Person(b, (c, ContactRelationKind.Parent)),   // c is b's parent
-            Person(c),
-        };
-        Assert.True(KinshipInference.WouldCreateParentCycle(a, a, contacts));    // self
-        Assert.True(KinshipInference.WouldCreateParentCycle(b, a, contacts));    // direct: a is b's child
-        Assert.True(KinshipInference.WouldCreateParentCycle(c, a, contacts));    // transitive: a → b → c
-        Assert.False(KinshipInference.WouldCreateParentCycle(a, c, contacts));   // c is already a's ancestor — no new cycle
+        List<Relationship> relationships =
+        [
+            Rel(a, b, ContactRelationKind.Parent),   // b is a's parent
+            Rel(b, c, ContactRelationKind.Parent),   // c is b's parent
+        ];
+        Assert.True(KinshipInference.WouldCreateParentCycle(a, a, relationships));    // self
+        Assert.True(KinshipInference.WouldCreateParentCycle(b, a, relationships));    // direct: a is b's child
+        Assert.True(KinshipInference.WouldCreateParentCycle(c, a, relationships));    // transitive: a → b → c
+        Assert.False(KinshipInference.WouldCreateParentCycle(a, c, relationships));   // c is already a's ancestor — no new cycle
     }
 
     [Fact]
@@ -149,12 +133,7 @@ public class KinshipInferenceTests
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
         var other = Guid.NewGuid();
-        var contacts = new List<Contact>
-        {
-            Person(a, (b, ContactRelationKind.Parent)),
-            Person(b, (a, ContactRelationKind.Parent)),
-            Person(other),
-        };
-        Assert.False(KinshipInference.WouldCreateParentCycle(other, a, contacts));
+        List<Relationship> relationships = [Rel(a, b, ContactRelationKind.Parent), Rel(b, a, ContactRelationKind.Parent)];
+        Assert.False(KinshipInference.WouldCreateParentCycle(other, a, relationships));
     }
 }

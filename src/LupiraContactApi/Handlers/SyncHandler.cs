@@ -8,13 +8,20 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LupiraContactApi.Handlers;
 
-/// <summary>The offline-client sync surface: the paged changes feed + the containers snapshot.</summary>
-public sealed class SyncHandler(CurrentUser user, SyncFeed feed, AddressBookService books, ContactGroupService groups)
+/// <summary>The offline-client sync surface: the paged contact changes feed, the relationship changes feed, and the
+/// containers snapshot.</summary>
+public sealed class SyncHandler(CurrentUser user, SyncFeed feed, RelationshipFeed relationships, AddressBookService books, ContactGroupService groups)
 {
     public async Task<Results<Ok<SyncChangesResponse>, ProblemHttpResult, UnauthorizedHttpResult>> ChangesAsync(string? since, int? limit, CancellationToken ct)
     {
         var u = await user.GetAsync(ct);
         return OpResultMap.OkProblem(await feed.ChangesAsync(u.Id, since, limit, ct));
+    }
+
+    public async Task<Results<Ok<RelationshipChangesResponse>, ProblemHttpResult, UnauthorizedHttpResult>> RelationshipsAsync(string? since, CancellationToken ct)
+    {
+        var u = await user.GetAsync(ct);
+        return OpResultMap.OkProblem(await relationships.ChangesAsync(u.Id, since, ct));
     }
 
     public async Task<Results<Ok<SyncContainersResponse>, ProblemHttpResult, UnauthorizedHttpResult>> ContainersAsync(CancellationToken ct)

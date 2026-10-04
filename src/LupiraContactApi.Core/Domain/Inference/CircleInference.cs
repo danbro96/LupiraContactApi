@@ -1,17 +1,18 @@
 using LupiraContactApi.Core.Domain.ContactGroups;
 using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.Inference;
 
-/// <summary>Derives social circles around a focus contact from relation edges, the kinship graph, shared organization
+/// <summary>Derives social circles around a focus contact from relationships, the kinship graph, shared organization
 /// membership, and shared home places. Pure over supplied data like <see cref="KinshipInference"/>; computed on read,
-/// never stored. Ended edges assert no current relationship and are ignored.</summary>
+/// never stored. Ended relationships assert no current tie and are ignored.</summary>
 public static class CircleInference
 {
     public static IReadOnlyList<CircleMembership> Infer(
-        Guid focusId, IReadOnlyCollection<Contact> contacts, IReadOnlyCollection<ContactGroup> organizations,
-        DateOnly? today = null)
+        Guid focusId, IReadOnlyCollection<Contact> contacts, IReadOnlyCollection<Relationship> relationships,
+        IReadOnlyCollection<ContactGroup> organizations, DateOnly? today = null)
     {
         var day = today ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var known = contacts.Select(c => c.Id).ToHashSet();
@@ -26,36 +27,17 @@ public static class CircleInference
             if (seen.Add(id)) result.Add(new CircleMembership(circle, id, kind, degree, provenance));
         }
 
-        // Explicit live edges, both directions, resolved to the other contact's role relative to the focus.
-        // Extended kinds land here too when stored explicitly (linking relative not a contact); CircleOf keeps
-        // them consistent with the inferred ones, and per-circle dedup lets an explicit membership win.
-        foreach (var c in contacts)
+        // Explicit live relationships, seen from the focus. Extended kinds land here too when stored explicitly (linking
+        // relative not a contact); CircleOf keeps them consistent with the inferred ones, and per-circle dedup lets an
+        // explicit membership win.
+        foreach (var r in relationships.Where(r => r.IsLive && !r.Ended && r.Involves(focusId)))
         {
-            foreach (var r in c.Relations.Where(r => !r.Ended))
-            {
-                Guid other;
-                ContactRelationKind kind;
-                if (c.Id == focusId)
-                {
-                    other = r.ToContactId;
-                    kind = r.Kind;
-                }
-                else if (r.ToContactId == focusId)
-                {
-                    other = c.Id;
-                    kind = r.Kind.Inverse();
-                }
-                else
-                {
-                    continue;
-                }
-
-                if (CircleOf(kind) is ({ } ck, var degree)) Add(ck, other, kind, degree, RelationProvenance.Explicit);
-            }
+            var kind = r.Key.KindSeenFrom(focusId);
+            if (CircleOf(kind) is ({ } ck, var degree)) Add(ck, r.Key.OtherThan(focusId), kind, degree, RelationProvenance.Explicit);
         }
 
         // Kinship graph: inferred siblings are close family; two-generation kin and cousins are extended.
-        foreach (var kin in KinshipInference.Infer(focusId, contacts))
+        foreach (var kin in KinshipInference.Infer(focusId, known, relationships))
             if (CircleOf(kin.Kind) is ({ } ck, var degree)) Add(ck, kin.ContactId, kin.Kind, degree, RelationProvenance.Inferred);
 
         // Shared employer: co-members of a live Organization-kind group.

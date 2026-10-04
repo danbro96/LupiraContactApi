@@ -1,20 +1,20 @@
-using LupiraContactApi.Core.Domain.Contacts;
+using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.Inference;
 
 /// <summary>
-/// Derives family relationships from stored <c>Parent</c>/<c>Child</c>/<c>Sibling</c> edges (read from either storage
-/// side). Bounded to a two-generation closure: siblings, grandparents/grandchildren, aunts-uncles, nieces-nephews, cousins.
+/// Derives family relationships from stored <c>Parent</c>/<c>Child</c>/<c>Sibling</c> relationships. Bounded to a two-generation closure: siblings, grandparents/grandchildren, aunts-uncles, nieces-nephews, cousins.
 /// </summary>
 public static class KinshipInference
 {
     /// <summary>Inferred kin of <paramref name="focusId"/>, one role per contact (closest wins), excluding the focus and
-    /// anyone it already relates to explicitly (explicit edges win — the caller surfaces those separately).</summary>
-    public static IReadOnlyList<InferredKin> Infer(Guid focusId, IReadOnlyCollection<Contact> contacts)
+    /// anyone it already relates to explicitly (explicit relationships win — the caller surfaces those separately). Only
+    /// <paramref name="known"/> contacts are returned.</summary>
+    public static IReadOnlyList<InferredKin> Infer(Guid focusId, IReadOnlySet<Guid> known, IEnumerable<Relationship> relationships)
     {
-        var g = new Graph(contacts);
-        if (!g.Known.Contains(focusId)) return [];
+        if (!known.Contains(focusId)) return [];
+        var g = new Graph(relationships);
 
         var explicitPartners = g.ExplicitPartners(focusId);
         var parents = g.Parents(focusId);
@@ -37,7 +37,7 @@ public static class KinshipInference
         foreach (var (kind, ids) in buckets)
             foreach (var id in ids)
             {
-                if (g.Known.Contains(id) && seen.Add(id))
+                if (known.Contains(id) && seen.Add(id))
                     result.Add(new InferredKin(id, kind));
             }
 
@@ -46,10 +46,10 @@ public static class KinshipInference
 
     /// <summary>True when recording <paramref name="parentId"/> as a parent of <paramref name="childId"/> would make
     /// someone their own ancestor. BFS over transitive parents; the visited set keeps pre-existing bad data from looping.</summary>
-    public static bool WouldCreateParentCycle(Guid childId, Guid parentId, IReadOnlyCollection<Contact> contacts)
+    public static bool WouldCreateParentCycle(Guid childId, Guid parentId, IEnumerable<Relationship> relationships)
     {
         if (childId == parentId) return true;
-        var g = new Graph(contacts);
+        var g = new Graph(relationships);
         var queue = new Queue<Guid>([parentId]);
         var visited = new HashSet<Guid> { parentId };
         while (queue.TryDequeue(out var current))
@@ -64,29 +64,25 @@ public static class KinshipInference
         return false;
     }
 
-    // Undirected adjacency over parent/child/sibling edges, reading each edge from whichever side stored it.
+    // Adjacency over live parent/child/sibling relationships ("High is Low's Kind"); ended ones assert no current kinship.
     private sealed class Graph
     {
-        public readonly HashSet<Guid> Known;
         private readonly Dictionary<Guid, HashSet<Guid>> _parents = new();   // x -> parents of x
         private readonly Dictionary<Guid, HashSet<Guid>> _children = new();  // x -> children of x
         private readonly Dictionary<Guid, HashSet<Guid>> _siblings = new();  // x -> explicit siblings of x
         private readonly Dictionary<Guid, HashSet<Guid>> _partners = new();  // x -> explicit edge partners (any kind)
 
-        public Graph(IReadOnlyCollection<Contact> contacts)
+        public Graph(IEnumerable<Relationship> relationships)
         {
-            Known = [.. contacts.Select(c => c.Id)];
-            foreach (var c in contacts)
+            foreach (var r in relationships.Where(r => r.IsLive && !r.Ended))
             {
-                foreach (var r in c.Relations.Where(r => !r.Ended)) // ended edges assert no current kinship
+                Link(_partners, r.Low, r.High);
+                Link(_partners, r.High, r.Low);
+                switch (r.Kind)
                 {
-                    Link(_partners, c.Id, r.ToContactId);
-                    switch (r.Kind)
-                    {
-                        case ContactRelationKind.Parent: Link(_parents, c.Id, r.ToContactId); Link(_children, r.ToContactId, c.Id); break;
-                        case ContactRelationKind.Child: Link(_children, c.Id, r.ToContactId); Link(_parents, r.ToContactId, c.Id); break;
-                        case ContactRelationKind.Sibling: Link(_siblings, c.Id, r.ToContactId); Link(_siblings, r.ToContactId, c.Id); break;
-                    }
+                    case ContactRelationKind.Parent: Link(_parents, r.Low, r.High); Link(_children, r.High, r.Low); break;
+                    case ContactRelationKind.Child: Link(_children, r.Low, r.High); Link(_parents, r.High, r.Low); break;
+                    case ContactRelationKind.Sibling: Link(_siblings, r.Low, r.High); Link(_siblings, r.High, r.Low); break;
                 }
             }
         }
@@ -104,12 +100,7 @@ public static class KinshipInference
             return s;
         }
 
-        public IReadOnlyCollection<Guid> ExplicitPartners(Guid x)
-        {
-            var s = new HashSet<Guid>(Get(_partners, x));
-            foreach (var c in _partners) if (c.Value.Contains(x)) s.Add(c.Key);   // partners stored on the other side
-            return s;
-        }
+        public IReadOnlyCollection<Guid> ExplicitPartners(Guid x) => Get(_partners, x);
 
         private static void Link(Dictionary<Guid, HashSet<Guid>> map, Guid from, Guid to)
         {

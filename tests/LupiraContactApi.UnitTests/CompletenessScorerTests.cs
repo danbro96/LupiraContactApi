@@ -19,8 +19,6 @@ public class CompletenessScorerTests
         DeathDate = deathDate,
     };
 
-    private static ContactRelation Edge() => new() { ToContactId = Guid.NewGuid(), Kind = ContactRelationKind.Child };
-
     [Fact]
     public void Version_is_4() => Assert.Equal(4, CompletenessScorer.Version);
 
@@ -47,8 +45,7 @@ public class CompletenessScorerTests
     public void Deceased_contact_with_name_birthday_deathdate_and_kin_is_complete()
     {
         var c = Person(deceased: true, deathDate: new DateOnly(2020, 3, 14));
-        c.Relations = [Edge()];
-        var s = CompletenessScorer.ScoreContact(c, hasOrganisation: false)!;
+        var s = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true)!;
         Assert.Equal(1, s.Score);
         Assert.Empty(s.Gaps);
     }
@@ -124,15 +121,11 @@ public class CompletenessScorerTests
     }
 
     [Fact]
-    public void Relations_credit_own_or_inbound_edges()
+    public void Relations_credit_any_relationship()
     {
         var c = Person();
         Assert.Contains(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "relations");
-
-        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false, hasInboundRelations: true)!.Gaps, g => g.Field == "relations");
-
-        c.Relations = [Edge()];
-        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false)!.Gaps, g => g.Field == "relations");
+        Assert.DoesNotContain(CompletenessScorer.ScoreContact(c, false, hasRelationships: true)!.Gaps, g => g.Field == "relations");
     }
 
     [Fact]
@@ -151,13 +144,12 @@ public class CompletenessScorerTests
     {
         var c = Person();
         c.Channels = [new ContactReachChannel(ReachMedium.Phone, "+46123", null, false)];
-        c.Relations = [Edge()];
         c.Addresses = [new ContactPostalAddress { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Home }];
-        var before = CompletenessScorer.ScoreContact(c, hasOrganisation: false)!;
+        var before = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true)!;
         Assert.Contains(before.Gaps, g => g.Field is "organisation" or "secondaryReach");
 
         c.Metadata = """{"completeness":{"na":["organisation","secondaryReach"]}}""";
-        var after = CompletenessScorer.ScoreContact(c, hasOrganisation: false)!;
+        var after = CompletenessScorer.ScoreContact(c, hasOrganisation: false, hasRelationships: true)!;
         Assert.Equal(1, after.Score);
         Assert.Empty(after.Gaps);
     }

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using LupiraContactApi.Auth;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Shared;
+using LupiraContactApi.Core.Upgrades;
 using LupiraContactApi.Dav;
 using LupiraContactApi.Endpoints;
 using LupiraContactApi.Handlers;
@@ -36,6 +37,7 @@ builder.Services.AddScoped<ContactsHandler>();
 builder.Services.AddScoped<ContactGroupsHandler>();
 builder.Services.AddScoped<InternalContactsHandler>();
 builder.Services.AddScoped<SyncHandler>();
+builder.Services.AddScoped<RelationshipsHandler>();
 builder.Services.AddScoped<DavBackendHandler>();
 
 // --- Auth: OIDC JWT for the REST/MCP surface; the /dav-backend seam additionally requires the DAV
@@ -278,6 +280,16 @@ if (args.Contains("--rebuild-contacts"))
     return;
 }
 
+// One-shot move of the legacy per-contact relation copies onto Relationship streams (deploy step, before
+// --rebuild-contacts drops the copies from the contact snapshots). Idempotent.
+if (args.Contains("--migrate-relationships"))
+{
+    using var scope = app.Services.CreateScope();
+    var started = await scope.ServiceProvider.GetRequiredService<RelationshipMigration>().RunAsync();
+    Console.WriteLine($"Relationships migrated: {started} started.");
+    return;
+}
+
 // Behind the Cloudflare Tunnel the public host differs from the container, so honor forwarded headers.
 var forwarded = new ForwardedHeadersOptions
 {
@@ -316,6 +328,7 @@ app.MapMe();
 app.MapAddressBooks();
 app.MapContacts();
 app.MapContactGroups();
+app.MapRelationships();
 app.MapSync();
 
 // Service-to-service seams (LAN-only).

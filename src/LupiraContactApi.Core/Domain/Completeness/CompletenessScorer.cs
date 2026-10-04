@@ -8,15 +8,15 @@ namespace LupiraContactApi.Core.Domain.Completeness;
 
 /// <summary>
 /// Pure, kind-aware completeness rubric for contacts. Scores <em>presence</em>, not quality — crude on purpose,
-/// enough to rank thin-vs-rich. Organisation membership lives on a separate <see cref="ContactGroup"/> and relation
-/// edges may point inward from other aggregates, so both are decided by the caller and passed in. A field acknowledged
+/// enough to rank thin-vs-rich. Organisation membership lives on a separate <see cref="ContactGroup"/> and relationships
+/// on their own aggregate, so both are decided by the caller and passed in. A field acknowledged
 /// as inapplicable via metadata <c>completeness.na</c> (grandma has no employer) is dropped from the rubric entirely.
 /// </summary>
 public static class CompletenessScorer
 {
     public const int Version = 4;
 
-    public static CompletenessScore? ScoreContact(Contact c, bool hasOrganisation, bool hasInboundRelations = false)
+    public static CompletenessScore? ScoreContact(Contact c, bool hasOrganisation, bool hasRelationships = false)
     {
         // An organisation/venue card (a booking provider, say) carries no person facts — name, reach, and address are the record.
         var fields = c.Kind == ContactKind.Organization
@@ -34,7 +34,7 @@ public static class CompletenessScorer
                     ("name", 1, Name(c)),
                     ("birthday", 1, Birthday(c)),
                     ("deathDate", 1, c.DeathDate is not null ? 1 : 0),
-                    ("relations", 1, Relations(c, hasInboundRelations)),
+                    ("relations", 1, hasRelationships ? 1 : 0),
                 }
                 : new List<(string, double, double)>
                 {
@@ -44,7 +44,7 @@ public static class CompletenessScorer
                     ("birthday", 1, Birthday(c)),
                     ("postalAddress", 1, PostalAddress(c)),
                     ("organisation", 1, hasOrganisation ? 1 : 0),
-                    ("relations", 1, Relations(c, hasInboundRelations)),
+                    ("relations", 1, hasRelationships ? 1 : 0),   // ended ones still document the connection
                 };
 
         var na = NaFields(c.Metadata);
@@ -100,7 +100,4 @@ public static class CompletenessScorer
     // Redundancy across mediums, not entries: two emails are one medium; all social profiles count as one.
     private static int DistinctMediums(Contact c) =>
         c.Channels.Select(ch => ch.Medium).Distinct().Count() + (c.Profiles.Count > 0 ? 1 : 0);
-
-    // Own edges (ended ones still document the connection) or edges pointing inward from other contacts.
-    private static double Relations(Contact c, bool inbound) => c.Relations.Count > 0 || inbound ? 1 : 0;
 }

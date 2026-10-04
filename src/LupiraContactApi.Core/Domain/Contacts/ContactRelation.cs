@@ -2,10 +2,8 @@ using LupiraContactApi.Core.Domain.Shared;
 
 namespace LupiraContactApi.Core.Domain.Contacts;
 
-/// <summary>A typed, directed relation edge embedded in the owning contact's snapshot: "the To contact is my Kind".
-/// Keyed by (ToContactId, Kind); <c>Label</c> is a free-text refinement ("dad"). <c>Ended</c>/<c>Until</c> mark a
-/// relationship that ran its course (ex-spouse) — distinct from removal, which means the edge was a mistake.
-/// No FK — the target may be deleted or unreadable; resolved read surfaces filter.</summary>
+/// <summary>A relation copy as legacy contact events carried it: "the To contact is my Kind", keyed by (ToContactId, Kind).
+/// Legacy: relationships are their own aggregate now (<see cref="Relationships.Relationship"/>); kept so old contact streams still deserialize, and read only by the relationships migration.</summary>
 public sealed class ContactRelation
 {
     public Guid ToContactId { get; set; }

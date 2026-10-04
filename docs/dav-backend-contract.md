@@ -7,7 +7,7 @@ backends that hold DAV-projected data:
 |---|---|---|---|
 | lupira-cal-api | `EventCalendar` | `text/calendar` (VEVENT) | `ContentHash` of the canonical ICS |
 | lupira-tasks-api | `TodoList` | `text/calendar` (VTODO) | Marten stream `Version` |
-| lupira-contact-api | `AddressBook` | `text/vcard` (3.0) | `ContentHash` of the canonical vCard |
+| lupira-contact-api | `AddressBook` | `text/vcard` (3.0) | `ContentHash` of the contact plus the relationships its card shows |
 
 Design invariants:
 
@@ -76,4 +76,4 @@ Optional `If-Match`. → `204` | `403` | `404` | `412`.
 `since` absent/unknown/unparsable → full listing (`changed` = all live, `deleted` empty) —
 self-healing full resync. `deleted` entries are tombstones the gateway renders as 404-status
 responses in the sync REPORT. A resource moved to another collection is a tombstone in the one it
-left and a change in the one it joined.
+left and a change in the one it joined. A relationship edit is a change on both contacts' cards.

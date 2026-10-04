@@ -15,6 +15,12 @@ public static class SyncEndpoints
             .Produces<SyncChangesResponse>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);
 
+        group.MapGet("/relationships", (string? since, SyncHandler h, CancellationToken ct) => h.RelationshipsAsync(since, ct))
+            .WithName("GetRelationshipChanges")
+            .WithSummary("Delta feed of relationships for offline mirrors: those whose two contacts the caller can read that changed past the cursor (directly, or through a contact on them), plus tombstone ids for removed or no-longer-visible ones. Unpaged. Omit since for a full sync.")
+            .Produces<RelationshipChangesResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
         group.MapGet("/containers", (SyncHandler h, CancellationToken ct) => h.ContainersAsync(ct))
             .WithName("GetSyncContainers")
             .WithSummary("Snapshot of the caller's address books + contact groups for mirror reconciliation (no cursor — fetch once per sync cycle and diff locally).")

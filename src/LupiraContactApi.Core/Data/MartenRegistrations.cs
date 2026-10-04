@@ -5,6 +5,8 @@ using LupiraContactApi.Core.Domain.ContactGroups.Events;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Contacts.Events;
 using LupiraContactApi.Core.Domain.Identity;
+using LupiraContactApi.Core.Domain.Relationships;
+using LupiraContactApi.Core.Domain.Relationships.Events;
 using LupiraContactApi.Core.Domain.Shared;
 using Marten;
 using Weasel.Core;
@@ -56,12 +58,21 @@ public static class MartenRegistrations
         opts.Events.MapEventType<ContactAddedToGroup>("contact_added_to_group");
         opts.Events.MapEventType<ContactRemovedFromGroup>("contact_removed_from_group");
         opts.Events.MapEventType<ContactGroupDeleted>("contact_group_deleted");
+        opts.Events.MapEventType<RelationshipEstablished>("relationship_established");
+        opts.Events.MapEventType<RelationshipRevised>("relationship_revised");
+        opts.Events.MapEventType<RelationshipLabelled>("relationship_labelled");
+        opts.Events.MapEventType<RelationshipEnded>("relationship_ended");
+        opts.Events.MapEventType<RelationshipRevived>("relationship_revived");
+        opts.Events.MapEventType<RelationshipRemoved>("relationship_removed");
 
         // Event-sourced aggregates (resource read models) — inline for read-your-write.
         opts.Projections.Snapshot<Contact>(SnapshotLifecycle.Inline);
         opts.Projections.Snapshot<ContactGroup>(SnapshotLifecycle.Inline);
+        opts.Projections.Snapshot<Relationship>(SnapshotLifecycle.Inline);
         // The sync changes feed pages contacts by "touched since cursor" — indexed so the delta query never scans.
         opts.Schema.For<Contact>().Index(x => x.UpdatedSequence);
+        // A contact's relationships are found from either end; the relationships feed pages by watermark like contacts.
+        opts.Schema.For<Relationship>().Index(x => x.Low).Index(x => x.High).Index(x => x.UpdatedSequence);
 
         // Idempotency ledger (Idempotency-Key on mutations); identity = the client's command id, so a duplicate
         // key is a PK violation that rolls back the whole transaction (see Data/Idempotency).
