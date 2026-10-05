@@ -39,6 +39,15 @@ public static class ContactsEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+        group.MapPost("/drafts", (HttpRequest request, ContactDraftsHandler h, CancellationToken ct) => h.ReadAsync(request, ct))
+            .Accepts<string>(ContactDraftsHandler.FileContentTypes[0], ContactDraftsHandler.FileContentTypes[1..])
+            .WithName("ReadContactDrafts")
+            .WithSummary("Reads a contacts file into contact drafts without saving them. The body is the file as shared from a phone (one or more contacts, max 5 MB). Each draft maps onto the create request; send its sourceKey along so importing the same file again creates nothing new.")
+            .Produces<List<ContactDraftDto>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType);
+
         group.MapPost("/resolve-names", (ResolveContactsByNameRequest body, ContactsHandler h, CancellationToken ct) => h.ResolveByNameAsync(body, ct))
             .WithName("ResolveContactsByName")
             .WithSummary("Batch-match a list of names to contacts for imports: per name Matched (→contactId) / Ambiguous / NotFound, with candidate refs. Case/diacritic-insensitive full-name or all-tokens match, not phonetic.")

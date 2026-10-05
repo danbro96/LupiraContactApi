@@ -1069,6 +1069,110 @@
         ]
       }
     },
+    "/contacts/drafts": {
+      "post": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "Reads a contacts file into contact drafts without saving them. The body is the file as shared from a phone (one or more contacts, max 5 MB). Each draft maps onto the create request; send its sourceKey along so importing the same file again creates nothing new.",
+        "operationId": "ReadContactDrafts",
+        "requestBody": {
+          "content": {
+            "text/vcard": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "text/x-vcard": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "text/directory": {
+              "schema": {
+                "type": "string"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactDraftDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/contacts/resolve-names": {
       "post": {
         "tags": [
@@ -5087,6 +5191,86 @@
           }
         },
         "description": "Computed social circles around a focus contact. Always contains every CircleKind, possibly empty;\n            a contact may appear in several circles."
+      },
+      "ContactDraftDto": {
+        "required": [
+          "sourceKey",
+          "kind",
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceKey": {
+            "type": "string",
+            "description": "Pass as the create request's `sourceKey`: importing the same contact again then returns the existing\n            contact instead of duplicating it. Stable per caller and contact; differs between callers."
+          },
+          "kind": {
+            "description": "Organization when the file marks the contact as one, or when it carries only an organization name.",
+            "$ref": "#/components/schemas/ContactKind"
+          },
+          "givenName": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "For an Organization, its name."
+          },
+          "middleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "familyName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nickname": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "organization": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The employer of an Individual, when the file names one."
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactReachChannel"
+            },
+            "description": "Trimmed and de-duplicated, at most one preferred per medium."
+          },
+          "birthday": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PartialDate"
+              }
+            ]
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A contact read from a contacts file, not yet saved. Fields match CreateContactRequest one to one,\n            except `organization`, which is set as membership in an organization group."
       },
       "ContactDto": {
         "required": [

@@ -28,6 +28,7 @@ builder.Services.AddLupiraCurrentUser<Principal>();
 builder.Services.AddScoped<MeHandler>();
 builder.Services.AddScoped<AddressBooksHandler>();
 builder.Services.AddScoped<ContactsHandler>();
+builder.Services.AddScoped<ContactDraftsHandler>();
 builder.Services.AddScoped<ContactGroupsHandler>();
 builder.Services.AddScoped<InternalContactsHandler>();
 builder.Services.AddScoped<SyncHandler>();

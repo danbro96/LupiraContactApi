@@ -7,7 +7,7 @@ using Xunit;
 namespace LupiraContactApi.UnitTests;
 
 /// <summary>vCard 3.0 build + line-based parse: round-trip fidelity, escape/unescape ordering, FN fallback,
-/// the two BDAY formats, typed EMAIL/TEL reach channels, extension props, ORG segmentation, and folded-line skipping.</summary>
+/// the two BDAY formats, typed EMAIL/TEL reach channels, extension props, ORG segmentation, folded-line skipping, and multi-card files across vCard versions.</summary>
 public class VCardSerializerTests
 {
     private static ResolvedRelation Rel(Guid other, ContactRelationKind kind, string? label = null, DateOnly? since = null, bool ended = false, DateOnly? until = null) =>
@@ -392,4 +392,77 @@ public class VCardSerializerTests
             [Guid.Empty], [new ContactSocialProfile { Service = "telegram", Handle = "h" }], true, new DateOnly(2020, 1, 1));
         Assert.Equal(Make(), Make());
     }
+
+    [Fact]
+    public void ParseAll_reads_a_single_card()
+    {
+        var p = Assert.Single(VCardSerializer.ParseAll("BEGIN:VCARD\r\nVERSION:3.0\r\nUID:abc-1\r\nFN:Jane Doe\r\nN:Doe;Jane;;;\r\nEMAIL;TYPE=work:jane@x.test\r\nEND:VCARD\r\n"));
+
+        Assert.Equal(("Jane", "Doe", "abc-1"), (p.GivenName, p.FamilyName, p.Uid));
+        Assert.Equal(new ContactReachChannel(ReachMedium.Email, "jane@x.test", "work", false), Assert.Single(p.Channels!));
+    }
+
+    [Fact]
+    public void ParseAll_splits_cards_of_every_version()
+    {
+        const string file =
+            "BEGIN:VCARD\nVERSION:2.1\nN:Andersson;Anna\nTEL;CELL;PREF:+46701\nEND:VCARD\n" +
+            "\r\n" +
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Berg;Bo;;;\r\nitem1.EMAIL;type=INTERNET;type=HOME:bo@x.test\r\nBDAY:1980-05-06T00:00:00Z\r\nEND:VCARD\r\n" +
+            "BEGIN:VCARD\r\nVERSION:4.0\r\nN:Carlsson;Cia;;;\r\nTEL;VALUE=uri;TYPE=\"work,voice\";PREF=1:tel:+46702\r\nBDAY:--0229\r\nEND:VCARD\r\n";
+
+        var cards = VCardSerializer.ParseAll(file);
+
+        Assert.Equal(["Anna", "Bo", "Cia"], cards.Select(c => c.GivenName));
+        Assert.Equal(new ContactReachChannel(ReachMedium.Phone, "+46701", "cell", true), Assert.Single(cards[0].Channels!));
+        Assert.Equal(new ContactReachChannel(ReachMedium.Email, "bo@x.test", "home", false), Assert.Single(cards[1].Channels!));
+        Assert.Equal(new PartialDate(1980, 5, 6), cards[1].Birthday);
+        Assert.Equal(new ContactReachChannel(ReachMedium.Phone, "+46702", "work", true), Assert.Single(cards[2].Channels!));
+        Assert.Equal(new PartialDate(null, 2, 29), cards[2].Birthday);
+    }
+
+    [Fact]
+    public void ParseAll_decodes_2_1_quoted_printable_in_the_declared_charset()
+    {
+        const string file =
+            "BEGIN:VCARD\r\nVERSION:2.1\r\n" +
+            "N;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=C3=96berg;=C3=85sa;;;\r\n" +
+            "NOTE;QUOTED-PRINTABLE;CHARSET=ISO-8859-1:R=E4ksm=F6rg=E5s=0D=0Aand a long line that is soft=\r\n broken=\r\n here\r\n" +
+            "PHOTO;ENCODING=BASE64;JPEG:/9j/4AAQ\r\n SkZJRg==\r\n\r\n" +
+            "END:VCARD\r\n";
+
+        var p = Assert.Single(VCardSerializer.ParseAll(file));
+
+        Assert.Equal(("Åsa", "Öberg"), (p.GivenName, p.FamilyName));
+        Assert.Equal("Räksmörgås\nand a long line that is soft broken here", p.Notes);
+    }
+
+    [Fact]
+    public void ParseAll_unfolds_folded_lines_and_keeps_year_omitted_birthdays_year_less()
+    {
+        const string file = "BEGIN:VCARD\r\nVERSION:3.0\r\nN:Doe;Jo;;;\r\nNOTE:first half\r\n  second half\r\nBDAY;X-APPLE-OMIT-YEAR=1604:1604-04-15\r\nEND:VCARD\r\n";
+
+        var p = Assert.Single(VCardSerializer.ParseAll(file));
+
+        Assert.Equal("first half second half", p.Notes);
+        Assert.Equal(new PartialDate(null, 4, 15), p.Birthday);
+    }
+
+    [Fact]
+    public void ParseAll_skips_a_card_nested_in_another()
+    {
+        const string file = "BEGIN:VCARD\r\nVERSION:2.1\r\nN:Outer;Olle\r\nAGENT:\r\nBEGIN:VCARD\r\nN:Inner;Ida\r\nEND:VCARD\r\nEND:VCARD\r\n";
+
+        var p = Assert.Single(VCardSerializer.ParseAll(file));
+
+        Assert.Equal("Olle", p.GivenName);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("{\"givenName\":\"Jane\"}")]
+    [InlineData("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Cut off\r\n")]
+    [InlineData("FN:Orphan\r\nEND:VCARD\r\n")]
+    public void ParseAll_rejects_a_file_without_complete_cards(string file) =>
+        Assert.Throws<FormatException>(() => VCardSerializer.ParseAll(file));
 }

@@ -91,7 +91,7 @@ public static class VCardSerializer
 
     public static ParsedContact ParseVCard(string raw)
     {
-        string? fn = null, org = null, given = null, middle = null, family = null, nickname = null, notes = null, pronouns = null;
+        string? fn = null, org = null, given = null, middle = null, family = null, nickname = null, notes = null, pronouns = null, uid = null;
         PartialDate? bday = null;
         DateOnly? deathDate = null;
         bool? deceased = null;
@@ -111,6 +111,7 @@ public static class VCardSerializer
             var val = l[(colon + 1)..];
             switch (prop)
             {
+                case "UID": uid = Unescape(val).Trim() is { Length: > 0 } id ? id : null; break;
                 case "FN": fn = Unescape(val); break;
                 case "ORG": org = Unescape(val.Split(';')[0]); break;
                 case "N":
@@ -156,7 +157,188 @@ public static class VCardSerializer
         return new ParsedContact(fn ?? string.Empty, given, family, org,
             channels.Count > 0 ? [.. channels] : null, bday,
             relations.Count > 0 ? [.. relations] : null,
-            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns, kind, middle, nickname);
+            emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns, kind, middle, nickname, uid);
+    }
+
+    /// <summary>Splits a contacts file (vCard 2.1/3.0/4.0, one or more cards) and parses each card with <see cref="ParseVCard"/>,
+    /// after unfolding lines and normalizing what that parser doesn't read: 2.1 quoted-printable/CHARSET values and bare
+    /// params, property groups (<c>item1.TEL</c>), 4.0 <c>PREF=1</c> and <c>tel:</c> URIs, timestamped or year-omitted BDAY.</summary>
+    /// <exception cref="FormatException">The file holds no card, or a card is unbalanced.</exception>
+    public static IReadOnlyList<ParsedContact> ParseAll(string raw)
+    {
+        var cards = new List<ParsedContact>();
+        var card = new StringBuilder();
+        var depth = 0;
+        foreach (var line in LogicalLines(raw))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Equals("BEGIN:VCARD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (depth++ == 0) card.Clear();
+            }
+            else if (trimmed.Equals("END:VCARD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (depth == 0) throw new FormatException($"Card {cards.Count + 1} ends without a start.");
+                if (--depth == 0) cards.Add(ParseVCard(card.ToString()));
+            }
+            else if (depth == 1)
+            {
+                card.Append(NormalizeLine(line)).Append("\r\n");   // depth > 1 is a 2.1 AGENT card nested in this one: skipped
+            }
+        }
+
+        if (depth > 0) throw new FormatException($"Card {cards.Count + 1} is not terminated.");
+        if (cards.Count == 0) throw new FormatException("The file holds no contact cards.");
+        return cards;
+    }
+
+    internal static Encoding CharsetEncoding(string? charset)
+    {
+        if (string.IsNullOrWhiteSpace(charset)) return Encoding.UTF8;
+        try
+        {
+            return CodePagesEncodingProvider.Instance.GetEncoding(charset.Trim()) ?? Encoding.GetEncoding(charset.Trim());
+        }
+        catch (ArgumentException)
+        {
+            return Encoding.UTF8;
+        }
+    }
+
+    // RFC folding (CRLF + space/tab) and 2.1 quoted-printable soft breaks (trailing '=') both continue a logical line.
+    private static IEnumerable<string> LogicalLines(string raw)
+    {
+        StringBuilder? current = null;
+        var quotedPrintable = false;
+        foreach (var physical in raw.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            if (current is { Length: > 0 } && quotedPrintable && current[^1] == '=')
+            {
+                current.Length--;
+                current.Append(physical);
+            }
+            else if (current is not null && physical.Length > 0 && physical[0] is ' ' or '\t')
+            {
+                current.Append(physical, 1, physical.Length - 1);
+            }
+            else
+            {
+                if (current is not null) yield return current.ToString();
+                current = new StringBuilder(physical);
+                var colon = ValueStart(physical);
+                quotedPrintable = physical.AsSpan(0, colon < 0 ? physical.Length : colon).Contains("QUOTED-PRINTABLE", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        if (current is not null) yield return current.ToString();
+    }
+
+    private static string NormalizeLine(string line)
+    {
+        var colon = ValueStart(line);
+        if (colon < 0) return line;
+        var segments = SplitParams(line[..colon]);
+        var name = segments[0][(segments[0].LastIndexOf('.') + 1)..].ToUpperInvariant();
+        var value = line[(colon + 1)..];
+        var kept = new List<string>();
+        var types = new List<string>();
+        string? encoding = null, charset = null, omitYear = null;
+        var uri = false;
+        foreach (var segment in segments.Skip(1))
+        {
+            var eq = segment.IndexOf('=');
+            var key = eq < 0 ? BareParamKey(segment) : segment[..eq].Trim().ToUpperInvariant();
+            var val = (eq < 0 ? segment : segment[(eq + 1)..]).Trim().Trim('"');
+            switch (key)
+            {
+                case "TYPE": types.AddRange(val.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)); break;
+                case "PREF": if (val == "1") types.Add("pref"); break;   // 4.0 ranks 1..100; only the top rank is "preferred"
+                case "ENCODING": encoding = val; break;
+                case "CHARSET": charset = val; break;
+                case "X-APPLE-OMIT-YEAR": omitYear = val; break;
+                case "VALUE":
+                    uri = val.Equals("uri", StringComparison.OrdinalIgnoreCase);
+                    kept.Add(segment);
+                    break;
+                default: kept.Add(segment); break;
+            }
+        }
+
+        if (string.Equals(encoding, "QUOTED-PRINTABLE", StringComparison.OrdinalIgnoreCase))
+            value = DecodeQuotedPrintable(value, CharsetEncoding(charset)).Replace("\r\n", "\\n").Replace('\r', '\n').Replace("\n", "\\n");
+        switch (name)
+        {
+            case "TEL" or "EMAIL":
+                types.RemoveAll(t => t.ToLowerInvariant() is "voice" or "internet" or "x400");   // the medium itself, not a type
+                if (uri && value.StartsWith("tel:", StringComparison.OrdinalIgnoreCase)) value = value[4..];
+                break;
+            case "BDAY":
+                if (value.IndexOf('T') is > 0 and var t) value = value[..t];
+                if (omitYear is { Length: > 0 } && value.StartsWith(omitYear, StringComparison.Ordinal)) value = "--" + value[omitYear.Length..].TrimStart('-');
+                break;
+        }
+
+        var sb = new StringBuilder(name);
+        foreach (var segment in kept) sb.Append(';').Append(segment);
+        if (types.Count > 0) sb.Append(";TYPE=").Append(string.Join(',', types));
+        return sb.Append(':').Append(value).ToString();
+    }
+
+    // vCard 2.1 writes param values without their names (TEL;CELL;PREF, NOTE;QUOTED-PRINTABLE).
+    private static string BareParamKey(string token) =>
+        token.Trim().ToUpperInvariant() is "QUOTED-PRINTABLE" or "BASE64" or "8BIT" or "7BIT" ? "ENCODING" : "TYPE";
+
+    private static int ValueStart(string line)
+    {
+        var quoted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            if (line[i] == '"') quoted = !quoted;
+            else if (line[i] == ':' && !quoted) return i;
+        }
+
+        return -1;
+    }
+
+    private static List<string> SplitParams(string nameAndParams)
+    {
+        var segments = new List<string>();
+        var quoted = false;
+        var start = 0;
+        for (var i = 0; i < nameAndParams.Length; i++)
+        {
+            if (nameAndParams[i] == '"') quoted = !quoted;
+            else if (nameAndParams[i] == ';' && !quoted)
+            {
+                segments.Add(nameAndParams[start..i]);
+                start = i + 1;
+            }
+        }
+
+        segments.Add(nameAndParams[start..]);
+        return segments;
+    }
+
+    private static string DecodeQuotedPrintable(string value, Encoding encoding)
+    {
+        var bytes = new List<byte>(value.Length);
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (value[i] == '=' && i + 2 < value.Length
+                && byte.TryParse(value.AsSpan(i + 1, 2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var b))
+            {
+                bytes.Add(b);
+                i += 2;
+            }
+            else
+            {
+                var width = char.IsHighSurrogate(value[i]) && i + 1 < value.Length ? 2 : 1;
+                bytes.AddRange(encoding.GetBytes(value.ToCharArray(i, width)));
+                i += width - 1;
+            }
+        }
+
+        return encoding.GetString([.. bytes]);
     }
 
     // EMAIL/TEL → reach channel: TYPE tokens (comma-joined or repeated params) yield the first non-pref type + a pref flag.
