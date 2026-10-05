@@ -43,9 +43,6 @@ public sealed class Relationship
 
     public string? UpdatedBy { get; set; }
 
-    /// <summary>Global event sequence of the last event applied — the relationships sync feed's watermark (indexed).</summary>
-    public long UpdatedSequence { get; set; }
-
     public RelationshipKey Key => new(Low, High, Kind);
 
     /// <summary>Live: established and not removed. Ended relationships are live — they stay listed, flagged.</summary>
@@ -131,6 +128,5 @@ public sealed class Relationship
     {
         UpdatedAt = e.Timestamp;
         UpdatedBy = EventActor.Of(e);
-        UpdatedSequence = e.Sequence;
     }
 }

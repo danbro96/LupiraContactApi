@@ -22,9 +22,6 @@ public sealed class PlaceEntry
 
     public string? UpdatedBy { get; set; }
 
-    /// <summary>Global event sequence of the last event applied — the entries sync feed's watermark (indexed).</summary>
-    public long UpdatedSequence { get; set; }
-
     public static Guid StreamIdOf(Guid placeId) => DeterministicGuid.From($"place-entry:{placeId:D}");
 
     public static IReadOnlyList<object> Set(PlaceEntry? current, Guid placeId, Guid codeId, string label, string code, string? note) =>
@@ -53,6 +50,5 @@ public sealed class PlaceEntry
     {
         UpdatedAt = e.Timestamp;
         UpdatedBy = EventActor.Of(e);
-        UpdatedSequence = e.Sequence;
     }
 }

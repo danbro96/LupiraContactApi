@@ -29,10 +29,7 @@ public static class MartenRegistrations
         opts.DatabaseSchemaName = "contact";
         opts.UseSystemTextJsonForSerialization(EnumStorage.AsString);
 
-        // Rich append: sequences + versions are reserved client-side BEFORE inline projections run, so
-        // Contact.Touch can stamp UpdatedSequence (the sync feed's cursor watermark) from IEvent.Sequence.
-        // Under the default Quick mode the sequence is assigned server-side at INSERT and reads 0 in Apply.
-        opts.Events.AppendMode = JasperFx.Events.EventAppendMode.Rich;
+        opts.Events.AppendMode = JasperFx.Events.EventAppendMode.Quick;
 
         // Capture provenance on every event — actor (header) + correlation/causation. Unbackfillable, so on from day one.
         opts.Events.MetadataConfig.HeadersEnabled = true;
@@ -83,13 +80,11 @@ public static class MartenRegistrations
         opts.Projections.Snapshot<Relationship>(SnapshotLifecycle.Inline);
         opts.Projections.Snapshot<Residency>(SnapshotLifecycle.Inline);
         opts.Projections.Snapshot<PlaceEntry>(SnapshotLifecycle.Inline);
-        // The sync changes feed pages contacts by "touched since cursor" — indexed so the delta query never scans.
-        opts.Schema.For<Contact>().Index(x => x.UpdatedSequence);
-        // A contact's relationships are found from either end; the relationships feed pages by watermark like contacts.
-        opts.Schema.For<Relationship>().Index(x => x.Low).Index(x => x.High).Index(x => x.UpdatedSequence);
-        // Residents of a place and a contact's residencies are both looked up; the feeds page by watermark.
-        opts.Schema.For<Residency>().Index(x => x.ContactId).Index(x => x.PlaceId).Index(x => x.UpdatedSequence);
-        opts.Schema.For<PlaceEntry>().Index(x => x.PlaceId).Index(x => x.UpdatedSequence);
+        // A contact's relationships are found from either end.
+        opts.Schema.For<Relationship>().Index(x => x.Low).Index(x => x.High);
+        // Residents of a place and a contact's residencies are both looked up.
+        opts.Schema.For<Residency>().Index(x => x.ContactId).Index(x => x.PlaceId);
+        opts.Schema.For<PlaceEntry>().Index(x => x.PlaceId);
 
         // Idempotency ledger (Idempotency-Key on mutations); identity = the client's command id, so a duplicate
         // key is a PK violation that rolls back the whole transaction (see Lupira.Marten.Idempotency).

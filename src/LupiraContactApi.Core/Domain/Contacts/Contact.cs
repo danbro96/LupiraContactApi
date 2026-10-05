@@ -71,10 +71,6 @@ public sealed class Contact
 
     public string? UpdatedBy { get; set; }
 
-    /// <summary>Global event sequence of the last event applied — the per-contact watermark the sync changes
-    /// feed queries by (indexed). Bumped on every event, even one whose section guard rejects it.</summary>
-    public long UpdatedSequence { get; set; }
-
     /// <summary>Stream version, populated by Marten's aggregate versioning.</summary>
     public int Version { get; set; }
 
@@ -285,7 +281,6 @@ public sealed class Contact
     {
         UpdatedAt = e.Timestamp;
         UpdatedBy = EventActor.Of(e);
-        UpdatedSequence = e.Sequence;
     }
 
     /// <summary>Derives <see cref="ContentHash"/> from the current content-bearing state. Called after every content change;

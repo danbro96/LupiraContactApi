@@ -39,9 +39,6 @@ public sealed class Residency
 
     public string? UpdatedBy { get; set; }
 
-    /// <summary>Global event sequence of the last event applied — the residencies sync feed's watermark (indexed).</summary>
-    public long UpdatedSequence { get; set; }
-
     public bool IsLive => Id != Guid.Empty && !Removed;
 
     public static IReadOnlyList<object> Start(
@@ -94,6 +91,5 @@ public sealed class Residency
     {
         UpdatedAt = e.Timestamp;
         UpdatedBy = EventActor.Of(e);
-        UpdatedSequence = e.Sequence;
     }
 }

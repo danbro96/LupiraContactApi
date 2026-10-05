@@ -1,59 +1,71 @@
 using Lupira.Results;
 using Lupira.Sync;
+using Lupira.Sync.Marten;
 using LupiraContactApi.Core.Auth;
 using LupiraContactApi.Core.Data;
+using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Relationships;
 using LupiraContactApi.Core.Dtos.Relationships;
-using LupiraContactApi.Core.Dtos.Sync;
 using LupiraContactApi.Core.Mappers;
 using Marten;
+using Microsoft.Extensions.Options;
 
 namespace LupiraContactApi.Core.Application;
 
 /// <summary>
-/// Relationships for clients: those whose two contacts are both live and readable by the caller. The changes feed also
-/// re-sends the relationships of every contact touched past the cursor, because a contact's deletion or move changes
-/// what is visible without touching the relationship. Unpaged — a family's relationships fit one response.
+/// Relationships for clients: those whose two contacts are both live and readable by the caller. A delta also re-sends
+/// the relationships of every contact changed since the cursor, because a contact's deletion or move changes what is
+/// visible without touching the relationship.
 /// </summary>
-public sealed class RelationshipFeed(IQuerySession session, AccessResolver access)
+public sealed class RelationshipFeed(IQuerySession session, AccessResolver access, IOptions<SyncFeedOptions> options)
 {
+    private readonly TimeSpan _settleLag = options.Value.SettleLag;
+
     public async Task<IReadOnlyList<RelationshipDto>> VisibleAsync(Guid principalId, CancellationToken ct = default)
     {
         var visibleContacts = await session.LiveContactIdsInAsync(await access.AccessibleAddressBookIdsAsync(principalId, ct), ct);
         return [.. (await session.LiveRelationshipsAsync(ct)).Where(r => IsVisible(r, visibleContacts)).Select(r => r.ToResponse())];
     }
 
-    public async Task<OpResult<RelationshipChangesResponse>> ChangesAsync(Guid principalId, string? since, CancellationToken ct = default)
+    public async Task<OpResult<SyncPage<RelationshipDto>>> ChangesAsync(Guid principalId, string? since, int? limit, CancellationToken ct = default)
     {
-        // Read the watermark first: anything committed while this runs is re-sent next time rather than missed.
-        var token = await session.LatestSequenceAsync(ct);
+        if (!SyncFeedQuery.TryParse(since, limit, out var query))
+            return OpResult<SyncPage<RelationshipDto>>.Invalid(SyncFeedQuery.InvalidSince);
+
         var readable = await access.AccessibleAddressBookIdsAsync(principalId, ct);
         var scope = SyncCursor.ScopeOf(readable);
-        if (!SyncCursor.TryResume(since, scope, out var cursor))
-            return OpResult<RelationshipChangesResponse>.Invalid("since must be a cursor previously returned by this endpoint (or omitted for a full sync).");
-        var reset = cursor == 0;
         var visibleContacts = await session.LiveContactIdsInAsync(readable, ct);
+        return OpResult<SyncPage<RelationshipDto>>.Ok(query.IsFullSync(scope)
+            ? await FullSyncAsync(query, scope, visibleContacts, ct)
+            : await DeltaAsync(query, scope, readable, visibleContacts, ct));
+    }
 
-        IReadOnlyList<Relationship> rows;
-        if (reset)
-        {
-            rows = await session.LiveRelationshipsAsync(ct);
-        }
-        else
-        {
-            var touched = await session.Query<Relationship>().Where(r => r.UpdatedSequence > cursor).ToListAsync(ct);
-            var touchedContacts = await session.ContactsTouchedSinceAsync(cursor, ct);
-            rows = [.. touched.Concat(await session.RelationshipsOfAsync(touchedContacts, ct)).DistinctBy(r => r.Id)];
-        }
+    private async Task<SyncPage<RelationshipDto>> FullSyncAsync(SyncFeedQuery query, string scope, HashSet<Guid> visibleContacts, CancellationToken ct)
+    {
+        var (head, after) = await session.FullSyncFromAsync(query, scope, _settleLag, ct);
+        var ids = visibleContacts.ToArray();
+        var visible = session.Query<Relationship>().Where(r => !r.Removed && ids.Contains(r.Low) && ids.Contains(r.High));
+        if (after is { } last) visible = visible.Where(r => r.Id > last);
+        var rows = (await visible.OrderBy(r => r.Id).Take(query.Limit + 1).ToListAsync(ct)).ToList();
+        var resumeAfter = SyncPages.TrimToPage(rows, query.Limit, r => r.Id);
+        return SyncPages.Full([.. rows.Select(r => r.ToResponse())], head, scope, query.IsReset(scope), resumeAfter);
+    }
 
+    private async Task<SyncPage<RelationshipDto>> DeltaAsync(SyncFeedQuery query, string scope, List<Guid> readable, HashSet<Guid> visibleContacts, CancellationToken ct)
+    {
+        var since = query.Since!.Value.Sequence;
+        var head = await session.HeadSequenceAsync(_settleLag, ct);
+        var own = await session.ChangedStreamsAsync<Relationship>(since, query.Limit, _settleLag, ct);
+        var contacts = await session.ChangedStreamsAsync<Contact>(since, query.Limit, _settleLag, ct);
+
+        var rows = (await session.LoadManyAsync<Relationship>(ct, own.Ids))
+            .Concat(await session.RelationshipsOfAsync(contacts.Ids, ct))
+            .DistinctBy(r => r.Id)
+            .ToList();
+        var known = await session.EverReadableContactIdsAsync(rows.SelectMany(r => new[] { r.Low, r.High }), readable, ct);
+        rows = [.. rows.Where(r => known.Contains(r.Low) || known.Contains(r.High))];
         var changed = rows.Where(r => r.IsLive && IsVisible(r, visibleContacts)).ToList();
-        return OpResult<RelationshipChangesResponse>.Ok(new RelationshipChangesResponse
-        {
-            Cursor = new SyncCursor(token, scope).ToString(),
-            Reset = reset,
-            Changed = [.. changed.Select(r => r.ToResponse())],
-            Deleted = reset ? [] : [.. rows.Except(changed).Select(r => r.Id)],
-        });
+        return SyncPages.Delta([.. changed.Select(r => r.ToResponse())], [.. rows.Except(changed).Select(r => r.Id)], scope, head, own, contacts);
     }
 
     private static bool IsVisible(Relationship r, HashSet<Guid> visibleContacts) => visibleContacts.Contains(r.Low) && visibleContacts.Contains(r.High);

@@ -3,7 +3,7 @@ using LupiraContactApi.Core.Dtos.Contacts;
 namespace LupiraContactApi.Core.Dtos.Sync;
 
 /// <summary>A changed contact: the full DTO plus its section guards.</summary>
-public sealed class SyncChangeDto
+public sealed class ContactSyncChange
 {
     public required ContactDto Contact { get; set; }
 

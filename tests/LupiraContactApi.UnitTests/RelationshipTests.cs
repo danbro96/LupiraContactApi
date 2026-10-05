@@ -12,7 +12,6 @@ public class RelationshipTests
 {
     private static readonly Guid Low = new("11111111-1111-1111-1111-111111111111");
     private static readonly Guid High = new("99999999-9999-9999-9999-999999999999");
-    private static long _seq;
 
     private static Relationship Fold(IEnumerable<object> events)
     {
@@ -36,11 +35,7 @@ public class RelationshipTests
 
     private static IEvent<T> Ev<T>(T data)
         where T : notnull
-    {
-        var e = Event.For(data);
-        e.Sequence = Interlocked.Increment(ref _seq);
-        return e;
-    }
+        => Event.For(data);
 
     private static Relationship Stated(Guid by, Guid other, ContactRelationKind kind, string? label = null, DateOnly? since = null) =>
         Fold(Relationship.Upsert(null, RelationshipKey.Of(by, other, kind), by, label, since, null));

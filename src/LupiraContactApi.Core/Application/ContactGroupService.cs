@@ -30,6 +30,13 @@ public sealed class ContactGroupService(IDocumentSession session, AccessResolver
         return OpResult<List<ContactGroupDto>>.Ok(groups.Select(ToDto).ToList());
     }
 
+    public async Task<List<ContactGroupDto>> ListReadableAsync(Guid principalId, CancellationToken ct = default)
+    {
+        var books = (await access.AccessibleAddressBookIdsAsync(principalId, ct)).ToArray();
+        var groups = await session.Query<ContactGroup>().Where(g => g.DeletedAt == null && books.Contains(g.AddressBookId)).ToListAsync(ct);
+        return [.. groups.Select(ToDto)];
+    }
+
     public Task<OpResult<ContactGroupDto>> RenameAsync(Guid principalId, Guid groupId, string name, CancellationToken ct = default) =>
         MutateAsync(principalId, groupId, new ContactGroupRenamed(groupId, name), ct);
 

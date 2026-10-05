@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lupira.Sync;
 using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
@@ -10,21 +11,27 @@ using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
 
-/// <summary>The offline-client sync surface end to end: the delta loop (create → revise → delete), full-sync
-/// paging, cursor scope (foreign churn, grant/revoke restarts, moves out of a readable book), guard exposure,
-/// Idempotency-Key replays, occurredAt LWW over REST, and SourceKey create dedup.</summary>
+/// <summary>The offline-client sync surface end to end: the delta loop (create → revise → delete), full-sync and
+/// delta paging, cursor scope (foreign churn, grant/revoke restarts, moves out of a readable book), the
+/// <c>/sync/changes</c> alias, the address-book and group snapshots, guard exposure, Idempotency-Key replays,
+/// occurredAt LWW over REST, and SourceKey create dedup.</summary>
 public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest(factory)
 {
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
-    async Task<SyncChangesResponse> ChangesAsync(HttpClient api, string? since = null, int? limit = null)
+    static string FeedUrl(string path, string? since, int? limit)
     {
         var qs = new List<string>();
         if (since is not null) qs.Add($"since={since}");
         if (limit is not null) qs.Add($"limit={limit}");
-        var resp = await api.GetAsync("/sync/changes" + (qs.Count > 0 ? "?" + string.Join("&", qs) : ""));
+        return path + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
+    }
+
+    async Task<SyncPage<ContactSyncChange>> ChangesAsync(HttpClient api, string? since = null, int? limit = null)
+    {
+        var resp = await api.GetAsync(FeedUrl("/sync/contacts", since, limit));
         resp.EnsureSuccessStatusCode();
-        return (await resp.Content.ReadFromJsonAsync<SyncChangesResponse>(Json))!;
+        return (await resp.Content.ReadFromJsonAsync<SyncPage<ContactSyncChange>>(Json))!;
     }
 
     [Fact]
@@ -62,24 +69,90 @@ public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest
         var api = Factory.ApiClient("a@x");
         var book = await CreateAddressBookAsync(api);
         var live = new HashSet<Guid>();
-        for (var n = 0; n < 3; n++) live.Add((await CreateContactAsync(api, book, $"Person{n}")).Id);
+        for (var n = 0; n < 5; n++) live.Add((await CreateContactAsync(api, book, $"Person{n}")).Id);
         var doomed = await CreateContactAsync(api, book, "Doomed");
         (await api.DeleteAsync($"/contacts/{doomed.Id}")).EnsureSuccessStatusCode();
 
-        var seen = new HashSet<Guid>();
+        var seen = new List<Guid>();
         string? cursor = null;
-        SyncChangesResponse page;
+        SyncPage<ContactSyncChange> page;
         var pages = 0;
         do
         {
             page = await ChangesAsync(api, cursor, limit: 2);
-            foreach (var c in page.Changed) seen.Add(c.Contact.Id);
+            Assert.Equal(pages == 0, page.Reset);
+            Assert.Empty(page.Deleted);
+            seen.AddRange(page.Changed.Select(c => c.Contact.Id));
             cursor = page.Cursor;
             Assert.True(++pages < 20, "paging loop did not terminate");
         } while (page.HasMore);
 
-        Assert.Equal(live, seen);
-        Assert.DoesNotContain(doomed.Id, seen);
+        Assert.Equal(3, pages);
+        Assert.Equal(live, seen.ToHashSet());
+        Assert.Equal(seen.Count, seen.Distinct().Count());
+
+        var next = await ChangesAsync(api, cursor);
+        Assert.False(next.Reset);
+        Assert.Empty(next.Changed);
+        Assert.Empty(next.Deleted);
+    }
+
+    [Fact]
+    public async Task Delta_pages_across_more_changes_than_the_limit()
+    {
+        var api = Factory.ApiClient("a@x");
+        var book = await CreateAddressBookAsync(api);
+        var start = await ChangesAsync(api);
+        var created = new HashSet<Guid>();
+        for (var n = 0; n < 5; n++) created.Add((await CreateContactAsync(api, book, $"Person{n}")).Id);
+
+        var seen = new HashSet<Guid>();
+        var cursor = start.Cursor;
+        SyncPage<ContactSyncChange> page;
+        var pages = 0;
+        do
+        {
+            page = await ChangesAsync(api, cursor, limit: 2);
+            Assert.False(page.Reset);
+            seen.UnionWith(page.Changed.Select(c => c.Contact.Id));
+            cursor = page.Cursor;
+            Assert.True(++pages < 20, "paging loop did not terminate");
+        } while (page.HasMore);
+
+        Assert.True(pages >= 3);
+        Assert.Equal(created, seen);
+    }
+
+    [Fact]
+    public async Task A_cursor_without_a_resume_id_resumes_as_a_delta()
+    {
+        var api = Factory.ApiClient("a@x");
+        var book = await CreateAddressBookAsync(api);
+        var contact = await CreateContactAsync(api, book, "Jane");
+
+        var full = await ChangesAsync(api);
+        var parts = full.Cursor.Split('.');
+        Assert.Equal(2, parts.Length);
+
+        var fromStart = await ChangesAsync(api, $"0.{parts[1]}");
+        Assert.False(fromStart.Reset);
+        Assert.Contains(fromStart.Changed, c => c.Contact.Id == contact.Id);
+    }
+
+    [Fact]
+    public async Task The_changes_alias_answers_like_the_contacts_feed()
+    {
+        var api = Factory.ApiClient("a@x");
+        var book = await CreateAddressBookAsync(api);
+        await CreateContactAsync(api, book, "Jane");
+        await CreateContactAsync(api, book, "John");
+
+        var contacts = await api.GetStringAsync(FeedUrl("/sync/contacts", null, 1));
+        var alias = await api.GetStringAsync(FeedUrl("/sync/changes", null, 1));
+        Assert.Equal(contacts, alias);
+
+        var cursor = JsonSerializer.Deserialize<SyncPage<ContactSyncChange>>(contacts, Json)!.Cursor;
+        Assert.Equal(await api.GetStringAsync(FeedUrl("/sync/contacts", cursor, 1)), await api.GetStringAsync(FeedUrl("/sync/changes", cursor, 1)));
     }
 
     [Fact]
@@ -112,7 +185,6 @@ public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest
         Assert.False(delta.Reset);
         Assert.Empty(delta.Changed);
         Assert.Empty(delta.Deleted);
-        Assert.Equal(full.Cursor, delta.Cursor);
     }
 
     [Fact]
@@ -182,8 +254,9 @@ public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest
     [Fact]
     public async Task A_garbage_cursor_is_rejected()
     {
-        var resp = await Factory.ApiClient("a@x").GetAsync("/sync/changes?since=nope");
-        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        var api = Factory.ApiClient("a@x");
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.GetAsync("/sync/contacts?since=nope")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await api.GetAsync("/sync/changes?since=nope")).StatusCode);
     }
 
     [Fact]
@@ -275,5 +348,44 @@ public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest
         var body = (await resp.Content.ReadFromJsonAsync<SyncContainersResponse>(Json))!;
         Assert.Contains(body.AddressBooks, b => b.Id == book);
         Assert.Contains(body.Groups, g => g.Name == "Friends");
+    }
+
+    [Fact]
+    public async Task Address_book_snapshot_lists_every_readable_book()
+    {
+        var api = Factory.ApiClient("a@x");
+        var partner = Factory.ApiClient("b@x");
+        var own = await CreateAddressBookAsync(api, "own");
+        var shared = await CreateAddressBookAsync(partner, "shared");
+        await CreateAddressBookAsync(partner, "private");
+        await GrantAsync(partner, shared, "a@x", "read");
+
+        var snapshot = (await api.GetFromJsonAsync<SyncPage<AddressBookDto>>("/sync/address-books", Json))!;
+        Assert.True(snapshot.Reset);
+        Assert.False(snapshot.HasMore);
+        Assert.Equal(string.Empty, snapshot.Cursor);
+        Assert.Empty(snapshot.Deleted);
+        Assert.Equal(new HashSet<Guid> { own, shared }, snapshot.Changed.Select(b => b.Id).ToHashSet());
+    }
+
+    [Fact]
+    public async Task Group_snapshot_lists_groups_of_every_readable_book()
+    {
+        var api = Factory.ApiClient("a@x");
+        var partner = Factory.ApiClient("b@x");
+        var own = await CreateAddressBookAsync(api, "own");
+        var shared = await CreateAddressBookAsync(partner, "shared");
+        var hidden = await CreateAddressBookAsync(partner, "private");
+        await GrantAsync(partner, shared, "a@x", "read");
+        (await api.PostAsync($"/address-books/{own}/groups?name=Friends", null)).EnsureSuccessStatusCode();
+        (await partner.PostAsync($"/address-books/{shared}/groups?name=Family", null)).EnsureSuccessStatusCode();
+        (await partner.PostAsync($"/address-books/{hidden}/groups?name=Secret", null)).EnsureSuccessStatusCode();
+
+        var snapshot = (await api.GetFromJsonAsync<SyncPage<ContactGroupDto>>("/sync/groups", Json))!;
+        Assert.True(snapshot.Reset);
+        Assert.False(snapshot.HasMore);
+        Assert.Equal(string.Empty, snapshot.Cursor);
+        Assert.Empty(snapshot.Deleted);
+        Assert.Equal(["Family", "Friends"], snapshot.Changed.Select(g => g.Name).Order());
     }
 }

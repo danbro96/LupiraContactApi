@@ -12,7 +12,16 @@ public static class ContactVisibility
         return [.. await session.Query<Contact>().Where(c => c.DeletedAt == null && books.Contains(c.AddressBookId)).Select(c => c.Id).ToListAsync(ct)];
     }
 
-    /// <summary>Ids of the contacts touched past <paramref name="sequence"/> — a delete or move changes what is visible about them.</summary>
-    public static async Task<IReadOnlyList<Guid>> ContactsTouchedSinceAsync(this IQuerySession session, long sequence, CancellationToken ct = default) =>
-        await session.Query<Contact>().Where(c => c.UpdatedSequence > sequence).Select(c => c.Id).ToListAsync(ct);
+    /// <summary>Of <paramref name="contactIds"/>, those in or moved out of <paramref name="readableBooks"/>, deleted or not — the
+    /// contacts the caller may have seen, so only rows about them are tombstoned to it.</summary>
+    public static async Task<HashSet<Guid>> EverReadableContactIdsAsync(
+        this IQuerySession session, IEnumerable<Guid> contactIds, IReadOnlyCollection<Guid> readableBooks, CancellationToken ct = default)
+    {
+        var (ids, books) = (contactIds.Distinct().ToArray(), readableBooks.ToArray());
+        if (ids.Length == 0) return [];
+        return [.. await session.Query<Contact>()
+            .Where(c => ids.Contains(c.Id) && (books.Contains(c.AddressBookId) || c.FormerAddressBookIds.Any(b => books.Contains(b))))
+            .Select(c => c.Id)
+            .ToListAsync(ct)];
+    }
 }

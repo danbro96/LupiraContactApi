@@ -1,10 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using Lupira.Sync;
 using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.AddressBooks;
 using LupiraContactApi.Core.Dtos.Contacts;
-using LupiraContactApi.Core.Dtos.Sync;
+using LupiraContactApi.Core.Dtos.Relationships;
 using Xunit;
 
 namespace LupiraContactApi.IntegrationTests;
@@ -31,7 +32,7 @@ public sealed class ContactRelationsTests(ContactApiTestFactory factory) : Integ
     static async Task<ContactDto> RawAsync(HttpClient api, Guid id) => (await api.GetFromJsonAsync<ContactDto>($"/contacts/{id}"))!;
 
     static async Task<string> RelationshipCursorAsync(HttpClient api) =>
-        (await api.GetFromJsonAsync<RelationshipChangesResponse>("/sync/relationships"))!.Cursor;
+        (await api.GetFromJsonAsync<SyncPage<RelationshipDto>>("/sync/relationships"))!.Cursor;
 
     [Fact]
     public async Task A_relationship_reads_the_same_from_both_sides()

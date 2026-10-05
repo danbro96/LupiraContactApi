@@ -1,4 +1,4 @@
-using LupiraContactApi.Core.Data;
+using Lupira.Sync.Marten;
 using LupiraContactApi.Core.Domain.Contacts;
 using LupiraContactApi.Core.Domain.Relationships;
 using Marten;
@@ -11,7 +11,7 @@ namespace LupiraContactApi.Core.Application;
 public sealed class DavChangeFeed(IQuerySession session, DavCards cards)
 {
     /// <summary>The current sync token = the store's latest global event sequence.</summary>
-    public Task<long> CurrentTokenAsync(CancellationToken ct = default) => session.LatestSequenceAsync(ct);
+    public Task<long> CurrentTokenAsync(CancellationToken ct = default) => session.HeadSequenceAsync(TimeSpan.Zero, ct);
 
     /// <summary>Changes in an address book since <paramref name="since"/>; a null/unparsable token yields the
     /// full live listing (self-healing resync). Deletions surface as tombstones only on incremental diffs.</summary>

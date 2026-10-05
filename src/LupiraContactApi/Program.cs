@@ -84,8 +84,7 @@ if (args.Contains("--apply-schema"))
     return;
 }
 
-// One-shot contact projection rebuild (deploy step after the sync-surface release: pre-existing contact
-// documents carry no UpdatedSequence watermark until their snapshots are recomputed from the event log).
+// One-shot contact projection rebuild: recomputes every contact snapshot from the event log.
 if (args.Contains("--rebuild-contacts"))
 {
     var store = app.Services.GetRequiredService<IDocumentStore>();

@@ -52,8 +52,8 @@ classDiagram
 - **Reads:**
   - `GET /contacts/{id}/residencies`: one contact's, current first.
   - `GET /residencies`: everything readable.
-  - `GET /sync/residencies?since=`: unpaged, scoped like `/sync/changes`. It also re-sends the
-    residencies of contacts touched past the cursor, because deletes and moves change visibility.
+  - `GET /sync/residencies?since=&limit=`: paged and scoped like `/sync/contacts`. A delta also re-sends
+    the residencies of contacts changed since the cursor, because deletes and moves change visibility.
 - **Derived from residencies:**
   - Household circle: a shared current Home; Vacation never makes a household.
   - Completeness: `postalAddress` needs a current residency.
@@ -67,7 +67,8 @@ classDiagram
 - **Endpoints:**
   - `GET /places/{placeId}/entry`
   - `PUT` and `DELETE /places/{placeId}/entry-codes/{codeId}`
-  - `GET /sync/place-entries?since=`, which re-sends places whose residencies or residents changed.
+  - `GET /sync/place-entries?since=&limit=`, paged; a delta re-sends places whose residencies or
+    residents changed. Tombstones are place ids.
 - **What's affected by time:** a move-out date passing changes visibility without any event. Mirrors
   therefore show codes only where they still have a current resident, and the next full sync drops the
   rest.

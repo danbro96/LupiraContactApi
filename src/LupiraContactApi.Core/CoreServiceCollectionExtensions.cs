@@ -38,6 +38,7 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<RelationshipFeed>();
         services.AddScoped<DavCards>();
         services.AddScoped<DavChangeFeed>();
+        services.AddOptions<SyncFeedOptions>().BindConfiguration(SyncFeedOptions.SectionName);
         services.AddScoped<SyncFeed>();
         services.AddScoped<ResidencyService>();
         services.AddScoped<ResidencyFeed>();

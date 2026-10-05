@@ -593,7 +593,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             .ToListAsync(ct);
         var pick = matches
             .OrderByDescending(c => owned.Contains(c.AddressBookId))
-            .ThenByDescending(c => c.UpdatedSequence)
+            .ThenByDescending(c => c.UpdatedAt)
             .ThenBy(c => c.Id)
             .FirstOrDefault();
         if (pick is null) return null;

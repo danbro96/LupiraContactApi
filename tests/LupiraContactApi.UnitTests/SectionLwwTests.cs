@@ -19,7 +19,6 @@ public class SectionLwwTests
     {
         var seq = Interlocked.Increment(ref _sequence);
         var e = Event.For(data);
-        e.Sequence = seq;
         e.Timestamp = at ?? T0.AddSeconds(seq);
         return e;
     }
@@ -114,16 +113,14 @@ public class SectionLwwTests
     }
 
     [Fact]
-    public void Unstamped_events_apply_in_append_order_and_watermark_tracks()
+    public void Unstamped_events_apply_in_append_order()
     {
         var id = Guid.NewGuid();
         var c = Created(id);
         c.Apply(Ev(new ContactRevised(id, Fields("First"))));
-        var last = Ev(new ContactRevised(id, Fields("Second")));
-        c.Apply(last);
+        c.Apply(Ev(new ContactRevised(id, Fields("Second"))));
 
         Assert.Equal("Second", c.GivenName);
-        Assert.Equal(last.Sequence, c.UpdatedSequence);
     }
 
     [Fact]

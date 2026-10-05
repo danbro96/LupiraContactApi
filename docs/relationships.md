@@ -55,10 +55,10 @@ classDiagram
   - Write on at least one of their books.
   - A label needs write on the labelling contact's book.
 - **`GET /relationships`:** every relationship whose two contacts the caller can read.
-- **`GET /sync/relationships?since=`:** the mirror feed, unpaged.
-  - The cursor works like `/sync/changes`: a readable-books scope, which resets when access changes.
-  - It also re-sends the relationships of every contact touched past the cursor, because deleting or
-    moving a contact changes what is visible.
+- **`GET /sync/relationships?since=&limit=`:** the mirror feed, paged like `/sync/contacts`.
+  - The cursor carries a readable-books scope, which resets when access changes.
+  - A delta also re-sends the relationships of every contact changed since the cursor, because deleting
+    or moving a contact changes what is visible.
   - Tombstones come only in deltas.
 
 ## Sync adapter

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Lupira.Sync;
 using Lupira.Testing.Postgres;
 using LupiraContactApi.Core.Domain.Shared;
 using LupiraContactApi.Core.Dtos.Contacts;
@@ -23,8 +24,8 @@ public sealed class ContactMoveTests(ContactApiTestFactory factory) : Integratio
     static Task<HttpResponseMessage> MoveAsync(HttpClient api, Guid contactId, Guid addressBookId) =>
         api.PostAsJsonAsync($"/contacts/{contactId}/move", new MoveContactRequest { AddressBookId = addressBookId }, Json);
 
-    static async Task<SyncChangesResponse> ChangesAsync(HttpClient api, string? since = null) =>
-        (await api.GetFromJsonAsync<SyncChangesResponse>("/sync/changes" + (since is null ? "" : $"?since={since}"), Json))!;
+    static async Task<SyncPage<ContactSyncChange>> ChangesAsync(HttpClient api, string? since = null) =>
+        (await api.GetFromJsonAsync<SyncPage<ContactSyncChange>>("/sync/contacts" + (since is null ? "" : $"?since={since}"), Json))!;
 
     [Fact]
     public async Task Move_keeps_the_id_relations_and_etag()

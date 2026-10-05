@@ -19,13 +19,12 @@ public class ContactTests
 
     private static long _seq;
 
-    // Wrap an event payload as an IEvent<T> carrying a timestamp, actor header, and a monotonically increasing
-    // global sequence, as Marten hydrates on replay. The sequence matters: SectionLww's unstamped fallback
-    // tiebreaks equal timestamps by sequence order, exactly like a live store.
+    // Wrap an event payload as an IEvent<T> carrying a timestamp, actor header, and an ascending event id, as Marten
+    // hydrates on replay. The id matters: SectionLww's unstamped fallback tiebreaks equal timestamps by event id.
     private static IEvent<T> Ev<T>(T data, DateTimeOffset? at = null, string? actor = Actor)
     {
         var e = Event.For(data);
-        e.Sequence = Interlocked.Increment(ref _seq);
+        e.Id = new Guid(Interlocked.Increment(ref _seq).ToString("x32"));
         e.Timestamp = at ?? T0;
         if (actor is not null) e.Headers = new Dictionary<string, object> { [EventActor.HeaderKey] = actor };
         return e;
@@ -286,18 +285,17 @@ public class ContactTests
     }
 
     [Fact]
-    public void Moved_records_the_book_it_left_and_bumps_the_watermark_but_not_the_etag()
+    public void Moved_records_the_book_it_left_but_not_the_etag()
     {
         var id = Guid.NewGuid();
         var c = Created(id);
-        var (from, hash, seq) = (c.AddressBookId, c.ContentHash, c.UpdatedSequence);
+        var (from, hash) = (c.AddressBookId, c.ContentHash);
         var to = Guid.NewGuid();
 
         c.Apply(Ev(new ContactMoved(id, to)));
 
         Assert.Equal(to, c.AddressBookId);
         Assert.Equal([from], c.FormerAddressBookIds);
-        Assert.True(c.UpdatedSequence > seq);
         Assert.Equal(hash, c.ContentHash);
     }
 

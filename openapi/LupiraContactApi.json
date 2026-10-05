@@ -4330,12 +4330,85 @@
         ]
       }
     },
+    "/sync/contacts": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Contacts for offline mirrors: every contact the caller can read that changed since the cursor, with its section guards, plus tombstone ids for contacts deleted or no longer readable (incl. moved to an unreadable address book). Omit since for a full sync; loop while hasMore, persisting cursor between calls. reset = drop the local mirror first.",
+        "operationId": "GetContactChanges",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPageOfContactSyncChange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/sync/changes": {
       "get": {
         "tags": [
           "Sync"
         ],
-        "summary": "Delta feed for offline mirrors: every contact the caller can read that changed past the cursor, plus tombstone ids for contacts deleted or no longer visible (incl. moved to an unreadable address book). Omit since for a full sync; loop while hasMore, persisting cursor between calls.",
+        "summary": "Same feed as GET /sync/contacts, kept for existing installs.",
         "operationId": "GetChanges",
         "parameters": [
           {
@@ -4360,7 +4433,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SyncChangesResponse"
+                  "$ref": "#/components/schemas/SyncPageOfContactSyncChange"
                 }
               }
             }
@@ -4408,7 +4481,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Delta feed of relationships for offline mirrors: those whose two contacts the caller can read that changed past the cursor (directly, or through a contact on them), plus tombstone ids for removed or no-longer-visible ones. Unpaged. Omit since for a full sync.",
+        "summary": "Relationships for offline mirrors: those whose two contacts the caller can read that changed since the cursor (directly, or through a contact on them), plus tombstone ids for removed or no-longer-visible ones. Omit since for a full sync; loop while hasMore, persisting cursor between calls. reset = drop the local mirror first.",
         "operationId": "GetRelationshipChanges",
         "parameters": [
           {
@@ -4416,6 +4489,14 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -4425,7 +4506,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RelationshipChangesResponse"
+                  "$ref": "#/components/schemas/SyncPageOfRelationshipDto"
                 }
               }
             }
@@ -4473,7 +4554,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Delta feed of residencies for offline mirrors: those of contacts the caller can read that changed past the cursor (directly, or through their contact), plus tombstone ids for removed or no-longer-visible ones. Unpaged. Omit since for a full sync.",
+        "summary": "Residencies for offline mirrors: those of contacts the caller can read that changed since the cursor (directly, or through their contact), plus tombstone ids for removed or no-longer-visible ones. Omit since for a full sync; loop while hasMore, persisting cursor between calls. reset = drop the local mirror first.",
         "operationId": "GetResidencyChanges",
         "parameters": [
           {
@@ -4481,6 +4562,14 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -4490,7 +4579,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResidencyChangesResponse"
+                  "$ref": "#/components/schemas/SyncPageOfResidencyDto"
                 }
               }
             }
@@ -4538,7 +4627,7 @@
         "tags": [
           "Sync"
         ],
-        "summary": "Delta feed of door and gate codes for offline mirrors, per place the caller can see a current resident of. Tombstones are place ids no longer visible. Unpaged. Omit since for a full sync.",
+        "summary": "Door and gate codes for offline mirrors, per place the caller can see a current resident of. Tombstones are place ids no longer visible. Omit since for a full sync; loop while hasMore, persisting cursor between calls. reset = drop the local mirror first.",
         "operationId": "GetPlaceEntryChanges",
         "parameters": [
           {
@@ -4546,6 +4635,14 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -4555,7 +4652,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlaceEntryChangesResponse"
+                  "$ref": "#/components/schemas/SyncPageOfPlaceEntryDto"
                 }
               }
             }
@@ -4566,6 +4663,98 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/sync/address-books": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Every address book the caller can read, with their access level. Always a complete snapshot (reset, no cursor): replace the local copy on each call.",
+        "operationId": "GetAddressBookSnapshot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPageOfAddressBookDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/sync/groups": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Every contact group in an address book the caller can read. Always a complete snapshot (reset, no cursor): replace the local copy on each call.",
+        "operationId": "GetContactGroupSnapshot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPageOfContactGroupDto"
                 }
               }
             }
@@ -5337,6 +5526,22 @@
         },
         "description": "A social/IM handle as submitted. `Url` is derived from the handle for well-known services when\n            omitted; `Preferred` defaults to false."
       },
+      "ContactSyncChange": {
+        "required": [
+          "contact",
+          "guards"
+        ],
+        "type": "object",
+        "properties": {
+          "contact": {
+            "$ref": "#/components/schemas/ContactDto"
+          },
+          "guards": {
+            "$ref": "#/components/schemas/SectionGuardsDto"
+          }
+        },
+        "description": "A changed contact: the full DTO plus its section guards."
+      },
       "CreateAddressBookRequest": {
         "required": [
           "slug"
@@ -5862,38 +6067,6 @@
         },
         "description": "The claims a caller's token resolved to, echoed for cross-service auth-seam probes.\n            Returning the audiences (not a bare 200) lets a failing consumer see which half of the seam\n            is misconfigured."
       },
-      "PlaceEntryChangesResponse": {
-        "required": [
-          "cursor",
-          "reset",
-          "changed",
-          "deleted"
-        ],
-        "type": "object",
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "reset": {
-            "type": "boolean"
-          },
-          "changed": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PlaceEntryDto"
-            }
-          },
-          "deleted": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Place ids whose codes are no longer visible (no current resident the caller can read)."
-          }
-        },
-        "description": "Entry codes changed past the cursor, per place. `Cursor` is opaque — hand it back as `?since=`. A full\n            sync (no `since`, or a `Reset`) lists every visible place and suppresses tombstones."
-      },
       "PlaceEntryDto": {
         "required": [
           "placeId",
@@ -5971,39 +6144,6 @@
         ],
         "description": "Whether a resolved relation was stored explicitly or derived from the kinship graph."
       },
-      "RelationshipChangesResponse": {
-        "required": [
-          "cursor",
-          "reset",
-          "changed",
-          "deleted"
-        ],
-        "type": "object",
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "reset": {
-            "type": "boolean",
-            "description": "Stream restarted (no `since`, or readable address books changed): a full sync from here."
-          },
-          "changed": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RelationshipDto"
-            }
-          },
-          "deleted": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Ids removed, or no longer visible (a contact deleted or moved out of reach). Unknown ids are safe to ignore."
-          }
-        },
-        "description": "Relationships changed past the cursor. `Cursor` is opaque — hand it back as `?since=`. A full sync\n            (no `since`, or a `Reset`) lists every visible relationship and suppresses tombstones — the client replaces its\n            mirror wholesale."
-      },
       "RelationshipDto": {
         "required": [
           "id",
@@ -6071,38 +6211,6 @@
           }
         },
         "description": "A relationship between two contacts: \"`HighId` is `LowId`'s `Kind`\". Low/High is the ids' ordinal\n            order, not which side stated it. Each side has its own label (its word for the other); the rest is shared."
-      },
-      "ResidencyChangesResponse": {
-        "required": [
-          "cursor",
-          "reset",
-          "changed",
-          "deleted"
-        ],
-        "type": "object",
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "reset": {
-            "type": "boolean"
-          },
-          "changed": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ResidencyDto"
-            }
-          },
-          "deleted": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Ids removed, or no longer visible (the contact deleted or moved out of reach). Unknown ids are safe to ignore."
-          }
-        },
-        "description": "Residencies changed past the cursor. `Cursor` is opaque — hand it back as `?since=`. A full sync\n            (no `since`, or a `Reset`) lists every visible residency and suppresses tombstones."
       },
       "ResidencyDto": {
         "required": [
@@ -6533,59 +6641,6 @@
         },
         "description": "Links the caller's identity to its own contact (\"this card is me\") — the default circles focus."
       },
-      "SyncChangeDto": {
-        "required": [
-          "contact",
-          "guards"
-        ],
-        "type": "object",
-        "properties": {
-          "contact": {
-            "$ref": "#/components/schemas/ContactDto"
-          },
-          "guards": {
-            "$ref": "#/components/schemas/SectionGuardsDto"
-          }
-        },
-        "description": "A changed contact: the full DTO plus its section guards."
-      },
-      "SyncChangesResponse": {
-        "required": [
-          "cursor",
-          "hasMore",
-          "reset",
-          "changed",
-          "deleted"
-        ],
-        "type": "object",
-        "properties": {
-          "cursor": {
-            "type": "string"
-          },
-          "hasMore": {
-            "type": "boolean"
-          },
-          "reset": {
-            "type": "boolean",
-            "description": "Stream restarted from zero (no `since`, or readable address books changed): a full sync from here."
-          },
-          "changed": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SyncChangeDto"
-            }
-          },
-          "deleted": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Ids in, or moved out of, a readable address book but no longer visible (deleted, or moved to an\n            unreadable book). Unknown ids are safe to ignore."
-          }
-        },
-        "description": "One page of the changes feed. `Cursor` is opaque — hand it back as `?since=`; loop while\n            `HasMore`. A full sync (no `since`, or a `Reset`) streams every live visible contact and suppresses\n            tombstones — the client replaces its mirror wholesale."
-      },
       "SyncContainersResponse": {
         "required": [
           "addressBooks",
@@ -6607,6 +6662,216 @@
           }
         },
         "description": "Snapshot of the caller's containers. Address books are plain documents (no cursor); groups are\n            event-sourced but small and fully replaced each cycle — both are fetched once per sync cycle and diffed\n            against the mirror."
+      },
+      "SyncPageOfAddressBookDto": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "reset",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressBookDto"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "One page of a `/sync/*` feed. `reset` starts a full sync: rows the full sync never mentions are gone."
+      },
+      "SyncPageOfContactGroupDto": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "reset",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactGroupDto"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "One page of a `/sync/*` feed. `reset` starts a full sync: rows the full sync never mentions are gone."
+      },
+      "SyncPageOfContactSyncChange": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "reset",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactSyncChange"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "One page of a `/sync/*` feed. `reset` starts a full sync: rows the full sync never mentions are gone."
+      },
+      "SyncPageOfPlaceEntryDto": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "reset",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaceEntryDto"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "One page of a `/sync/*` feed. `reset` starts a full sync: rows the full sync never mentions are gone."
+      },
+      "SyncPageOfRelationshipDto": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "reset",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelationshipDto"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "One page of a `/sync/*` feed. `reset` starts a full sync: rows the full sync never mentions are gone."
+      },
+      "SyncPageOfResidencyDto": {
+        "required": [
+          "cursor",
+          "hasMore",
+          "reset",
+          "changed",
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResidencyDto"
+            }
+          },
+          "deleted": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "description": "One page of a `/sync/*` feed. `reset` starts a full sync: rows the full sync never mentions are gone."
       },
       "UpdateAddressBookRequest": {
         "type": "object",
