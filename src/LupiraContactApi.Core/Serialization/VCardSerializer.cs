@@ -89,7 +89,54 @@ public static class VCardSerializer
 
     private static bool IsSafeParamValue(string s) => s.Length > 0 && s.All(ch => ch is not (';' or ':' or ',' or '"') && !char.IsControl(ch));
 
-    public static ParsedContact ParseVCard(string raw)
+    /// <summary>Parses one card after unfolding lines and normalizing what the field mapping doesn't read: 2.1 quoted-printable/CHARSET
+    /// values and bare params, property groups (<c>item1.TEL</c> with its <c>X-ABLabel</c>), 4.0 <c>PREF=1</c> and <c>tel:</c> URIs, timestamped or year-omitted BDAY.</summary>
+    public static ParsedContact ParseVCard(string raw) => ParseCard([.. LogicalLines(raw)]);
+
+    /// <summary>Splits a contacts file (vCard 2.1/3.0/4.0, one or more cards) and parses each card as <see cref="ParseVCard"/> does.</summary>
+    /// <exception cref="FormatException">The file holds no card, or a card is unbalanced.</exception>
+    public static IReadOnlyList<ParsedContact> ParseAll(string raw)
+    {
+        var cards = new List<ParsedContact>();
+        var card = new List<string>();
+        var depth = 0;
+        foreach (var line in LogicalLines(raw))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Equals("BEGIN:VCARD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (depth++ == 0) card.Clear();
+            }
+            else if (trimmed.Equals("END:VCARD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (depth == 0) throw new FormatException($"Card {cards.Count + 1} ends without a start.");
+                if (--depth == 0) cards.Add(ParseCard(card));
+            }
+            else if (depth == 1)
+            {
+                card.Add(line);   // depth > 1 is a 2.1 AGENT card nested in this one: skipped
+            }
+        }
+
+        if (depth > 0) throw new FormatException($"Card {cards.Count + 1} is not terminated.");
+        if (cards.Count == 0) throw new FormatException("The file holds no contact cards.");
+        return cards;
+    }
+
+    internal static Encoding CharsetEncoding(string? charset)
+    {
+        if (string.IsNullOrWhiteSpace(charset)) return Encoding.UTF8;
+        try
+        {
+            return CodePagesEncodingProvider.Instance.GetEncoding(charset.Trim()) ?? Encoding.GetEncoding(charset.Trim());
+        }
+        catch (ArgumentException)
+        {
+            return Encoding.UTF8;
+        }
+    }
+
+    private static ParsedContact ParseCard(IReadOnlyList<string> lines)
     {
         string? fn = null, org = null, given = null, middle = null, family = null, nickname = null, notes = null, pronouns = null, uid = null;
         PartialDate? bday = null;
@@ -101,11 +148,11 @@ public static class VCardSerializer
         List<Guid>? emergency = null;
         List<ContactSocialProfile>? profiles = null;
 
-        foreach (var line in raw.Split('\n'))
+        var groupLabels = GroupLabels(lines);
+        foreach (var line in lines)
         {
-            var l = line.TrimEnd('\r');
-            if (l.Length == 0 || l[0] == ' ' || l[0] == '\t') continue;   // skip blanks + folded continuations
-            var colon = l.IndexOf(':');
+            var l = NormalizeLine(line, groupLabels);
+            var colon = ValueStart(l);
             if (colon < 0) continue;
             var prop = l[..colon].Split(';')[0].ToUpperInvariant();
             var val = l[(colon + 1)..];
@@ -160,51 +207,6 @@ public static class VCardSerializer
             emergency?.ToArray(), profiles?.ToArray(), deceased, deathDate, notes, pronouns, kind, middle, nickname, uid);
     }
 
-    /// <summary>Splits a contacts file (vCard 2.1/3.0/4.0, one or more cards) and parses each card with <see cref="ParseVCard"/>,
-    /// after unfolding lines and normalizing what that parser doesn't read: 2.1 quoted-printable/CHARSET values and bare
-    /// params, property groups (<c>item1.TEL</c>), 4.0 <c>PREF=1</c> and <c>tel:</c> URIs, timestamped or year-omitted BDAY.</summary>
-    /// <exception cref="FormatException">The file holds no card, or a card is unbalanced.</exception>
-    public static IReadOnlyList<ParsedContact> ParseAll(string raw)
-    {
-        var cards = new List<ParsedContact>();
-        var card = new StringBuilder();
-        var depth = 0;
-        foreach (var line in LogicalLines(raw))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.Equals("BEGIN:VCARD", StringComparison.OrdinalIgnoreCase))
-            {
-                if (depth++ == 0) card.Clear();
-            }
-            else if (trimmed.Equals("END:VCARD", StringComparison.OrdinalIgnoreCase))
-            {
-                if (depth == 0) throw new FormatException($"Card {cards.Count + 1} ends without a start.");
-                if (--depth == 0) cards.Add(ParseVCard(card.ToString()));
-            }
-            else if (depth == 1)
-            {
-                card.Append(NormalizeLine(line)).Append("\r\n");   // depth > 1 is a 2.1 AGENT card nested in this one: skipped
-            }
-        }
-
-        if (depth > 0) throw new FormatException($"Card {cards.Count + 1} is not terminated.");
-        if (cards.Count == 0) throw new FormatException("The file holds no contact cards.");
-        return cards;
-    }
-
-    internal static Encoding CharsetEncoding(string? charset)
-    {
-        if (string.IsNullOrWhiteSpace(charset)) return Encoding.UTF8;
-        try
-        {
-            return CodePagesEncodingProvider.Instance.GetEncoding(charset.Trim()) ?? Encoding.GetEncoding(charset.Trim());
-        }
-        catch (ArgumentException)
-        {
-            return Encoding.UTF8;
-        }
-    }
-
     // RFC folding (CRLF + space/tab) and 2.1 quoted-printable soft breaks (trailing '=') both continue a logical line.
     private static IEnumerable<string> LogicalLines(string raw)
     {
@@ -233,12 +235,44 @@ public static class VCardSerializer
         if (current is not null) yield return current.ToString();
     }
 
-    private static string NormalizeLine(string line)
+    // Apple writes a channel's label as a sibling X-ABLabel in the same property group, often after the channel line.
+    private static Dictionary<string, string> GroupLabels(IReadOnlyList<string> lines)
+    {
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in lines)
+        {
+            var colon = ValueStart(line);
+            if (colon < 0) continue;
+            var name = SplitParams(line[..colon])[0];
+            var dot = name.LastIndexOf('.');
+            if (dot > 0 && name[(dot + 1)..].Equals("X-ABLABEL", StringComparison.OrdinalIgnoreCase)
+                && ChannelLabelType(Unescape(line[(colon + 1)..])) is { } type)
+                labels[name[..dot]] = type;
+        }
+
+        return labels;
+    }
+
+    private static string? ChannelLabelType(string label)
+    {
+        var text = label.Trim();
+        if (text.StartsWith("_$!<", StringComparison.Ordinal) && text.EndsWith(">!$_", StringComparison.Ordinal)) text = text[4..^4];
+        var type = text.ToLowerInvariant() switch
+        {
+            "mobile" or "iphone" => "cell",
+            "homefax" or "workfax" or "otherfax" => "fax",
+            var t => t,
+        };
+        return IsSafeParamValue(type) ? type : null;
+    }
+
+    private static string NormalizeLine(string line, IReadOnlyDictionary<string, string> groupLabels)
     {
         var colon = ValueStart(line);
         if (colon < 0) return line;
         var segments = SplitParams(line[..colon]);
-        var name = segments[0][(segments[0].LastIndexOf('.') + 1)..].ToUpperInvariant();
+        var dot = segments[0].LastIndexOf('.');
+        var name = segments[0][(dot + 1)..].ToUpperInvariant();
         var value = line[(colon + 1)..];
         var kept = new List<string>();
         var types = new List<string>();
@@ -270,7 +304,14 @@ public static class VCardSerializer
         {
             case "TEL" or "EMAIL":
                 types.RemoveAll(t => t.ToLowerInvariant() is "voice" or "internet" or "x400");   // the medium itself, not a type
+                types = [.. types.Select(t => t.Equals("iphone", StringComparison.OrdinalIgnoreCase) ? "cell" : t)];
                 if (uri && value.StartsWith("tel:", StringComparison.OrdinalIgnoreCase)) value = value[4..];
+                if (dot > 0 && groupLabels.TryGetValue(segments[0][..dot], out var label))
+                {
+                    types.RemoveAll(t => !t.Equals("pref", StringComparison.OrdinalIgnoreCase));
+                    types.Insert(0, label);
+                }
+
                 break;
             case "BDAY":
                 if (value.IndexOf('T') is > 0 and var t) value = value[..t];

@@ -229,6 +229,27 @@ public sealed class DavBackendTests(ContactApiTestFactory factory) : Integration
     }
 
     [Fact]
+    public async Task Iphone_put_keeps_folded_values_and_grouped_channels()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await BookAsync(api);
+        const string card =
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nPRODID:-//Apple Inc.//iPhone OS 18.0//EN\r\nN:Doe;Jo;;;\r\nFN:Jo Doe\r\n" +
+            "NOTE:A note long enough that the phone folds it across \r\n several physical lines \r\n before the end\r\n" +
+            "item1.TEL;type=pref:+46701234567\r\nitem1.X-ABLabel:_$!<Mobile>!$_\r\n" +
+            "item2.EMAIL;type=INTERNET:jo@x.test\r\nitem2.X-ABLabel:Stugan\r\n" +
+            "UID:iphone-1\r\nEND:VCARD\r\n";
+
+        Assert.Equal(HttpStatusCode.Created, (await PutVcfAsync(api, Email, book, "iphone-1", card)).StatusCode);
+
+        var saved = (await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?addressBookId={book}"))!.Single(c => c.ExternalId == "iphone-1");
+        Assert.Equal("A note long enough that the phone folds it across several physical lines before the end", saved.Notes);
+        Assert.Equal(
+            [("+46701234567", "cell", true), ("jo@x.test", "stugan", false)],
+            saved.Channels.Select(c => (c.Value, c.Type, c.Preferred)));
+    }
+
+    [Fact]
     public async Task Recreating_a_deleted_resource_starts_from_the_card_alone()
     {
         var api = Factory.ApiClient(Email);

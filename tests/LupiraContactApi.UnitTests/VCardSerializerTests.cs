@@ -7,7 +7,7 @@ using Xunit;
 namespace LupiraContactApi.UnitTests;
 
 /// <summary>vCard 3.0 build + line-based parse: round-trip fidelity, escape/unescape ordering, FN fallback,
-/// the two BDAY formats, typed EMAIL/TEL reach channels, extension props, ORG segmentation, folded-line skipping, and multi-card files across vCard versions.</summary>
+/// the two BDAY formats, typed EMAIL/TEL reach channels, extension props, ORG segmentation, line unfolding, Apple property groups, and multi-card files across vCard versions.</summary>
 public class VCardSerializerTests
 {
     private static ResolvedRelation Rel(Guid other, ContactRelationKind kind, string? label = null, DateOnly? since = null, bool ended = false, DateOnly? until = null) =>
@@ -179,11 +179,46 @@ public class VCardSerializerTests
     }
 
     [Fact]
-    public void Folded_continuation_lines_are_skipped()
+    public void Folded_lines_are_unfolded_into_the_full_value()
     {
-        // The line starting with a space is an RFC 6350 fold; it must not derail parsing.
-        var p = VCardSerializer.ParseVCard("BEGIN:VCARD\r\nVERSION:3.0\r\nFN:John Doe\r\n  folded-noise\r\nEND:VCARD\r\n");
+        var p = VCardSerializer.ParseVCard(
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:John Doe\r\nNOTE:Met at the conference in Karlstad\\, \r\n talked about the cabin\r\n\t near Torsby\r\nEND:VCARD\r\n");
+
         Assert.Equal("John Doe", p.FullName);
+        Assert.Equal("Met at the conference in Karlstad, talked about the cabin near Torsby", p.Notes);
+    }
+
+    [Fact]
+    public void Grouped_channels_take_their_apple_label_as_type()
+    {
+        const string card =
+            "BEGIN:VCARD\r\nVERSION:3.0\r\nPRODID:-//Apple Inc.//iPhone OS 18.0//EN\r\nN:Doe;Jo;;;\r\nFN:Jo Doe\r\n" +
+            "item1.TEL;type=pref:+46701234567\r\nitem1.X-ABLabel:_$!<Mobile>!$_\r\n" +
+            "item2.EMAIL;type=INTERNET:jo@x.test\r\nitem2.X-ABLabel:Stugan\r\n" +
+            "item3.EMAIL;type=INTERNET;type=HOME:jo@home.test\r\n" +
+            "TEL;type=IPHONE;type=CELL;type=VOICE:+46709999999\r\nEND:VCARD\r\n";
+
+        var p = VCardSerializer.ParseVCard(card);
+
+        Assert.Equal(
+            [
+                new ContactReachChannel(ReachMedium.Phone, "+46701234567", "cell", true),
+                new ContactReachChannel(ReachMedium.Email, "jo@x.test", "stugan", false),
+                new ContactReachChannel(ReachMedium.Email, "jo@home.test", "home", false),
+                new ContactReachChannel(ReachMedium.Phone, "+46709999999", "cell", false),
+            ],
+            p.Channels!);
+    }
+
+    [Theory]
+    [InlineData("_$!<Work>!$_", "work")]
+    [InlineData("_$!<HomeFAX>!$_", "fax")]
+    [InlineData("_$!<Other>!$_", "other")]
+    [InlineData("a;b", "home")] // a label that can't be a type token leaves the TYPE params in charge
+    public void Apple_label_tokens_map_to_channel_types(string label, string expected)
+    {
+        var p = VCardSerializer.ParseVCard($"BEGIN:VCARD\r\nVERSION:3.0\r\nFN:x\r\nitem1.X-ABLabel:{label.Replace(";", "\\;")}\r\nitem1.TEL;type=HOME:+461\r\nEND:VCARD\r\n");
+        Assert.Equal(expected, Assert.Single(p.Channels!).Type);
     }
 
     [Fact]
