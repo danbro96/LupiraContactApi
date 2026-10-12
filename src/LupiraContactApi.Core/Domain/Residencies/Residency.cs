@@ -1,5 +1,6 @@
 using JasperFx.Events;
 using Lupira.Identity.Marten;
+using Lupira.Primitives;
 using LupiraContactApi.Core.Domain.Residencies.Events;
 using LupiraContactApi.Core.Domain.Shared;
 
@@ -41,6 +42,9 @@ public sealed class Residency
 
     public bool IsLive => Id != Guid.Empty && !Removed;
 
+    /// <summary>Contact-scoped, so the same client key on two contacts never names one residency.</summary>
+    public static Guid StreamIdOf(Guid contactId, string sourceKey) => DeterministicGuid.From($"residency:{contactId:D}:{sourceKey}");
+
     public static IReadOnlyList<object> Start(
         Guid id, Guid contactId, Guid placeId, ContactAddressType type, string? label, FuzzyDate? movedIn, FuzzyDate? movedOut) =>
         [new ResidencyStarted(id, contactId, placeId, type, label, movedIn, movedOut)];
@@ -63,6 +67,7 @@ public sealed class Residency
     {
         var d = e.Data;
         (Id, ContactId, PlaceId, Type, Label, MovedIn, MovedOut) = (d.ResidencyId, d.ContactId, d.PlaceId, d.Type, d.Label, d.MovedIn, d.MovedOut);
+        Removed = false;
         CreatedAt = e.Timestamp;
         CreatedBy = EventActor.Of(e);
         Touch(e);

@@ -1,3 +1,4 @@
+using JasperFx.Events;
 using LupiraContactApi.Core.Domain.Residencies;
 using LupiraContactApi.Core.Domain.Residencies.Events;
 using LupiraContactApi.Core.Domain.Shared;
@@ -39,5 +40,36 @@ public class ResidencyTests
         var (id, contact, place) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         var started = Assert.IsType<ResidencyStarted>(Assert.Single(Residency.Start(id, contact, place, ContactAddressType.Vacation, "Gotland", new FuzzyDate(2020), null)));
         Assert.Equal((id, contact, place, ContactAddressType.Vacation, "Gotland"), (started.ResidencyId, started.ContactId, started.PlaceId, started.Type, started.Label));
+    }
+
+    [Fact]
+    public void A_source_key_names_one_residency_per_contact()
+    {
+        var contact = Guid.NewGuid();
+        Assert.Equal(Residency.StreamIdOf(contact, "k1"), Residency.StreamIdOf(contact, "k1"));
+        Assert.NotEqual(Residency.StreamIdOf(contact, "k1"), Residency.StreamIdOf(contact, "k2"));
+        Assert.NotEqual(Residency.StreamIdOf(contact, "k1"), Residency.StreamIdOf(Guid.NewGuid(), "k1"));
+    }
+
+    [Fact]
+    public void An_offline_client_derives_the_same_id_from_the_scoped_key()
+    {
+        var contact = Guid.Parse("0199d6a0-0000-7000-8000-000000000001");
+        Assert.Equal(Guid.Parse("f36186cb-8873-f92c-16e9-2c6cd44de782"), Residency.StreamIdOf(contact, "0199d6a0-1111-7000-8000-000000000002"));
+    }
+
+    [Fact]
+    public void Starting_again_after_a_removal_is_live()
+    {
+        var (id, contact) = (Guid.NewGuid(), Guid.NewGuid());
+        var r = new Residency();
+        r.Apply(Event.For(new ResidencyStarted(id, contact, Guid.NewGuid(), ContactAddressType.Home, null, null, null)));
+        r.Apply(Event.For(new ResidencyRemoved(id)));
+        Assert.False(r.IsLive);
+
+        var place = Guid.NewGuid();
+        r.Apply(Event.For(new ResidencyStarted(id, contact, place, ContactAddressType.Work, null, null, null)));
+        Assert.True(r.IsLive);
+        Assert.Equal((place, ContactAddressType.Work), (r.PlaceId, r.Type));
     }
 }

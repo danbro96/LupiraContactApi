@@ -19,7 +19,7 @@ public static class ResidenciesEndpoints
 
         group.MapPost("/contacts/{id:guid}/residencies", (Guid id, ResidencyRequest body, [FromHeader(Name = "Idempotency-Key")] Guid? idempotencyKey, ResidenciesHandler h, CancellationToken ct) => h.AddAsync(id, body, idempotencyKey, ct))
             .WithName("AddResidency")
-            .WithSummary("Start a residency at a LupiraGeoApi place (resolve the address there first — no free text). Refused when it overlaps another of the contact's residencies at the same place.")
+            .WithSummary("Start a residency at a LupiraGeoApi place (resolve the address there first — no free text). Refused when it overlaps another of the contact's residencies at the same place. Repeating a create with the same sourceKey returns the same residency.")
             .Produces<ResidencyDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest)

@@ -99,6 +99,36 @@ public sealed class ResidenciesTests(ContactApiTestFactory factory) : Integratio
     }
 
     [Fact]
+    public async Task A_repeated_create_with_the_same_source_key_returns_the_same_residency()
+    {
+        var api = Factory.ApiClient(Email);
+        var book = await CreateAddressBookAsync(api);
+        var (c, other) = (await CreateContactAsync(api, book), await CreateContactAsync(api, book));
+        var key = $"{Guid.CreateVersion7()}";
+        var place = Guid.NewGuid();
+
+        var first = await PostKeyedAsync(c.Id, new ResidencyRequest { PlaceId = place, Type = ContactAddressType.Home, MovedIn = new FuzzyDate(2020), SourceKey = key });
+        var replay = await PostKeyedAsync(c.Id, new ResidencyRequest { PlaceId = Guid.NewGuid(), Type = ContactAddressType.Work, SourceKey = $" {key} " });
+
+        Assert.Equal(first.Id, replay.Id);
+        Assert.Equal(place, replay.PlaceId);   // the second body is ignored
+        Assert.Single(await ListAsync(api, c.Id));
+        Assert.NotEqual(first.Id, (await PostKeyedAsync(other.Id, new ResidencyRequest { PlaceId = place, Type = ContactAddressType.Home, SourceKey = key })).Id);
+
+        (await api.DeleteAsync($"/residencies/{first.Id}")).EnsureSuccessStatusCode();
+        var fresh = await PostKeyedAsync(c.Id, new ResidencyRequest { PlaceId = place, Type = ContactAddressType.Vacation, SourceKey = key });
+        Assert.Equal((first.Id, ContactAddressType.Vacation, (FuzzyDate?) null), (fresh.Id, fresh.Type, fresh.MovedIn));
+        Assert.Single(await ListAsync(api, c.Id));
+
+        async Task<ResidencyDto> PostKeyedAsync(Guid contactId, ResidencyRequest request)
+        {
+            var resp = await api.PostAsJsonAsync($"/contacts/{contactId}/residencies", request);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            return (await resp.Content.ReadFromJsonAsync<ResidencyDto>())!;
+        }
+    }
+
+    [Fact]
     public async Task Writing_needs_write_on_the_contacts_book()
     {
         var alice = Factory.ApiClient(Email);

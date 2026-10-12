@@ -47,6 +47,11 @@ classDiagram
   fine.
 - **Commands:** add, revise (a correction, wholesale), move out, and remove (a mistake; kept as a
   tombstone for the feed). Writes need write on the contact's book; each accepts an `Idempotency-Key`.
+- **Offline-safe add:** an optional `sourceKey` (client-minted, e.g. a UUIDv7) pins the residency id to
+  `DeterministicGuid.From("residency:{contactId}:{sourceKey}")` (contact id lowercase, hyphenated; key
+  trimmed), so the client knows the id before the add is acknowledged. Repeating the add returns the
+  existing residency unchanged; after a removal it starts afresh under the same id. Scoped to the
+  contact, so the same key on another contact names a different residency.
 - **`POST /moves`:** contacts who move together. For each contact, current residencies at
   `fromPlaceId` end on `movedIn`, and a residency at `toPlaceId` starts then. All or nothing.
 - **Reads:**

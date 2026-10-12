@@ -3643,7 +3643,7 @@
         "tags": [
           "Residencies"
         ],
-        "summary": "Start a residency at a LupiraGeoApi place (resolve the address there first — no free text). Refused when it overlaps another of the contact's residencies at the same place.",
+        "summary": "Start a residency at a LupiraGeoApi place (resolve the address there first — no free text). Refused when it overlaps another of the contact's residencies at the same place. Repeating a create with the same sourceKey returns the same residency.",
         "operationId": "AddResidency",
         "parameters": [
           {
@@ -6493,6 +6493,13 @@
                 "$ref": "#/components/schemas/FuzzyDate"
               }
             ]
+          },
+          "sourceKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Client-chosen key that makes a repeated create return the same residency (offline clients mint a\n            UUIDv7). Scoped to the contact; ignored when correcting a residency."
           }
         },
         "description": "A residency as stated: start one, or correct one wholesale."

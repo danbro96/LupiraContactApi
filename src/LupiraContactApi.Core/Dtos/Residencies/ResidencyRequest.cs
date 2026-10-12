@@ -16,4 +16,8 @@ public sealed class ResidencyRequest
     public FuzzyDate? MovedIn { get; set; }
 
     public FuzzyDate? MovedOut { get; set; }
+
+    /// <summary>Client-chosen key that makes a repeated create return the same residency (offline clients mint a
+    /// UUIDv7). Scoped to the contact; ignored when correcting a residency.</summary>
+    public string? SourceKey { get; set; }
 }

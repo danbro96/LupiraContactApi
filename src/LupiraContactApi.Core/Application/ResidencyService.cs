@@ -36,14 +36,20 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
         var c = await session.LoadAsync<Contact>(contactId, ct);
         if (c is not { DeletedAt: null }) return OpResult<ResidencyDto>.NotFound();
         if (!await access.CanWriteAddressBookAsync(principalId, c.AddressBookId, ct)) return OpResult<ResidencyDto>.Forbidden("No write access to this contact.");
+
+        var stream = string.IsNullOrWhiteSpace(r.SourceKey) ? null : await session.Events.FetchForWriting<Residency>(Residency.StreamIdOf(contactId, r.SourceKey.Trim()), ct);
+        if (stream?.Aggregate is { IsLive: true } existing) return OpResult<ResidencyDto>.Ok(existing.ToResponse());
         if (ResidencyRules.Check(r.PlaceId, r.MovedIn, r.MovedOut, await session.ResidenciesOfAsync(contactId, ct)) is { } refusal)
             return OpResult<ResidencyDto>.Invalid(refusal);
         Stamp(principalId);
 
-        var id = Guid.CreateVersion7();
-        session.Events.StartStream<Residency>(id, Residency.Start(id, contactId, r.PlaceId, r.Type, Trimmed(r.Label), r.MovedIn, r.MovedOut));
+        var id = stream?.Id ?? Guid.CreateVersion7();
+        var started = Residency.Start(id, contactId, r.PlaceId, r.Type, Trimmed(r.Label), r.MovedIn, r.MovedOut);
+        if (stream is not null) stream.AppendMany(started);
+        else session.Events.StartStream<Residency>(id, started);
+        var version = (int) (stream?.CurrentVersion ?? 0) + started.Count;
         // Losing the dedup race means another delivery of this command committed first: answer with its residency.
-        return await ReplayedAsync(await idempotency.CommitAsync(commandId, id, 1, ct) ? id : (await idempotency.SeenAsync(commandId, ct))?.AggregateId, ct);
+        return await ReplayedAsync(await idempotency.CommitAsync(commandId, id, version, ct) ? id : (await idempotency.SeenAsync(commandId, ct))?.AggregateId, ct);
     }
 
     /// <summary>Corrects a residency as entered — place, type, label, period — wholesale.</summary>
