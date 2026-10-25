@@ -53,7 +53,10 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
 
         var stream = string.IsNullOrWhiteSpace(r.SourceKey) ? null : await session.Events.FetchForWriting<Residency>(Residency.StreamIdOf(contactId, r.SourceKey.Trim()), ct);
         if (stream?.Aggregate is { IsLive: true } existing) return OpResult<ResidencyDto>.Ok(existing.ToResponse());
-        if (ResidencyRules.Check(r.PlaceId, r.MovedIn, r.MovedOut, await session.ResidenciesOfAsync(contactId, ct)) is { } refusal)
+        var others = await session.ResidenciesOfAsync(contactId, ct);
+        // A racing add with the same source key can commit between the stream read and this one.
+        if (stream is not null && others.FirstOrDefault(o => o.Id == stream.Id) is { IsLive: true } raced) return OpResult<ResidencyDto>.Ok(raced.ToResponse());
+        if (ResidencyRules.Check(r.PlaceId, r.MovedIn, r.MovedOut, others) is { } refusal)
             return OpResult<ResidencyDto>.Invalid(refusal);
         Stamp(principalId);
 
