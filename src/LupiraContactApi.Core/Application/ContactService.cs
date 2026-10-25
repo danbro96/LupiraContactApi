@@ -36,6 +36,19 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
 
     public async Task<OpResult<ContactDto>> CreateAsync(Guid principalId, CreateContactRequest r, CancellationToken ct = default)
     {
+        try
+        {
+            return await CreateOnceAsync(principalId, r, ct);
+        }
+        catch (Exception ex) when (ex is ConcurrencyException or Marten.Exceptions.ExistingStreamIdCollisionException)
+        {
+            session.EjectAllPendingChanges();
+            return await CreateOnceAsync(principalId, r, ct);   // the racing create's contact, as an idempotent hit
+        }
+    }
+
+    private async Task<OpResult<ContactDto>> CreateOnceAsync(Guid principalId, CreateContactRequest r, CancellationToken ct)
+    {
         if (!await access.CanWriteAddressBookAsync(principalId, r.AddressBookId, ct)) return OpResult<ContactDto>.Forbidden("No write access to this address book.");
 
         var channels = ReachChannelNormalizer.Normalize(r.Channels ?? []);
@@ -616,17 +629,7 @@ public sealed class ContactService(IDocumentSession session, AccessResolver acce
             FamilyName = family,
             Channels = email.Length == 0 ? null : [new ContactReachChannel(ReachMedium.Email, email, null, true)],
         };
-        OpResult<ContactDto> created;
-        try
-        {
-            created = await CreateAsync(principal.Id, request, ct);
-        }
-        catch (Exception ex) when (ex is ConcurrencyException or Marten.Exceptions.ExistingStreamIdCollisionException)
-        {
-            session.EjectAllPendingChanges();
-            created = await CreateAsync(principal.Id, request, ct);   // the winner's contact, as an idempotent hit
-        }
-
+        var created = await CreateAsync(principal.Id, request, ct);
         if (created.Value is not { } contact) return null;
         await StoreSelfLinkAsync(principal, contact.Id, ct);
         return contact.Id;

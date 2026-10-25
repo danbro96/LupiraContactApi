@@ -128,6 +128,31 @@ public sealed class ResidenciesTests(ContactApiTestFactory factory) : Integratio
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Concurrent_first_creates_with_the_same_source_key_return_one_residency(bool sameIdempotencyKey)
+    {
+        var api = Factory.ApiClient(Email);
+        var c = await CreateContactAsync(api, await CreateAddressBookAsync(api));
+        var (key, place, commandId) = ($"{Guid.CreateVersion7()}", Guid.NewGuid(), Guid.CreateVersion7());
+
+        var added = await Task.WhenAll(Enumerable.Range(0, 8).Select(async _ =>
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"/contacts/{c.Id}/residencies")
+            {
+                Content = JsonContent.Create(new ResidencyRequest { PlaceId = place, Type = ContactAddressType.Home, SourceKey = key }),
+            };
+            if (sameIdempotencyKey) req.Headers.Add("Idempotency-Key", commandId.ToString());
+            var resp = await api.SendAsync(req);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            return (await resp.Content.ReadFromJsonAsync<ResidencyDto>())!.Id;
+        }));
+
+        var id = Assert.Single(added.Distinct());
+        Assert.Equal(id, Assert.Single(await ListAsync(api, c.Id)).Id);
+    }
+
     [Fact]
     public async Task Writing_needs_write_on_the_contacts_book()
     {

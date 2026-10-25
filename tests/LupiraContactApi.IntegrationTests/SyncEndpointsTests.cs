@@ -336,6 +336,42 @@ public class SyncEndpointsTests(ContactApiTestFactory factory) : IntegrationTest
     }
 
     [Fact]
+    public async Task Concurrent_first_creates_with_the_same_source_key_return_one_contact()
+    {
+        var api = Factory.ApiClient("a@x");
+        var book = await CreateAddressBookAsync(api);
+        var key = $"{Guid.NewGuid():N}@mobile";
+
+        var id = Assert.Single(await RaceCreatesAsync(api, book, key));
+        Assert.Equal(id, Assert.Single(await ContactsInAsync(api, book)).Id);
+    }
+
+    [Fact]
+    public async Task Concurrent_re_creates_after_delete_return_one_contact()
+    {
+        var api = Factory.ApiClient("a@x");
+        var book = await CreateAddressBookAsync(api);
+        var key = $"{Guid.NewGuid():N}@mobile";
+        var first = Assert.Single(await RaceCreatesAsync(api, book, key));
+        (await api.DeleteAsync($"/contacts/{first}")).EnsureSuccessStatusCode();
+
+        var id = Assert.Single(await RaceCreatesAsync(api, book, key));
+        Assert.Equal(first, id);
+        Assert.Equal(id, Assert.Single(await ContactsInAsync(api, book)).Id);
+    }
+
+    static async Task<List<ContactDto>> ContactsInAsync(HttpClient api, Guid book) =>
+        (await api.GetFromJsonAsync<List<ContactDto>>($"/contacts?addressBookId={book}", Json))!;
+
+    static async Task<Guid[]> RaceCreatesAsync(HttpClient api, Guid book, string key) =>
+        [.. (await Task.WhenAll(Enumerable.Range(0, 8).Select(async i =>
+        {
+            var resp = await api.PostAsJsonAsync("/contacts", new CreateContactRequest { AddressBookId = book, GivenName = $"Racer{i}", SourceKey = key }, Json);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            return (await resp.Content.ReadFromJsonAsync<ContactDto>(Json))!.Id;
+        }))).Distinct()];
+
+    [Fact]
     public async Task Containers_snapshot_lists_books_and_groups()
     {
         var api = Factory.ApiClient("a@x");

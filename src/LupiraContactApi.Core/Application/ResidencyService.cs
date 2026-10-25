@@ -1,3 +1,4 @@
+using JasperFx;
 using JasperFx.Events;
 using Lupira.Identity.Marten;
 using Lupira.Marten.Idempotency;
@@ -31,6 +32,19 @@ public sealed class ResidencyService(IDocumentSession session, AccessResolver ac
     }
 
     public async Task<OpResult<ResidencyDto>> AddAsync(Guid principalId, Guid contactId, ResidencyRequest r, Guid? commandId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            return await AddOnceAsync(principalId, contactId, r, commandId, ct);
+        }
+        catch (Exception ex) when (ex is ConcurrencyException or Marten.Exceptions.ExistingStreamIdCollisionException)
+        {
+            session.EjectAllPendingChanges();
+            return await AddOnceAsync(principalId, contactId, r, commandId, ct);   // the racing add's residency, via the ledger or source key
+        }
+    }
+
+    private async Task<OpResult<ResidencyDto>> AddOnceAsync(Guid principalId, Guid contactId, ResidencyRequest r, Guid? commandId, CancellationToken ct)
     {
         if (await idempotency.SeenAsync(commandId, ct) is { } seen) return await ReplayedAsync(seen.AggregateId, ct);
         var c = await session.LoadAsync<Contact>(contactId, ct);
